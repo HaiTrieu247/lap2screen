@@ -16,7 +16,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Version>1.0.0</Version>
     <Product>MacExtend</Product>
-    <Description>Turns this Windows laptop into a second display for a Mac</Description>
+    <Description>AirPlay receiver for Mac extended displays and iPhone/iPad screen mirroring</Description>
     <Copyright>GPL-3.0-or-later</Copyright>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>

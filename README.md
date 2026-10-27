@@ -1,11 +1,13 @@
 # MacExtend
 
-Biến laptop Windows thành **màn hình thứ hai cho MacBook** qua AirPlay, không cần cáp và không cài gì thêm trên Mac.
+Biến laptop Windows thành **màn hình mở rộng cho Mac** và **bộ nhận phản chiếu màn hình iPhone/iPad** qua AirPlay, không cần cáp và không cài gì thêm trên thiết bị Apple.
 
 Trên Mac chỉ cần mở **Phản chiếu màn hình** (Screen Mirroring), chọn máy Windows, rồi chọn **Dùng làm màn hình riêng** (Use As Separate Display). Từ đó laptop Windows hoạt động như một màn hình mở rộng: kéo cửa sổ sang, chuột đi qua lại giữa hai màn.
 
+Trên iPhone hoặc iPad, mở **Phản chiếu màn hình** trong Trung tâm điều khiển và chọn máy Windows. Màn hình và âm thanh của thiết bị hiện trên laptop.
+
 MacExtend dùng [UxPlay](https://github.com/FDH2/UxPlay) làm lõi nhận AirPlay. Phần MacExtend thêm vào là:
-- Tự báo đúng độ phân giải và tần số quét của màn laptop cho Mac.
+- Tự báo đúng độ phân giải và tần số quét của màn laptop cho nguồn phát.
 - Cấu hình độ trễ thấp và hiển thị toàn màn hình bằng Direct3D 11.
 - Tự xử lý tường lửa và mạng Công cộng.
 - Tự khởi động lại khi Windows ngủ dậy, khi đổi Wi-Fi hoặc khi uxplay gặp lỗi.
@@ -13,8 +15,9 @@ MacExtend dùng [UxPlay](https://github.com/FDH2/UxPlay) làm lõi nhận AirPla
 ## Yêu cầu
 
 - Windows 10 hoặc 11, 64-bit (x64).
-- Mac chạy macOS 12 Monterey trở lên.
-- Hai máy cùng một mạng Wi-Fi hoặc LAN. Mạng khách có chặn thiết bị nói chuyện với nhau sẽ không dùng được.
+- Nguồn phát là Mac: macOS 12 Monterey trở lên.
+- Nguồn phát là iPhone hoặc iPad: có mục Phản chiếu màn hình trong Trung tâm điều khiển. Phiên bản iOS/iPadOS đã kiểm thử: chưa có kết quả thiết bị thật.
+- Máy Windows và thiết bị phát cùng một mạng Wi-Fi hoặc LAN. Mạng khách có chặn thiết bị nói chuyện với nhau sẽ không dùng được.
 
 ## Cài đặt
 
@@ -27,12 +30,23 @@ File chưa được ký số, nên Windows SmartScreen có thể cảnh báo. B�
 
 ## Dùng lần đầu
 
+Chuẩn bị trên Windows:
 1. Mở MacExtend. Bộ nhận tự chạy, biểu tượng nằm ở khay hệ thống.
 2. Ở mục **Hệ thống** trong app, đảm bảo cả hai dòng *Tường lửa Windows* và *Mạng* đều có dấu tích xanh. Nếu không, bấm nút bên cạnh để sửa.
-3. Trên Mac, mở Trung tâm điều khiển, bấm **Phản chiếu màn hình** và chọn tên máy Windows (ví dụ `MacExtend-LAPTOP-7Q2K`).
-4. Nhập mã PIN hiện trong app. Mac chỉ hỏi ở lần đầu.
-5. Bấm lại biểu tượng Phản chiếu màn hình, chọn **Dùng làm màn hình riêng**.
-6. Muốn sắp xếp vị trí hai màn hình, vào System Settings, mục Displays, rồi chọn Arrange trên Mac.
+
+Mục **Kết nối thiết bị** trong app có hai lựa chọn **Mac** và **iPhone, iPad** để xem đúng các bước cho thiết bị của bạn.
+
+Từ Mac:
+1. Mở Trung tâm điều khiển (Control Center, ở góc phải thanh menu), bấm **Phản chiếu màn hình** và chọn tên máy Windows (ví dụ `MacExtend-LAPTOP-7Q2K`).
+2. Nếu Mac hỏi, nhập mã PIN hiện trong app.
+3. Bấm lại biểu tượng Phản chiếu màn hình, chọn **Dùng làm màn hình riêng**.
+4. Muốn sắp xếp vị trí hai màn hình, vào System Settings, mục Displays, rồi chọn Arrange trên Mac.
+
+Từ iPhone hoặc iPad:
+1. Mở Trung tâm điều khiển. iPhone không có nút Home và iPad: vuốt xuống từ góc phải trên. iPhone có nút Home: vuốt lên từ cạnh dưới.
+2. Bấm **Phản chiếu màn hình** (Screen Mirroring) và chọn tên máy Windows.
+3. Nếu thiết bị hỏi, nhập mã PIN hiện trong app.
+4. Muốn dừng: mở lại Phản chiếu màn hình, chọn **Dừng phản chiếu**.
 
 Đóng cửa sổ MacExtend không tắt bộ nhận; app vẫn chạy ở khay hệ thống. Muốn thoát hẳn, chuột phải vào biểu tượng ở khay và chọn **Thoát MacExtend**.
 
@@ -44,28 +58,37 @@ MacExtend tự kiểm tra bản mới trên GitHub: 1 phút sau khi mở, sau đ
 - Tải hỏng hoặc sai mã SHA-256 thì bản đang dùng không bị đụng tới. Nếu chép file lỗi giữa chừng, các file cũ được khôi phục.
 - Nhật ký cập nhật nằm ở `%LOCALAPPDATA%\MacExtend\logs\update.log`.
 
-## Khi Mac kết nối
+## Khi thiết bị kết nối
 
-- Ngay khi Mac bắt đầu chiếu, màn hình Mac tự hiện lên trước mọi cửa sổ và con trỏ chuột Windows được ẩn. Cả hai đều tắt được ở mục Hình ảnh.
+- Khi có hình ảnh, màn hình AirPlay tự hiện lên trước mọi cửa sổ và con trỏ chuột Windows được ẩn. Cả hai đều tắt được ở mục Hình ảnh.
 - Phím tắt Windows (phím Windows, Alt+Tab, Win+D) và phím Fn (âm lượng, độ sáng) vẫn hoạt động như bình thường.
-- Muốn dùng Windows: Alt+Tab sang ứng dụng khác, con trỏ hiện lại ngay. Muốn quay lại màn hình Mac: Alt+Tab về, hoặc bấm biểu tượng MacExtend ở khay (hay chọn **Hiện màn hình Mac** trong menu của nó).
+- Muốn dùng Windows: Alt+Tab sang ứng dụng khác, con trỏ hiện lại ngay. Muốn quay lại màn hình AirPlay: Alt+Tab về, hoặc bấm biểu tượng MacExtend ở khay (hay chọn **Hiện màn hình AirPlay** trong menu của nó).
 
 ## Cài đặt trong app
 
 | Mục | Ý nghĩa |
 |---|---|
-| Tên hiện trên Mac | Tên trong menu Phản chiếu màn hình. Dấu tiếng Việt được bỏ, vì uxplay trên Windows chỉ nhận ký tự ASCII. |
-| Độ phân giải | *Tự động*: báo đúng kích thước màn laptop, tối đa 1920 × 1080 ở 60 Hz. *Tùy chỉnh*: tự nhập kích thước và tần số; bật H.265 nếu cần lớn hơn 1080p. |
+| Tên hiện trên thiết bị Apple | Tên trong menu Phản chiếu màn hình của Mac, iPhone và iPad. Dấu tiếng Việt được bỏ, vì uxplay trên Windows chỉ nhận ký tự ASCII. |
+| Độ phân giải | Kích thước MacExtend yêu cầu; nguồn phát có thể chọn kích thước khác. *Tự động*: báo đúng kích thước màn laptop, tối đa 1920 × 1080 ở 60 Hz. *Tùy chỉnh*: tự nhập kích thước và tần số; bật H.265 nếu cần lớn hơn 1080p. |
 | Khung hình mỗi giây | 60 mượt hơn, 30 nhẹ hơn cho Wi-Fi yếu. |
-| Âm thanh | Phát tiếng của Mac trên loa Windows hoặc tắt. |
-| Mã PIN | Chặn người khác trong cùng mạng chiếu lên máy bạn. *Quên tất cả* bắt mọi Mac nhập lại mã. |
+| Âm thanh | Phát tiếng của nguồn phát (Mac, iPhone, iPad) trên loa Windows hoặc tắt. |
+| Mã PIN | Chặn người khác trong cùng mạng chiếu lên máy bạn. *Quên tất cả* xóa danh sách thiết bị đã ghép nối; nếu bật PIN, thiết bị phải nhập lại mã khi ghép nối lại. |
 | Khởi động cùng Windows | Chạy ẩn ở khay hệ thống sau khi đăng nhập. |
+
+Cấu hình hình ảnh và âm thanh dùng chung cho mọi nguồn phát. Với iPhone và iPad, nên để Độ phân giải ở *Tự động* khi bắt đầu; *Tùy chỉnh* và H.265 trên điện thoại chưa được kiểm chứng.
 
 Các thay đổi về hình ảnh, âm thanh và PIN áp dụng sau khi khởi động lại bộ nhận. App hiện thông báo kèm nút **Khởi động lại** khi cần.
 
+## Giới hạn
+
+- Mỗi lúc chỉ có một phiên AirPlay. Một kết nối mới được chấp nhận sẽ thay phiên đang chạy, kể cả khi Mac đang dùng máy này làm màn hình mở rộng.
+- Bật Yêu cầu mã PIN để hạn chế nguồn lạ. Thiết bị đã ghép nối vẫn có thể thay phiên mà không cần nhập lại mã. Khi PIN tắt, mọi thiết bị cùng mạng đều kết nối được.
+- Chỉ hỗ trợ Phản chiếu màn hình. Nút AirPlay bên trong ứng dụng (gửi video thẳng tới bộ nhận) và nội dung có DRM, ví dụ phim trong các ứng dụng trả phí, có thể không hiện hình.
+- Độ khớp giữa tiếng và hình khi phản chiếu từ iPhone/iPad chưa được kiểm chứng trên thiết bị thật.
+
 ## Khắc phục sự cố
 
-**Mac không thấy máy Windows**
+**Thiết bị Apple không thấy máy Windows**
 - Mục Mạng báo *Công cộng*: bấm **Chuyển sang Riêng tư**. Windows chặn tìm kiếm thiết bị trên mạng Công cộng.
 - Mục Tường lửa báo chưa được phép hoặc bị chặn: bấm **Cho phép**.
 - Phần mềm diệt virus có tường lửa riêng (Kaspersky, ESET, ...): cho phép `uxplay.exe` trong thư mục cài đặt, đường dẫn `uxplay\bin\uxplay.exe`.
@@ -73,18 +96,18 @@ Các thay đổi về hình ảnh, âm thanh và PIN áp dụng sau khi khởi �
 
 **Hình bị trễ hoặc giật**
 - Đặt Khung hình mỗi giây về 30.
-- Để hai máy gần router, dùng Wi-Fi 5 GHz, hoặc cắm dây LAN cho laptop Windows.
+- Để các thiết bị gần router, dùng Wi-Fi 5 GHz, hoặc cắm dây LAN cho laptop Windows.
 
-**Hình bị mờ hoặc chữ nhỏ li ti**
+**Hình bị mờ hoặc chữ nhỏ li ti khi dùng Mac**
 - Trên Mac, vào **System Settings, Displays** và chọn màn hình MacExtend. Ở mục Resolution, chọn đúng **1920 × 1080**. Nếu chỉ thấy các ô "Larger Text ... More Space", bấm **Advanced...** hoặc chuột phải vào khu vực đó, bật **Show all resolutions** rồi chọn 1920 × 1080. Chọn kích thước lớn hơn, ví dụ 2560 × 1440 hoặc 3840 × 2160, thì Mac phải thu nhỏ cả desktop vào luồng 1080p, nên chữ bị nhòe.
 - Kiểm tra trên Mac: chạy `system_profiler SPDisplaysDataType` và xem khối của màn AirPlay. Hai dòng **Resolution** và **UI Looks like** đều phải là 1920 x 1080.
 - MacExtend tự bật chế độ "Override high DPI scaling: Application" cho `uxplay.exe`, để Windows ở mức scale 125% hoặc 150% không kéo giãn hình. Nếu hình vẫn mờ, chuột phải `uxplay\bin\uxplay.exe`, mở **Properties, Compatibility, Change high DPI settings** và kiểm tra mục này đã được chọn.
 
 **Hình bị đơ ngay khi kết nối**
-- Ngắt Phản chiếu màn hình trên Mac rồi kết nối lại, hoặc bấm **Khởi động lại** trong app.
+- Ngắt Phản chiếu màn hình trên thiết bị (trên iPhone/iPad: chọn **Dừng phản chiếu**) rồi kết nối lại, hoặc bấm **Khởi động lại** trong app.
 
 **Xem nhật ký**
-- Trong app, bấm **Mở thư mục nhật ký**. File `uxplay.log` nằm ở `%LOCALAPPDATA%\MacExtend\logs`.
+- Trong app, bấm **Mở thư mục nhật ký**. File `uxplay.log` nằm ở `%LOCALAPPDATA%\MacExtend\logs` và ghi lại phiên của mọi nguồn phát. Khi báo lỗi, gửi kèm file này, tên và phiên bản hệ điều hành của thiết bị phát.
 
 ## Build từ mã nguồn
 
@@ -133,4 +156,4 @@ Thành phần đi kèm:
 
 Văn bản giấy phép của các thành phần nằm trong `uxplay/licenses` và `licenses` trong thư mục cài đặt.
 
-AirPlay, Mac, MacBook và macOS là thương hiệu của Apple Inc. MacExtend không liên kết với và không được Apple bảo trợ.
+AirPlay, Mac, MacBook, macOS, iPhone, iPad và iPadOS là thương hiệu của Apple Inc. MacExtend không liên kết với và không được Apple bảo trợ.

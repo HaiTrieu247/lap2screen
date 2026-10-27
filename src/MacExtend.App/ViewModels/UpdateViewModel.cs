@@ -95,7 +95,7 @@ namespace MacExtend.ViewModels
                     default:
                         var text = "Tải về khoảng " + Size(_check?.Decision.DownloadBytes ?? 0) + ". MacExtend sẽ đóng rồi tự mở lại";
                         text += UpdateHelper.NeedsElevation(AppPaths.InstallDir) ? "; Windows sẽ hỏi quyền quản trị một lần." : ".";
-                        if (_macConnected()) text += " Mac đang kết nối sẽ bị ngắt.";
+                        if (_macConnected()) text += " Thiết bị đang kết nối sẽ bị ngắt.";
                         return text;
                 }
             }
@@ -133,7 +133,7 @@ namespace MacExtend.ViewModels
             SetPhase(UpdatePhase.Available);
         }
 
-        /// <summary>Connection state changed: the banner mentions the Mac being disconnected.</summary>
+        /// <summary>Connection state changed: the banner mentions the connected device being disconnected.</summary>
         public void Refresh() => Raise(nameof(BannerDetail));
 
         private async Task CheckAsync(bool manual)

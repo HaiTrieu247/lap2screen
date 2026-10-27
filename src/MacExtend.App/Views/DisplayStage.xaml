@@ -3,13 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Height="188">
     <!--
-      The hero borrows the macOS "Arrange displays" canvas: the Mac's main display (with its
-      menu bar) and this laptop as the second display touching its right edge. The second
-      display is an empty dashed outline while waiting and fills in once a Mac uses it.
+      The hero shows the AirPlay path: the sending device on the left, an arrow, and this laptop
+      on the right. The sender is a plain screen with no menu bar or notch, because it can be a
+      Mac, an iPhone or an iPad. This laptop is an empty dashed outline while waiting and fills
+      in once a device is connected.
     -->
     <Border CornerRadius="12" Background="{DynamicResource Stage.Background}" ClipToBounds="True">
         <Grid>
-            <!-- dot grid of the arrangement canvas -->
+            <!-- dot grid of the canvas -->
             <Rectangle>
                 <Rectangle.Fill>
                     <DrawingBrush TileMode="Tile" Viewport="0,0,16,16" ViewportUnits="Absolute" Stretch="None">
@@ -33,17 +34,23 @@
             </Rectangle>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-6,0,0">
-                <!-- Mac: 16:10 -->
-                <Grid x:Name="MacDisplay" Width="200" Height="125" VerticalAlignment="Top">
-                    <Border CornerRadius="6" Background="{DynamicResource Display.Mac}" />
-                    <Border CornerRadius="6,6,0,0" Height="9" VerticalAlignment="Top" Background="{DynamicResource Display.MenuBar}" />
-                    <TextBlock x:Name="MacLabel" Text="Mac của bạn" FontSize="12.5" FontWeight="SemiBold" Foreground="#2A3340"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,8,12,0"
+                <!-- sending device: 16:10, the same shape whatever is connected -->
+                <Grid x:Name="SourceDisplay" Width="144" Height="90" VerticalAlignment="Center">
+                    <Border CornerRadius="8" BorderThickness="2" Background="{DynamicResource Display.Idle}"
+                            BorderBrush="{DynamicResource Display.Mac}" />
+                    <TextBlock x:Name="SourceLabel" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Stage.Text}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" Margin="12,0"
+                               TextWrapping="Wrap" LineHeight="16" LineStackingStrategy="BlockLineHeight" MaxHeight="32"
                                TextTrimming="CharacterEllipsis" />
                 </Grid>
 
-                <!-- This laptop: 16:9, top-aligned and touching, as macOS arranges displays -->
-                <Grid x:Name="SecondDisplay" Width="168" Height="94.5" VerticalAlignment="Top" Margin="3,0,0,0">
+                <!-- AirPlay carries the picture from the device to this laptop -->
+                <Path x:Name="Arrow" Width="24" Height="12" Margin="12,0" VerticalAlignment="Center"
+                      Data="M1,6 H22 M17,1.5 L22,6 L17,10.5" Stroke="{DynamicResource Stage.TextDim}" StrokeThickness="1.75"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+
+                <!-- This laptop: 16:9 -->
+                <Grid x:Name="SecondDisplay" Width="168" Height="94.5" VerticalAlignment="Center">
                     <Rectangle x:Name="SecondFill" RadiusX="6" RadiusY="6" Opacity="0">
                         <Rectangle.Fill>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
@@ -58,15 +65,19 @@
                         <TextBlock x:Name="DeviceLabel" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Stage.Text}"
                                    HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
                                    MaxHeight="34" TextTrimming="CharacterEllipsis" />
+                        <!-- the size MacExtend asks for; the sender may still choose another one -->
                         <TextBlock x:Name="ModeLabel" FontSize="11.5" Foreground="{DynamicResource Stage.TextDim}"
-                                   HorizontalAlignment="Center" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                   HorizontalAlignment="Center" TextAlignment="Center" Margin="0,3,0,0" TextWrapping="Wrap"
+                                   LineHeight="15" LineStackingStrategy="BlockLineHeight" MaxHeight="30"
+                                   TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </Grid>
             </StackPanel>
 
-            <!-- what the outline means, in words, for people who do not read diagrams -->
+            <!-- what the picture means, in words, for people who do not read diagrams -->
             <TextBlock x:Name="Caption" FontSize="12" Foreground="{DynamicResource Stage.TextDim}"
-                       HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="16,0,16,14" />
+                       HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="16,0,16,14"
+                       TextTrimming="CharacterEllipsis" />
         </Grid>
     </Border>
 </UserControl>

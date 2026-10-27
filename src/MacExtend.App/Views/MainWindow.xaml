@@ -43,7 +43,7 @@
             </Style.Triggers>
         </Style>
 
-        <!-- numbered step marker; the steps really are a sequence on the Mac -->
+        <!-- numbered step marker; the steps really are a sequence on the device -->
         <Style x:Key="StepNumber" TargetType="Border">
             <Setter Property="Width" Value="24" />
             <Setter Property="Height" Value="24" />
@@ -117,13 +117,31 @@
                                 Visibility="{Binding IsActive, Converter={StaticResource Visible}}" Margin="8,0,0,0" />
                     </StackPanel>
 
-                    <TextBlock Text="Kết nối từ Mac" Style="{StaticResource Text.Section}" Margin="24,26,0,14" />
+                    <!-- the same four steps for every device; only steps 1 and 4 differ, and the choice is never saved -->
+                    <DockPanel Margin="24,26,0,14">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentGroup}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Content="Mac" Style="{StaticResource Segment}" GroupName="Guide"
+                                             IsChecked="{Binding IsMacGuide}" />
+                                <RadioButton Content="iPhone, iPad" Style="{StaticResource Segment}" GroupName="Guide"
+                                             IsChecked="{Binding IsPhoneGuide}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Kết nối thiết bị" Style="{StaticResource Text.Section}" VerticalAlignment="Center" />
+                    </DockPanel>
                     <StackPanel Margin="24,0,0,0">
                         <DockPanel Margin="0,0,0,12">
                             <Border Style="{StaticResource StepNumber}"><TextBlock Text="1" Style="{StaticResource StepNumberText}" /></Border>
                             <StackPanel>
-                                <TextBlock Text="Mở Trung tâm điều khiển trên Mac" Style="{StaticResource Text.Label}" />
-                                <TextBlock Text="Control Center, ở góc phải thanh menu" Style="{StaticResource Text.Caption}" />
+                                <StackPanel Visibility="{Binding IsMacGuide, Converter={StaticResource Visible}}">
+                                    <TextBlock Text="Mở Trung tâm điều khiển trên Mac" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Control Center, ở góc phải thanh menu" Style="{StaticResource Text.Caption}" />
+                                </StackPanel>
+                                <StackPanel Visibility="{Binding IsPhoneGuide, Converter={StaticResource Visible}}">
+                                    <TextBlock Text="Mở Trung tâm điều khiển" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="iPhone không có nút Home và iPad: vuốt xuống từ góc phải trên. iPhone có nút Home: vuốt lên từ cạnh dưới."
+                                               Style="{StaticResource Text.Caption}" />
+                                </StackPanel>
                             </StackPanel>
                         </DockPanel>
                         <DockPanel Margin="0,0,0,12">
@@ -137,12 +155,12 @@
                             <Border Style="{StaticResource StepNumber}"><TextBlock Text="3" Style="{StaticResource StepNumberText}" /></Border>
                             <StackPanel>
                                 <TextBlock Text="{Binding StepChooseDevice}" Style="{StaticResource Text.Label}" />
-                                <!-- the PIN lives in the step where the Mac asks for it -->
+                                <!-- the PIN lives in the step where the device asks for it -->
                                 <TextBlock Style="{StaticResource Text.Caption}" Visibility="{Binding ShowPin, Converter={StaticResource Visible}}">
                                     <Run Text="Nhập mã" />
                                     <Run Text="{Binding PinDisplay, Mode=OneWay}" FontSize="15" FontWeight="SemiBold"
                                          Foreground="{DynamicResource Text.Primary}" />
-                                    <Run Text="nếu Mac hỏi. Chỉ cần nhập ở lần đầu." />
+                                    <Run Text="nếu thiết bị hỏi." />
                                 </TextBlock>
                                 <TextBlock Text="Không cần mã PIN." Style="{StaticResource Text.Caption}"
                                            Visibility="{Binding PinOff, Converter={StaticResource Visible}}" />
@@ -151,8 +169,14 @@
                         <DockPanel>
                             <Border Style="{StaticResource StepNumber}"><TextBlock Text="4" Style="{StaticResource StepNumberText}" /></Border>
                             <StackPanel>
-                                <TextBlock Text="Chọn Dùng làm màn hình riêng" Style="{StaticResource Text.Label}" />
-                                <TextBlock Text="Use As Separate Display. Có thể bấm lại biểu tượng Phản chiếu màn hình để đổi." Style="{StaticResource Text.Caption}" />
+                                <StackPanel Visibility="{Binding IsMacGuide, Converter={StaticResource Visible}}">
+                                    <TextBlock Text="Chọn Dùng làm màn hình riêng" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Use As Separate Display. Có thể bấm lại biểu tượng Phản chiếu màn hình để đổi." Style="{StaticResource Text.Caption}" />
+                                </StackPanel>
+                                <StackPanel Visibility="{Binding IsPhoneGuide, Converter={StaticResource Visible}}">
+                                    <TextBlock Text="Dừng phản chiếu" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Mở lại Phản chiếu màn hình, chọn Dừng phản chiếu." Style="{StaticResource Text.Caption}" />
+                                </StackPanel>
                             </StackPanel>
                         </DockPanel>
                     </StackPanel>
@@ -204,9 +228,9 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Tên hiện trên Mac" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Tên hiện trên thiết bị Apple" Style="{StaticResource Text.Label}" />
                                     <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,0">
-                                        <Run Text="Mac sẽ thấy:" />
+                                        <Run Text="Thiết bị sẽ thấy:" />
                                         <Run Text="{Binding EffectiveDeviceName, Mode=OneWay}" FontWeight="Medium" />
                                     </TextBlock>
                                 </StackPanel>
@@ -260,8 +284,8 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Kích thước gửi cho Mac" Style="{StaticResource Text.Label}" />
-                                        <TextBlock Text="Rộng × cao, tần số quét. Màn hình này tự co giãn cho vừa." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                        <TextBlock Text="Kích thước yêu cầu" Style="{StaticResource Text.Label}" />
+                                        <TextBlock Text="Rộng × cao, tần số quét. Màn hình này tự co giãn cho vừa. Nguồn phát có thể chọn kích thước khác." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBox Text="{Binding CustomWidthText}" Width="68" TextAlignment="Center" MaxLength="4" ToolTip="Rộng (640 đến 4096)" />
@@ -310,8 +334,8 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Tự chuyển sang màn hình Mac khi kết nối" Style="{StaticResource Text.Label}" />
-                                    <TextBlock Text="Màn hình Mac hiện lên trước mọi cửa sổ ngay khi Mac bắt đầu dùng. Alt+Tab để quay về Windows, bấm biểu tượng ở khay để quay lại." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                    <TextBlock Text="Tự chuyển sang màn hình AirPlay khi kết nối" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Màn hình AirPlay hiện lên trước mọi cửa sổ khi có hình ảnh. Alt+Tab để quay về Windows, bấm biểu tượng ở khay để quay lại." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding FocusOnConnect}" />
                             </Grid>
@@ -323,7 +347,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                                     <TextBlock Text="Ẩn con trỏ chuột Windows" Style="{StaticResource Text.Label}" />
-                                    <TextBlock Text="Chỉ ẩn khi đang xem màn hình Mac. Phím tắt Windows và phím Fn vẫn hoạt động." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                    <TextBlock Text="Chỉ ẩn khi đang xem màn hình AirPlay. Phím tắt Windows và phím Fn vẫn hoạt động." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding HideCursor}" />
                             </Grid>
@@ -338,8 +362,8 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Phát âm thanh của Mac trên máy này" Style="{StaticResource Text.Label}" />
-                                    <TextBlock Text="Tắt nếu bạn muốn nghe bằng loa hoặc tai nghe của Mac." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                    <TextBlock Text="Phát âm thanh của thiết bị trên máy này" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Tắt để không phát âm thanh AirPlay trên Windows." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AudioEnabled}" />
                             </Grid>
@@ -382,11 +406,11 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Các Mac đã ghép nối" Style="{StaticResource Text.Label}" />
-                                    <TextBlock Text="Bắt mọi Mac nhập lại mã PIN ở lần kết nối tới." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                    <TextBlock Text="Các thiết bị đã ghép nối" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Nếu bật PIN, yêu cầu các thiết bị ghép nối lại bằng mã PIN." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <Button Grid.Column="1" Content="Quên tất cả" Style="{StaticResource Button.Secondary}"
-                                        Command="{Binding ForgetMacsCommand}" Padding="12,6" VerticalAlignment="Center" />
+                                        Command="{Binding ForgetDevicesCommand}" Padding="12,6" VerticalAlignment="Center" />
                             </Grid>
 
                             <Border Style="{StaticResource Hairline}" Margin="0,6,0,0" />
@@ -400,7 +424,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                                     <TextBlock Text="Khởi động cùng Windows" Style="{StaticResource Text.Label}" />
-                                    <TextBlock Text="Chạy ẩn ở khay hệ thống sau khi đăng nhập, Mac thấy máy này ngay." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                    <TextBlock Text="Chạy ẩn ở khay hệ thống sau khi đăng nhập, sẵn sàng nhận AirPlay." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding StartWithWindows}" />
                             </Grid>

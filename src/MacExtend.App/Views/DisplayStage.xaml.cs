@@ -83,11 +83,13 @@ namespace MacExtend.Views
         {
             if (!IsLoaded) return;
             DeviceLabel.Text = DeviceName;
-            ModeLabel.Text = ModeText;
+            ModeLabel.Text = string.IsNullOrEmpty(ModeText) ? "" : "Yêu cầu: " + ModeText;
 
             var connected = Phase == ReceiverPhase.Connected;
-            MacLabel.Text = connected ? ClientName : "Mac của bạn";
-            MacDisplay.Opacity = connected ? 1.0 : 0.38;
+            var source = string.IsNullOrWhiteSpace(ClientName) ? "Thiết bị" : ClientName;
+            SourceLabel.Text = connected ? source : "Thiết bị Apple";
+            SourceDisplay.Opacity = connected ? 1.0 : 0.5;
+            Arrow.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, connected ? "Status.Ready" : "Stage.TextDim");
             DeviceLabel.SetResourceReference(TextBlock.ForegroundProperty, connected ? "Accent.Text" : "Stage.Text");
             ModeLabel.SetResourceReference(TextBlock.ForegroundProperty, connected ? "Accent.Text" : "Stage.TextDim");
             ModeLabel.Opacity = connected ? 0.8 : 1.0;
@@ -95,11 +97,11 @@ namespace MacExtend.Views
             switch (Phase)
             {
                 case ReceiverPhase.Ready:
-                    Caption.Text = "Đang chờ Mac chọn màn hình này";
+                    Caption.Text = "Chọn máy này trong Phản chiếu màn hình";
                     SecondOutline.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "Status.Ready");
                     break;
                 case ReceiverPhase.Connected:
-                    Caption.Text = "Màn hình phụ của " + ClientName;
+                    Caption.Text = "Đang nhận AirPlay từ " + source;
                     break;
                 case ReceiverPhase.Failed:
                     Caption.Text = "Bộ nhận đã dừng vì lỗi";

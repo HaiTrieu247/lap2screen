@@ -22,7 +22,7 @@ namespace MacExtend.Tray
         private bool _hintShown;
         private Icon _current;
 
-        /// <param name="showMac">Brings the Mac display back to the front; offered while a Mac is connected.</param>
+        /// <param name="showMac">Brings the AirPlay display back to the front; offered while a device is connected.</param>
         public TrayIcon(ReceiverController controller, Action open, Action exit, Func<bool> macDisplayOpen, Action showMac)
         {
             _controller = controller;
@@ -34,7 +34,7 @@ namespace MacExtend.Tray
             _restart = new ToolStripMenuItem("Khởi động lại bộ nhận", null, (_, __) => _controller.RestartAsync());
             var exitItem = new ToolStripMenuItem("Thoát MacExtend", null, (_, __) => exit());
             _update = new ToolStripMenuItem("", null, (_, __) => _installUpdate?.Invoke()) { Visible = false };
-            _showMac = new ToolStripMenuItem("Hiện màn hình Mac", null, (_, __) => showMac()) { Visible = false };
+            _showMac = new ToolStripMenuItem("Hiện màn hình AirPlay", null, (_, __) => showMac()) { Visible = false };
 
             _menu = new ContextMenuStrip { ShowImageMargin = false, Padding = new Padding(0, 4, 0, 4) };
             _menu.Items.AddRange(new ToolStripItem[]
@@ -50,7 +50,7 @@ namespace MacExtend.Tray
             _icon.MouseClick += (_, e) =>
             {
                 if (e.Button != MouseButtons.Left) return;
-                // while the Mac is streaming, a click on the icon returns to its display
+                // while a device is streaming, a click on the icon returns to its display
                 if (macDisplayOpen()) showMac();
                 else open();
             };
@@ -66,7 +66,7 @@ namespace MacExtend.Tray
             if (_hintShown) return;
             _hintShown = true;
             _icon.ShowBalloonTip(4000, "MacExtend vẫn đang chạy",
-                "Mac vẫn thấy máy này. Chuột phải vào biểu tượng ở khay hệ thống để thoát.", ToolTipIcon.None);
+                "Bộ nhận AirPlay vẫn chạy ở nền. Chuột phải vào biểu tượng ở khay hệ thống để thoát.", ToolTipIcon.None);
         }
 
         /// <summary>A newer release exists: offer it in the menu and say so once.</summary>
@@ -107,7 +107,7 @@ namespace MacExtend.Tray
                     break;
                 case ReceiverPhase.Connected:
                     state = "connected";
-                    text = "Đang là màn hình phụ của " + (_controller.ClientName ?? "Mac");
+                    text = "Đang nhận AirPlay từ " + (_controller.ClientName ?? "Thiết bị");
                     break;
                 case ReceiverPhase.Failed:
                     state = "error";

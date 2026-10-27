@@ -45,6 +45,7 @@ namespace MacExtend.ViewModels
         private NetworkConnection _publicNetwork;
         private bool _checking;
         private bool _fixing;
+        private bool _phoneGuide;
 
         public MainViewModel(ReceiverController controller, SettingsService settings, Action<string> exitForUpdate)
         {
@@ -64,7 +65,7 @@ namespace MacExtend.ViewModels
             StopCommand = new RelayCommand(() => _controller.StopAsync(), () => IsActive);
             RestartCommand = new RelayCommand(() => _controller.RestartAsync(), () => IsActive || CanStart);
             NewPinCommand = new RelayCommand(() => Change(s => s.Pin = Core.Pin.Generate(Rng)), () => PinEnabled);
-            ForgetMacsCommand = new RelayCommand(ForgetMacs);
+            ForgetDevicesCommand = new RelayCommand(ForgetDevices);
             FixFirewallCommand = new RelayCommand(() => _ = FixFirewallAsync(), () => FirewallState != CheckState.Ok && !_fixing);
             MakePrivateCommand = new RelayCommand(() => _ = MakePrivateAsync(), () => _publicNetwork != null && !_fixing);
             OpenLogsCommand = new RelayCommand(() => Process.Start("explorer.exe", "\"" + AppPaths.LogDir + "\""));
@@ -76,7 +77,7 @@ namespace MacExtend.ViewModels
         public ICommand StopCommand { get; }
         public ICommand RestartCommand { get; }
         public ICommand NewPinCommand { get; }
-        public ICommand ForgetMacsCommand { get; }
+        public ICommand ForgetDevicesCommand { get; }
         public ICommand FixFirewallCommand { get; }
         public ICommand MakePrivateCommand { get; }
         public ICommand OpenLogsCommand { get; }
@@ -88,7 +89,7 @@ namespace MacExtend.ViewModels
         public ReceiverPhase Phase => _controller.Phase;
         public bool IsActive => Phase == ReceiverPhase.Starting || Phase == ReceiverPhase.Ready || Phase == ReceiverPhase.Connected;
         public bool CanStart => Phase == ReceiverPhase.Stopped || Phase == ReceiverPhase.Failed;
-        public string ClientName => _controller.ClientName ?? "Mac";
+        public string ClientName => _controller.ClientName ?? "Thiết bị";
         public string EffectiveDeviceName => _controller.EffectiveDeviceName;
         public bool ShowPin => PinEnabled;
         public bool PinOff => !PinEnabled;
@@ -101,7 +102,7 @@ namespace MacExtend.ViewModels
                 {
                     case ReceiverPhase.Starting: return _controller.IsRestarting ? "Đang khởi động lại" : "Đang khởi động";
                     case ReceiverPhase.Ready: return "Sẵn sàng kết nối";
-                    case ReceiverPhase.Connected: return "Đang là màn hình phụ";
+                    case ReceiverPhase.Connected: return "Đang nhận AirPlay";
                     case ReceiverPhase.Failed: return "Không chạy được";
                     default: return "Đã dừng";
                 }
@@ -114,12 +115,13 @@ namespace MacExtend.ViewModels
             {
                 switch (Phase)
                 {
-                    case ReceiverPhase.Starting: return "Đang chuẩn bị nhận kết nối từ Mac.";
-                    case ReceiverPhase.Ready: return "Mac trong cùng mạng đã thấy " + EffectiveDeviceName + ".";
+                    case ReceiverPhase.Starting: return "Đang chuẩn bị nhận kết nối AirPlay.";
+                    case ReceiverPhase.Ready:
+                        return "Trên thiết bị Apple cùng mạng, mở Phản chiếu màn hình và chọn " + EffectiveDeviceName + ".";
                     case ReceiverPhase.Connected:
-                        return ClientName + " đang dùng màn hình này. Màn hình sẽ luôn sáng cho đến khi ngắt kết nối.";
+                        return "Nguồn phát: " + ClientName + ". Màn hình Windows sẽ luôn sáng cho đến khi ngắt kết nối.";
                     case ReceiverPhase.Failed: return _controller.LastError ?? "Xem nhật ký để biết chi tiết.";
-                    default: return "Bấm Bắt đầu để Mac thấy máy này trong Phản chiếu màn hình.";
+                    default: return "Bấm Bắt đầu để nhận kết nối trong Phản chiếu màn hình.";
                 }
             }
         }
@@ -134,10 +136,33 @@ namespace MacExtend.ViewModels
         public bool NeedsRestart => _controller.NeedsRestart;
 
         public string RestartNotice => Phase == ReceiverPhase.Connected
-            ? "Thay đổi có hiệu lực sau khi khởi động lại. Mac đang kết nối sẽ bị ngắt."
+            ? "Thay đổi có hiệu lực sau khi khởi động lại. Thiết bị đang kết nối sẽ bị ngắt."
             : "Thay đổi có hiệu lực sau khi khởi động lại bộ nhận.";
 
         public string VersionText { get; }
+
+        // ---- connect guide ------------------------------------------------------------------
+
+        public bool IsMacGuide
+        {
+            get => !_phoneGuide;
+            set { if (value) ShowPhoneGuide(false); }
+        }
+
+        /// <summary>
+        /// The connect steps describe an iPhone or iPad instead of a Mac. Only the steps on screen change:
+        /// nothing is saved and the receiver is not touched, so switching during a session is harmless.
+        /// </summary>
+        public bool IsPhoneGuide
+        {
+            get => _phoneGuide;
+            set { if (value) ShowPhoneGuide(true); }
+        }
+
+        private void ShowPhoneGuide(bool phone)
+        {
+            if (Set(ref _phoneGuide, phone, nameof(IsPhoneGuide))) Raise(nameof(IsMacGuide));
+        }
 
         // ---- settings -----------------------------------------------------------------------
 
@@ -291,7 +316,7 @@ namespace MacExtend.ViewModels
 
         public bool CanMakePrivate => _publicNetwork != null;
 
-        /// <summary>Result of the last action on this screen (fix firewall, forget Macs and so on).</summary>
+        /// <summary>Result of the last action on this screen (fix firewall, forget devices and so on).</summary>
         public string SystemMessage
         {
             get => _systemMessage;
@@ -308,7 +333,7 @@ namespace MacExtend.ViewModels
                 if (!firewall.IsKnown)
                 {
                     FirewallState = CheckState.Unknown;
-                    FirewallText = "Không kiểm tra được tường lửa. Nếu Mac không thấy máy này, hãy bấm Cho phép.";
+                    FirewallText = "Không kiểm tra được tường lửa. Nếu thiết bị không thấy máy này, hãy bấm Cho phép.";
                 }
                 else if (firewall.Ok)
                 {
@@ -319,8 +344,8 @@ namespace MacExtend.ViewModels
                 {
                     FirewallState = CheckState.Problem;
                     FirewallText = firewall.HasBlock
-                        ? "Một quy tắc tường lửa đang chặn MacExtend, nên Mac không kết nối được."
-                        : "MacExtend chưa được phép nhận kết nối, nên Mac sẽ không thấy máy này.";
+                        ? "Một quy tắc tường lửa đang chặn MacExtend, nên thiết bị không kết nối được."
+                        : "MacExtend chưa được phép nhận kết nối, nên thiết bị có thể không thấy máy này.";
                 }
 
                 var networks = NetworkProfileParser.Relevant(await NetworkProfile.GetAsync());
@@ -328,7 +353,7 @@ namespace MacExtend.ViewModels
                 if (networks.Count == 0)
                 {
                     NetworkState = CheckState.Problem;
-                    NetworkText = "Máy này chưa kết nối mạng. Hãy vào cùng Wi-Fi với Mac.";
+                    NetworkText = "Máy này chưa kết nối mạng. Hãy kết nối cùng mạng với thiết bị phát.";
                 }
                 else if (_publicNetwork != null)
                 {
@@ -387,27 +412,28 @@ namespace MacExtend.ViewModels
             await RefreshSystemStatusAsync();
         }
 
-        private void ForgetMacs()
+        private void ForgetDevices()
         {
+            const string forgotten = "Đã quên các thiết bị đã ghép nối. Nếu bật PIN, thiết bị sẽ phải nhập mã khi ghép nối lại.";
             try
             {
                 if (File.Exists(AppPaths.RegisterFile)) File.Delete(AppPaths.RegisterFile);
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
-                SystemMessage = "Không xóa được danh sách Mac đã ghép nối.";
+                SystemMessage = "Không xóa được danh sách thiết bị đã ghép nối.";
                 return;
             }
             if (Phase == ReceiverPhase.Ready || Phase == ReceiverPhase.Starting)
             {
                 _controller.RestartAsync();
-                SystemMessage = "Đã quên các Mac đã ghép nối. Lần tới Mac sẽ phải nhập mã PIN.";
+                SystemMessage = forgotten;
             }
             else
             {
                 SystemMessage = Phase == ReceiverPhase.Connected
-                    ? "Đã quên các Mac đã ghép nối. Có hiệu lực sau khi khởi động lại bộ nhận."
-                    : "Đã quên các Mac đã ghép nối. Lần tới Mac sẽ phải nhập mã PIN.";
+                    ? "Đã quên các thiết bị đã ghép nối. Có hiệu lực sau khi khởi động lại bộ nhận."
+                    : forgotten;
             }
         }
 

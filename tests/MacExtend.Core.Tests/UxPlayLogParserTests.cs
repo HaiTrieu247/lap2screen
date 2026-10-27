@@ -22,6 +22,18 @@ public class UxPlayLogParserTests
     }
 
     [Theory]
+    [InlineData("connection request from Thịnh’s iPhone (iPhone15,2) with deviceID = AA", "Thịnh’s iPhone", "iPhone15,2")]
+    [InlineData("connection request from iPad của Thịnh (iPad13,4) with deviceID = 11:22:33:44:55:66", "iPad của Thịnh", "iPad13,4")]
+    public void PhoneAndTabletRequestsGiveClientNameAndModel(string line, string name, string model)
+    {
+        var e = UxPlayLogParser.Parse(line);
+
+        Assert.Equal(LogEventKind.ClientConnecting, e.Kind);
+        Assert.Equal(name, e.ClientName);
+        Assert.Equal(model, e.ClientModel);
+    }
+
+    [Theory]
     [InlineData("*** ERROR lost connection with client (network problem?)")]
     [InlineData("***ERROR lost connection with client (network problem?)")]
     public void LostConnectionIsRecognised(string line)
