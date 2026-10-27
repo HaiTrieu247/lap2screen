@@ -80,6 +80,16 @@ namespace MacExtend.Native
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         public static extern int GetShortPathName(string longPath, StringBuilder shortPath, int bufferLength);
 
+        public const uint SEM_FAILCRITICALERRORS = 0x0001;
+        public const uint SEM_NOGPFAULTERRORBOX = 0x0002;
+
+        /// <summary>Inherited by child processes: stops Windows from showing "DLL not found" or crash dialogs for uxplay.</summary>
+        [DllImport("kernel32.dll")]
+        public static extern uint SetErrorMode(uint mode);
+
+        public const int STATUS_DLL_NOT_FOUND = unchecked((int)0xC0000135);
+        public const int STATUS_ENTRYPOINT_NOT_FOUND = unchecked((int)0xC0000139);
+
         // ---- iphlpapi: TCP connections per process ---------------------------------------
 
         public const int AF_INET = 2;
