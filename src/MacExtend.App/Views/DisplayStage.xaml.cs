@@ -21,11 +21,14 @@ namespace MacExtend.Views
             nameof(ModeText), typeof(string), typeof(DisplayStage), new PropertyMetadata("", Changed));
 
         private ReceiverPhase? _shownPhase;
+        private bool _breathing;
 
         public DisplayStage()
         {
             InitializeComponent();
             Loaded += (_, __) => Apply();
+            // the window spends most of the day hidden in the tray; an endless animation there costs battery
+            IsVisibleChanged += (_, __) => UpdateBreathing();
         }
 
         public ReceiverPhase Phase
@@ -53,6 +56,26 @@ namespace MacExtend.Views
         }
 
         private static bool MotionAllowed => SystemParameters.ClientAreaAnimation;
+
+        /// <summary>The one ambient motion: a slow breath on the waiting outline, only while someone can see it.</summary>
+        private void UpdateBreathing()
+        {
+            var breathe = IsLoaded && IsVisible && Phase == ReceiverPhase.Ready && MotionAllowed;
+            if (breathe == _breathing) return;
+            _breathing = breathe;
+            if (!breathe)
+            {
+                SecondOutline.BeginAnimation(OpacityProperty, null);
+                SecondOutline.Opacity = Phase == ReceiverPhase.Connected ? 0 : 1;
+                return;
+            }
+            SecondOutline.BeginAnimation(OpacityProperty, new DoubleAnimation(1.0, 0.35, TimeSpan.FromSeconds(1.6))
+            {
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+            });
+        }
 
         private static void Changed(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((DisplayStage)d).Apply();
 
@@ -96,19 +119,10 @@ namespace MacExtend.Views
             var previous = _shownPhase;
             _shownPhase = Phase;
 
-            // The one ambient motion: a slow breath on the waiting outline. Everything else
-            // moves only when the state changes.
+            _breathing = false;
             SecondOutline.BeginAnimation(OpacityProperty, null);
             SecondOutline.Opacity = connected ? 0 : 1;
-            if (Phase == ReceiverPhase.Ready && MotionAllowed)
-            {
-                SecondOutline.BeginAnimation(OpacityProperty, new DoubleAnimation(1.0, 0.35, TimeSpan.FromSeconds(1.6))
-                {
-                    AutoReverse = true,
-                    RepeatBehavior = RepeatBehavior.Forever,
-                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
-                });
-            }
+            UpdateBreathing();
 
             var fillTo = connected ? 1.0 : 0.0;
             if (MotionAllowed && previous != null)

@@ -42,7 +42,8 @@ namespace MacExtend.Core
                 }
                 // everything else, including the accents FormD detached from their letters, is dropped
             }
-            var result = sb.ToString().Trim();
+            // uxplay reads an argument starting with "-" as an option and exits
+            var result = sb.ToString().TrimStart('-', ' ').Trim();
             if (result.Length > MaxLength) result = result.Substring(0, MaxLength).TrimEnd();
             return result;
         }

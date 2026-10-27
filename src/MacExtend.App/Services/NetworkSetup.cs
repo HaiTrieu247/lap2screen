@@ -12,7 +12,7 @@ namespace MacExtend.Services
 
         public static async Task<FirewallStatus> GetStatusAsync()
         {
-            var script = "$p = " + PowerShellRunner.Literal(AppPaths.UxPlayExe) + @"
+            var script = "$p = " + PowerShellText.Literal(AppPaths.UxPlayExe) + @"
 $rules = @(Get-NetFirewallApplicationFilter -Program $p -ErrorAction SilentlyContinue |
            Get-NetFirewallRule -ErrorAction SilentlyContinue |
            Where-Object { $_.Enabled -eq 'True' -and $_.Direction -eq 'Inbound' })
@@ -28,12 +28,12 @@ $rules = @(Get-NetFirewallApplicationFilter -Program $p -ErrorAction SilentlyCon
         /// </summary>
         public static Task<ScriptResult> FixAsync()
         {
-            var script = "$p = " + PowerShellRunner.Literal(AppPaths.UxPlayExe) + @"
+            var script = "$p = " + PowerShellText.Literal(AppPaths.UxPlayExe) + @"
 Get-NetFirewallApplicationFilter -Program $p -ErrorAction SilentlyContinue |
     Get-NetFirewallRule -ErrorAction SilentlyContinue |
     Where-Object { $_.Action -eq 'Block' } | Remove-NetFirewallRule
-Get-NetFirewallRule -DisplayName " + PowerShellRunner.Literal(RuleName) + @" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-New-NetFirewallRule -DisplayName " + PowerShellRunner.Literal(RuleName) + @" -Direction Inbound -Program $p -Action Allow -Profile Private,Domain | Out-Null";
+Get-NetFirewallRule -DisplayName " + PowerShellText.Literal(RuleName) + @" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+New-NetFirewallRule -DisplayName " + PowerShellText.Literal(RuleName) + @" -Direction Inbound -Program $p -Action Allow -Profile Private,Domain | Out-Null";
             return PowerShellRunner.RunElevatedAsync(script);
         }
     }
@@ -43,9 +43,14 @@ New-NetFirewallRule -DisplayName " + PowerShellRunner.Literal(RuleName) + @" -Di
     {
         public static async Task<IReadOnlyList<NetworkConnection>> GetAsync()
         {
-            const string script =
-                "Get-NetConnectionProfile -ErrorAction SilentlyContinue | ForEach-Object { " +
-                "'{0}|{1}|{2}' -f $_.InterfaceIndex, ($_.InterfaceAlias -replace '\\|', '/'), $_.NetworkCategory }";
+            // default-route interfaces tell the real Wi-Fi/LAN apart from Hyper-V, WSL and VPN adapters
+            const string script = @"
+$routes = @(Get-NetRoute -DestinationPrefix '0.0.0.0/0', '::/0' -ErrorAction SilentlyContinue | ForEach-Object { $_.InterfaceIndex })
+Get-NetConnectionProfile -ErrorAction SilentlyContinue | ForEach-Object {
+    $routed = if ($routes -contains $_.InterfaceIndex) { 1 } else { 0 }
+    '{0}|{1}|{2}|{3}|{4}|{5}' -f $_.InterfaceIndex, ($_.InterfaceAlias -replace '\|', '/'), $_.NetworkCategory,
+        $_.IPv4Connectivity, $_.IPv6Connectivity, $routed
+}";
             var result = await PowerShellRunner.RunAsync(script);
             return NetworkProfileParser.Parse(result.Output);
         }

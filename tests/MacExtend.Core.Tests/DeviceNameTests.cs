@@ -8,6 +8,8 @@ public class DeviceNameTests
     [InlineData("a\"b;c", "abc")]
     [InlineData("  Laptop   phong   ngu  ", "Laptop phong ngu")]
     [InlineData("Dell (XPS) 13_v2.0 - Lan's", "Dell (XPS) 13_v2.0 - Lan's")]
+    [InlineData("-Thinh", "Thinh")]
+    [InlineData(" -- May - 2", "May - 2")]
     public void SanitizeFoldsToSafeAscii(string input, string expected)
     {
         Assert.Equal(expected, DeviceName.Sanitize(input, "Fallback"));
@@ -34,6 +36,7 @@ public class DeviceNameTests
     [InlineData("")]
     [InlineData(null)]
     [InlineData("日本")]
+    [InlineData("---")]
     public void SanitizeUsesFallbackWhenNothingUsableRemains(string input)
     {
         Assert.Equal("May Win", DeviceName.Sanitize(input, "Máy Win"));

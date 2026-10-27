@@ -28,8 +28,6 @@ namespace MacExtend.Services
     {
         private const int ErrorCancelled = 1223;
 
-        public static string Literal(string value) => "'" + value.Replace("'", "''") + "'";
-
         /// <summary>Runs as the current user and captures standard output.</summary>
         public static Task<ScriptResult> RunAsync(string script) => Task.Run(() =>
         {

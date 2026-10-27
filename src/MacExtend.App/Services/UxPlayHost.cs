@@ -15,6 +15,10 @@ namespace MacExtend.Services
         // Attaching to another console is process-wide state: one stop at a time.
         private static readonly object ConsoleGate = new object();
 
+        // Handle stays open for MacExtend's lifetime. When MacExtend ends in any way (exit, crash,
+        // Task Manager), Windows closes it and kills uxplay, so no receiver is left orphaned.
+        private static readonly Lazy<IntPtr> KillOnCloseJob = new Lazy<IntPtr>(CreateKillOnCloseJob);
+
         private Process _process;
 
         /// <summary>A line of uxplay output (stdout or stderr). Raised on a thread-pool thread.</summary>
@@ -37,6 +41,8 @@ namespace MacExtend.Services
         public void Start(IReadOnlyList<string> args)
         {
             if (IsRunning) throw new InvalidOperationException("uxplay is already running.");
+            _process?.Dispose(); // a previous uxplay that exited on its own
+            _process = null;
 
             var psi = new ProcessStartInfo(AppPaths.UxPlayExe, WindowsCommandLine.Join(args))
             {
@@ -71,11 +77,52 @@ namespace MacExtend.Services
                 if (ReferenceEquals(_process, p)) Exited?.Invoke(SafeExitCode(p));
             };
 
-            p.Start();
+            // set before Start so an immediate exit (missing DLL) is still reported
+            _process = p;
+            try
+            {
+                p.Start();
+            }
+            catch
+            {
+                _process = null;
+                p.Dispose();
+                throw;
+            }
+            ProcessId = p.Id;
+            if (KillOnCloseJob.Value != IntPtr.Zero) Win32.AssignProcessToJobObject(KillOnCloseJob.Value, p.Handle);
             p.BeginOutputReadLine();
             p.BeginErrorReadLine();
-            ProcessId = p.Id;
-            _process = p;
+        }
+
+        /// <summary>Stops uxplay processes from this installation left behind by an earlier MacExtend that crashed.</summary>
+        public static void StopLeftovers()
+        {
+            foreach (var p in Process.GetProcessesByName("uxplay"))
+            {
+                bool ours;
+                try
+                {
+                    ours = string.Equals(p.MainModule.FileName, AppPaths.UxPlayExe, StringComparison.OrdinalIgnoreCase);
+                }
+                catch (Exception e) when (e is System.ComponentModel.Win32Exception || e is InvalidOperationException)
+                {
+                    ours = false; // another user's process or already gone
+                }
+                if (ours) Stop(p, TimeSpan.FromSeconds(2));
+                else p.Dispose();
+            }
+        }
+
+        private static IntPtr CreateKillOnCloseJob()
+        {
+            var job = Win32.CreateJobObject(IntPtr.Zero, null);
+            if (job == IntPtr.Zero) return IntPtr.Zero;
+            var info = new Win32.JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
+            info.BasicLimitInformation.LimitFlags = Win32.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            var ok = Win32.SetInformationJobObject(job, Win32.JobObjectExtendedLimitInformation, ref info,
+                                                   System.Runtime.InteropServices.Marshal.SizeOf(typeof(Win32.JOBOBJECT_EXTENDED_LIMIT_INFORMATION)));
+            return ok ? job : IntPtr.Zero;
         }
 
         /// <summary>

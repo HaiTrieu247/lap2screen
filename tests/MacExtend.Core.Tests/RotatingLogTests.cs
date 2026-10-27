@@ -49,4 +49,17 @@ public sealed class RotatingLogTests : IDisposable
 
         Assert.Equal(2, File.ReadAllLines(path).Length);
     }
+
+    [Fact]
+    public void WriteNeverThrowsWhenRotationFails()
+    {
+        var path = Path.Combine(_dir, "uxplay.log");
+        Directory.CreateDirectory(path + ".1"); // rotation target cannot be replaced
+        using (var log = new RotatingLog(path, 100))
+        {
+            for (var i = 0; i < 20; i++) log.WriteLine("line number " + i);
+        }
+
+        Assert.Contains("line number 19", File.ReadAllText(path));
+    }
 }

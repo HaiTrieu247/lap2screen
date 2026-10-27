@@ -26,8 +26,9 @@ UninstallDisplayIcon={app}\MacExtend.exe
 LicenseFile=..\LICENSE
 Compression=lzma2/max
 SolidCompression=yes
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+; "x64" is understood by every Inno Setup 6 release (x64compatible needs 6.3+, and the runner image may ship older)
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
 MinVersion=10.0
 PrivilegesRequired=admin
 WizardStyle=modern

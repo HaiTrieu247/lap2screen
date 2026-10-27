@@ -299,7 +299,7 @@ namespace MacExtend.ViewModels
                         : "MacExtend chưa được phép nhận kết nối, nên Mac sẽ không thấy máy này.";
                 }
 
-                var networks = await NetworkProfile.GetAsync();
+                var networks = NetworkProfileParser.Relevant(await NetworkProfile.GetAsync());
                 _publicNetwork = networks.FirstOrDefault(n => n.IsPublic);
                 if (networks.Count == 0)
                 {
@@ -369,7 +369,7 @@ namespace MacExtend.ViewModels
             {
                 if (File.Exists(AppPaths.RegisterFile)) File.Delete(AppPaths.RegisterFile);
             }
-            catch (IOException)
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
                 SystemMessage = "Không xóa được danh sách Mac đã ghép nối.";
                 return;

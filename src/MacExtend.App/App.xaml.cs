@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using MacExtend.Native;
 using MacExtend.Services;
@@ -25,6 +26,7 @@ namespace MacExtend
         private MainWindow _window;
         private TrayIcon _tray;
         private bool _exiting;
+        private bool _crashing;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -44,6 +46,18 @@ namespace MacExtend
             Win32.SetErrorMode(Win32.SEM_FAILCRITICALERRORS | Win32.SEM_NOGPFAULTERRORBOX);
 
             AppPaths.EnsureDirectories();
+            DispatcherUnhandledException += (_, args) =>
+            {
+                args.Handled = true;
+                Crash(args.Exception);
+            };
+            AppDomain.CurrentDomain.UnhandledException += (_, args) => Crash(args.ExceptionObject as Exception);
+            TaskScheduler.UnobservedTaskException += (_, args) =>
+            {
+                WriteCrashLog(args.Exception);
+                args.SetObserved();
+            };
+            UxPlayHost.StopLeftovers();
             ThemeManager.Initialize(this);
 
             _settings = new SettingsService(AppPaths.SettingsFile);
@@ -75,6 +89,43 @@ namespace MacExtend
             _controller?.Dispose();
             _singleInstance?.Dispose();
             base.OnExit(e);
+        }
+
+        /// <summary>
+        /// Last resort: record what happened, take uxplay down with us and tell the user, instead of
+        /// the tray icon silently disappearing while the Mac can still connect.
+        /// </summary>
+        private void Crash(Exception error)
+        {
+            if (_crashing) return;
+            _crashing = true;
+            WriteCrashLog(error);
+            try
+            {
+                _controller?.ShutdownNow();
+                _tray?.Dispose();
+            }
+            catch (Exception)
+            {
+                // already failing; the job object still ends uxplay when this process exits
+            }
+            MessageBox.Show("MacExtend gặp lỗi và phải đóng. Mở lại MacExtend để tiếp tục dùng.\n\nChi tiết: " + CrashLogPath,
+                            "MacExtend", MessageBoxButton.OK, MessageBoxImage.Error);
+            Environment.Exit(1);
+        }
+
+        private static string CrashLogPath => System.IO.Path.Combine(AppPaths.LogDir, "crash.log");
+
+        private static void WriteCrashLog(Exception error)
+        {
+            try
+            {
+                System.IO.File.AppendAllText(CrashLogPath, DateTime.Now.ToString("u") + " " + error + Environment.NewLine);
+            }
+            catch (Exception)
+            {
+                // nowhere left to report to
+            }
         }
 
         private void ShowMainWindow()
