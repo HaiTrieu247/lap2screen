@@ -186,6 +186,7 @@ namespace MacExtend.Services
             _tracker.Reset();
             _lastErrorLine = null;
             LastError = null;
+            if (!DpiCompat.EnsureHighDpiAware(AppPaths.UxPlayExe)) Log("could not set DPI compatibility flag; video may look blurry with Windows scaling above 100 %");
             Log("starting uxplay " + WindowsCommandLine.Join(args));
             try
             {

@@ -9,7 +9,7 @@ Chuẩn bị: cài bản mới bằng `MacExtend-x.y.z-setup.exe`. Hai máy dùn
 | T1 | Mac thấy thiết bị | Mở app, trên Mac mở Phản chiếu màn hình | Tên `MacExtend-<tên máy>` xuất hiện trong vòng 10 giây | |
 | T2 | Ghép nối bằng PIN | Chọn thiết bị trên Mac | Mac hỏi PIN, nhập mã trong app thì kết nối được | |
 | T3 | Màn hình mở rộng | Chọn Dùng làm màn hình riêng | Windows hiện màn nền Mac toàn màn hình; kéo được cửa sổ sang; app báo "Đang là màn hình phụ" kèm tên Mac | |
-| T4 | Độ phân giải | Trên Mac vào Displays, xem màn AirPlay | 1920 × 1080; hình nét, không viền đen | |
+| T4 | Độ phân giải | Đặt Windows scale 125% hoặc 150%. Trên Mac vào Displays, chọn 1920 × 1080 cho màn AirPlay; chạy `system_profiler SPDisplaysDataType` | Resolution và UI Looks like đều là 1920 x 1080; chữ trên màn Windows nét như trên màn gốc | |
 | T5 | Độ trễ | Kéo cửa sổ qua lại, gõ chữ trên màn Windows | Trễ khoảng 100 đến 250 ms, không giật kéo dài | |
 | T6 | Âm thanh | Phát nhạc trên Mac, sau đó tắt Âm thanh trong app và khởi động lại bộ nhận | Lần đầu tiếng phát ra trên Windows; sau khi tắt thì không | |
 | T7 | Lần kết nối sau | Ngắt rồi kết nối lại | Không hỏi PIN nữa | |

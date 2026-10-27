@@ -61,6 +61,11 @@ Các thay đổi về hình ảnh, âm thanh và PIN áp dụng sau khi khởi �
 - Đặt Khung hình mỗi giây về 30.
 - Để hai máy gần router, dùng Wi-Fi 5 GHz, hoặc cắm dây LAN cho laptop Windows.
 
+**Hình bị mờ hoặc chữ nhỏ li ti**
+- Trên Mac, vào **System Settings, Displays** và chọn màn hình MacExtend. Ở mục Resolution, chọn đúng **1920 × 1080**. Nếu chỉ thấy các ô "Larger Text ... More Space", bấm **Advanced...** hoặc chuột phải vào khu vực đó, bật **Show all resolutions** rồi chọn 1920 × 1080. Chọn kích thước lớn hơn, ví dụ 2560 × 1440 hoặc 3840 × 2160, thì Mac phải thu nhỏ cả desktop vào luồng 1080p, nên chữ bị nhòe.
+- Kiểm tra trên Mac: chạy `system_profiler SPDisplaysDataType` và xem khối của màn AirPlay. Hai dòng **Resolution** và **UI Looks like** đều phải là 1920 x 1080.
+- MacExtend tự bật chế độ "Override high DPI scaling: Application" cho `uxplay.exe`, để Windows ở mức scale 125% hoặc 150% không kéo giãn hình. Nếu hình vẫn mờ, chuột phải `uxplay\bin\uxplay.exe`, mở **Properties, Compatibility, Change high DPI settings** và kiểm tra mục này đã được chọn.
+
 **Hình bị đơ ngay khi kết nối**
 - Ngắt Phản chiếu màn hình trên Mac rồi kết nối lại, hoặc bấm **Khởi động lại** trong app.
 

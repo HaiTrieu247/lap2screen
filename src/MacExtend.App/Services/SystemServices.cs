@@ -85,6 +85,35 @@ namespace MacExtend.Services
         }
     }
 
+    internal static class DpiCompat
+    {
+        private const string LayersKey = @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers";
+
+        /// <summary>
+        /// Same as Compatibility, "Change high DPI settings", "Override high DPI scaling: Application"
+        /// for uxplay.exe, so its full-screen video is drawn 1:1 instead of stretched at 125 %/150 % scaling.
+        /// Applies to processes started after the change.
+        /// </summary>
+        /// <returns>false if the setting could not be written.</returns>
+        public static bool EnsureHighDpiAware(string exePath)
+        {
+            try
+            {
+                using (var key = Registry.CurrentUser.CreateSubKey(LayersKey))
+                {
+                    var existing = key.GetValue(exePath) as string;
+                    var next = CompatLayers.WithHighDpiAware(existing);
+                    if (!string.Equals(existing, next, StringComparison.Ordinal)) key.SetValue(exePath, next);
+                    return true;
+                }
+            }
+            catch (Exception e) when (e is UnauthorizedAccessException || e is System.Security.SecurityException || e is IOException)
+            {
+                return false;
+            }
+        }
+    }
+
     internal static class WindowsTheme
     {
         private const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";

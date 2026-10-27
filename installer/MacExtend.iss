@@ -66,3 +66,5 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 [Registry]
 ; the app writes its own start-with-Windows entry per user; remove it on uninstall for the installing user
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "MacExtend"; Flags: uninsdeletevalue dontcreatekey
+; DPI compatibility flag the app sets for uxplay.exe (Services/SystemServices.cs, DpiCompat)
+Root: HKCU; Subkey: "Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; ValueType: none; ValueName: "{app}\uxplay\bin\uxplay.exe"; Flags: uninsdeletevalue dontcreatekey
