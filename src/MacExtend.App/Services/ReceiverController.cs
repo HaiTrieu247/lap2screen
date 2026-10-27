@@ -131,6 +131,15 @@ namespace MacExtend.Services
             StateChanged?.Invoke();
         }
 
+        /// <summary>Stops uxplay synchronously when Windows logs off or shuts down.</summary>
+        public void ShutdownNow()
+        {
+            _wantRunning = false;
+            CancelPendingRestart();
+            _host.StopNow(TimeSpan.FromSeconds(2));
+            KeepAwake.Set(false);
+        }
+
         public void Dispose()
         {
             NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;

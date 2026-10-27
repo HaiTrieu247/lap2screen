@@ -52,12 +52,20 @@ namespace MacExtend.Themes
         private static void Apply(Application app, bool dark)
         {
             var dictionaries = app.Resources.MergedDictionaries;
-            var current = dictionaries.FirstOrDefault(d => d.Source == LightUri || d.Source == DarkUri);
+            // App.xaml declares the palette with a relative Source, so match on the file name
+            var current = dictionaries.FirstOrDefault(IsPalette);
             var next = new ResourceDictionary { Source = dark ? DarkUri : LightUri };
             if (current != null) dictionaries[dictionaries.IndexOf(current)] = next;
             else dictionaries.Insert(0, next);
             IsDark = dark;
             foreach (Window w in app.Windows) ApplyWindowFrame(w);
+        }
+
+        private static bool IsPalette(ResourceDictionary d)
+        {
+            var source = d.Source?.OriginalString ?? "";
+            return source.EndsWith("Colors.Light.xaml", StringComparison.OrdinalIgnoreCase) ||
+                   source.EndsWith("Colors.Dark.xaml", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

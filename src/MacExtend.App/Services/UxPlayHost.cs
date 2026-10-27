@@ -82,42 +82,53 @@ namespace MacExtend.Services
         /// Sends Ctrl+C so uxplay can unregister from mDNS (the Mac then drops it from the menu
         /// right away), and kills it if it has not exited within <paramref name="grace"/>.
         /// </summary>
-        public async Task StopAsync(TimeSpan grace)
+        public Task StopAsync(TimeSpan grace)
+        {
+            var p = Detach();
+            return p == null ? Task.CompletedTask : Task.Run(() => Stop(p, grace));
+        }
+
+        /// <summary>Same as <see cref="StopAsync"/> but blocks; for Windows shutdown, when the UI thread cannot wait.</summary>
+        public void StopNow(TimeSpan grace)
+        {
+            var p = Detach();
+            if (p != null) Stop(p, grace);
+        }
+
+        private Process Detach()
         {
             var p = _process;
             _process = null;
             ProcessId = 0;
-            if (p == null) return;
+            return p;
+        }
 
+        private static void Stop(Process p, TimeSpan grace)
+        {
             try
             {
-                if (!p.HasExited)
+                if (p.HasExited) return;
+                lock (ConsoleGate)
                 {
-                    await Task.Run(() =>
+                    var sent = SendCtrlC(p.Id);
+                    try
                     {
-                        lock (ConsoleGate)
+                        if (!sent || !p.WaitForExit((int)grace.TotalMilliseconds))
                         {
-                            var sent = SendCtrlC(p.Id);
-                            try
-                            {
-                                if (!sent || !p.WaitForExit((int)grace.TotalMilliseconds))
-                                {
-                                    TryKill(p);
-                                    p.WaitForExit(2000);
-                                }
-                            }
-                            finally
-                            {
-                                // Re-enable Ctrl+C handling only once the event has been delivered;
-                                // the ignore flag would otherwise be inherited by the next uxplay.
-                                if (sent)
-                                {
-                                    Thread.Sleep(100);
-                                    Win32.SetConsoleCtrlHandler(null, false);
-                                }
-                            }
+                            TryKill(p);
+                            p.WaitForExit(2000);
                         }
-                    });
+                    }
+                    finally
+                    {
+                        // Re-enable Ctrl+C handling only once the event has been delivered;
+                        // the ignore flag would otherwise be inherited by the next uxplay.
+                        if (sent)
+                        {
+                            Thread.Sleep(100);
+                            Win32.SetConsoleCtrlHandler(null, false);
+                        }
+                    }
                 }
             }
             finally

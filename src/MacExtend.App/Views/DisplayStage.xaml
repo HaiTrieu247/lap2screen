@@ -1,0 +1,72 @@
+<UserControl x:Class="MacExtend.Views.DisplayStage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Height="188">
+    <!--
+      The hero borrows the macOS "Arrange displays" canvas: the Mac's main display (with its
+      menu bar) and this laptop as the second display touching its right edge. The second
+      display is an empty dashed outline while waiting and fills in once a Mac uses it.
+    -->
+    <Border CornerRadius="12" Background="{DynamicResource Stage.Background}" ClipToBounds="True">
+        <Grid>
+            <!-- dot grid of the arrangement canvas -->
+            <Rectangle>
+                <Rectangle.Fill>
+                    <DrawingBrush TileMode="Tile" Viewport="0,0,16,16" ViewportUnits="Absolute" Stretch="None">
+                        <DrawingBrush.Drawing>
+                            <DrawingGroup>
+                                <!-- transparent square sets the tile size; the dot sits in its centre -->
+                                <GeometryDrawing Brush="Transparent">
+                                    <GeometryDrawing.Geometry>
+                                        <RectangleGeometry Rect="0,0,16,16" />
+                                    </GeometryDrawing.Geometry>
+                                </GeometryDrawing>
+                                <GeometryDrawing Brush="{DynamicResource Stage.Grid}">
+                                    <GeometryDrawing.Geometry>
+                                        <EllipseGeometry Center="8,8" RadiusX="1.1" RadiusY="1.1" />
+                                    </GeometryDrawing.Geometry>
+                                </GeometryDrawing>
+                            </DrawingGroup>
+                        </DrawingBrush.Drawing>
+                    </DrawingBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-6,0,0">
+                <!-- Mac: 16:10 -->
+                <Grid x:Name="MacDisplay" Width="200" Height="125" VerticalAlignment="Top">
+                    <Border CornerRadius="6" Background="{DynamicResource Display.Mac}" />
+                    <Border CornerRadius="6,6,0,0" Height="9" VerticalAlignment="Top" Background="{DynamicResource Display.MenuBar}" />
+                    <TextBlock x:Name="MacLabel" Text="Mac của bạn" FontSize="12.5" FontWeight="SemiBold" Foreground="#2A3340"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,8,12,0"
+                               TextTrimming="CharacterEllipsis" />
+                </Grid>
+
+                <!-- This laptop: 16:9, top-aligned and touching, as macOS arranges displays -->
+                <Grid x:Name="SecondDisplay" Width="168" Height="94.5" VerticalAlignment="Top" Margin="3,0,0,0">
+                    <Rectangle x:Name="SecondFill" RadiusX="6" RadiusY="6" Opacity="0">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="{DynamicResource Status.Ready.Color}" Offset="0" />
+                                <GradientStop Color="{DynamicResource Accent.Pressed.Color}" Offset="1" />
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <Rectangle x:Name="SecondOutline" RadiusX="6" RadiusY="6" StrokeThickness="1.5"
+                               StrokeDashArray="4 3" Stroke="{DynamicResource Stage.TextDim}" />
+                    <StackPanel VerticalAlignment="Center" Margin="10,0">
+                        <TextBlock x:Name="DeviceLabel" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Stage.Text}"
+                                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                                   MaxHeight="34" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="ModeLabel" FontSize="11.5" Foreground="{DynamicResource Stage.TextDim}"
+                                   HorizontalAlignment="Center" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <!-- what the outline means, in words, for people who do not read diagrams -->
+            <TextBlock x:Name="Caption" FontSize="12" Foreground="{DynamicResource Stage.TextDim}"
+                       HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="16,0,16,14" />
+        </Grid>
+    </Border>
+</UserControl>

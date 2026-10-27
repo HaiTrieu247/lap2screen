@@ -37,6 +37,19 @@ public class FirewallStatusParserTests
 
         Assert.False(s.HasAllow);
         Assert.False(s.HasBlock);
+        Assert.False(s.IsKnown);
+    }
+
+    [Fact]
+    public void BothLinesPresentIsKnownEvenWithZeroRules()
+    {
+        Assert.True(FirewallStatusParser.Parse("ALLOW=0\nBLOCK=0").IsKnown);
+    }
+
+    [Fact]
+    public void OneLineMissingIsNotKnown()
+    {
+        Assert.False(FirewallStatusParser.Parse("ALLOW=1").IsKnown);
     }
 }
 
