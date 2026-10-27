@@ -1,0 +1,18 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+
+# Build outputs
+build/
+dist/
+stage/
+out/
+
+# Tooling scratch
+.superpowers/
+.DS_Store
+__pycache__/
