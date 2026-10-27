@@ -49,6 +49,11 @@ foreach ($raw in Get-Content $Elements) {
             Write-Host "warn $element not registered here (no GPU?), plugin $plugin loads"
             continue
         }
+        # GPU plugins can refuse to load at all without a GPU; bundle-runtime.sh still ships them
+        if (Test-Path (Join-Path $env:GST_PLUGIN_SYSTEM_PATH_1_0 "libgst$plugin.dll")) {
+            Write-Host "warn $element and plugin $plugin cannot be checked on this machine (no GPU?); libgst$plugin.dll is bundled"
+            continue
+        }
     }
     if ($optional) {
         Write-Host "warn optional $element missing"
