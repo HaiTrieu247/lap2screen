@@ -11,6 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MacExtend.Core.Tests", "tests\MacExtend.Core.Tests\MacExtend.Core.Tests.csproj", "{49DA9B45-E2AD-403F-8937-96C5C3B684EA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MacExtend.App", "src\MacExtend.App\MacExtend.App.csproj", "{786D540F-2800-4F2A-9027-6454AAE92F21}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,18 @@ Global
 		{49DA9B45-E2AD-403F-8937-96C5C3B684EA}.Release|x64.Build.0 = Release|Any CPU
 		{49DA9B45-E2AD-403F-8937-96C5C3B684EA}.Release|x86.ActiveCfg = Release|Any CPU
 		{49DA9B45-E2AD-403F-8937-96C5C3B684EA}.Release|x86.Build.0 = Release|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Debug|x64.Build.0 = Debug|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Debug|x86.Build.0 = Debug|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Release|Any CPU.Build.0 = Release|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Release|x64.ActiveCfg = Release|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Release|x64.Build.0 = Release|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Release|x86.ActiveCfg = Release|Any CPU
+		{786D540F-2800-4F2A-9027-6454AAE92F21}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -52,5 +66,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{D0FE4FA2-9763-4A0E-81A1-4238E2397A2D} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{49DA9B45-E2AD-403F-8937-96C5C3B684EA} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{786D540F-2800-4F2A-9027-6454AAE92F21} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal
