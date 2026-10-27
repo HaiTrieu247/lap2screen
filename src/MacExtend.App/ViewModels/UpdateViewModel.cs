@@ -101,7 +101,11 @@ namespace MacExtend.ViewModels
             }
         }
 
-        /// <summary>Footer line: result of the last check or update, empty when there is nothing to say.</summary>
+        /// <summary>
+        /// Footer line next to "Kiểm tra cập nhật": the result of the last check or update. It also
+        /// reports a found update and the download, because the banner at the top of the settings
+        /// column is scrolled out of view when the user clicked the button at the bottom.
+        /// </summary>
         public string StatusText
         {
             get
@@ -112,10 +116,17 @@ namespace MacExtend.ViewModels
                     case UpdatePhase.Checking: return "Đang kiểm tra cập nhật";
                     case UpdatePhase.UpToDate: return "Bạn đang dùng bản mới nhất.";
                     case UpdatePhase.NoRelease: return "Chưa có bản phát hành nào trên GitHub.";
+                    case UpdatePhase.Available:
+                        return "Có bản mới " + NewVersion + ", tải về khoảng " + Size(_check?.Decision.DownloadBytes ?? 0) + ".";
+                    case UpdatePhase.Downloading:
+                        return "Đang tải bản " + NewVersion + ": " + Math.Floor(_progress).ToString(CultureInfo.InvariantCulture) + "%";
+                    case UpdatePhase.Installing: return "Đang cài bản " + NewVersion + ". MacExtend sẽ tự mở lại.";
                     default: return "";
                 }
             }
         }
+
+        public string InstallButtonText => "Cập nhật lên bản " + NewVersion;
 
         /// <summary>Message after MacExtend was restarted by the updater.</summary>
         public void ShowResultOfLastUpdate(string arg, string version)
@@ -191,7 +202,7 @@ namespace MacExtend.ViewModels
                 var progress = new Progress<double>(fraction =>
                 {
                     _progress = fraction * 100;
-                    Raise(nameof(Progress), nameof(BannerDetail));
+                    Raise(nameof(Progress), nameof(BannerDetail), nameof(StatusText));
                 });
                 var staging = await UpdateService.DownloadAsync(_check, progress, CancellationToken.None);
                 SetPhase(UpdatePhase.Installing);
@@ -216,7 +227,7 @@ namespace MacExtend.ViewModels
         }
 
         private void RaiseAll() => Raise(nameof(ShowBanner), nameof(ShowInstallButton), nameof(ShowProgress), nameof(Progress),
-                                         nameof(BannerTitle), nameof(BannerDetail), nameof(StatusText));
+                                         nameof(BannerTitle), nameof(BannerDetail), nameof(StatusText), nameof(InstallButtonText));
 
         private static bool IsExpected(Exception e) =>
             e is HttpRequestException || e is TaskCanceledException || e is InvalidDataException ||
