@@ -1,0 +1,129 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime:
+    name: uxplay runtime (MSYS2 UCRT64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-openssl
+            mingw-w64-ucrt-x86_64-libplist
+            mingw-w64-ucrt-x86_64-gstreamer
+            mingw-w64-ucrt-x86_64-gst-plugins-base
+            mingw-w64-ucrt-x86_64-gst-plugins-good
+            mingw-w64-ucrt-x86_64-gst-plugins-bad
+            mingw-w64-ucrt-x86_64-gst-libav
+
+      - name: Build uxplay
+        run: bash native/build-uxplay.sh
+
+      - name: Bundle uxplay with its GStreamer plugins and DLLs
+        run: bash native/bundle-runtime.sh
+
+      - name: Verify the bundle runs without MSYS2
+        shell: pwsh
+        run: ./native/verify-bundle.ps1 -Bundle dist/uxplay
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uxplay-runtime
+          path: dist/uxplay
+          if-no-files-found: error
+
+  app:
+    name: MacExtend app, tests and packages
+    needs: runtime
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          $v = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { "1.0.0-dev.$env:GITHUB_RUN_NUMBER" }
+          "value=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Unit tests
+        run: dotnet test tests/MacExtend.Core.Tests -c Release
+
+      - name: Build app
+        run: dotnet build src/MacExtend.App -c Release -o build/MacExtend -p:Version=${{ steps.version.outputs.value }} -p:DebugType=none
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: uxplay-runtime
+          path: build/MacExtend/uxplay
+
+      - name: Portable zip
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE, README.md build/MacExtend/
+          New-Item -ItemType Directory -Force dist | Out-Null
+          7z a -tzip "dist/MacExtend-${{ steps.version.outputs.value }}-portable.zip" ./build/MacExtend | Out-Null
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DAppVersion=${{ steps.version.outputs.value }}" "/DSourceDir=$PWD\build\MacExtend" "/O$PWD\dist" installer\MacExtend.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MacExtend-${{ steps.version.outputs.value }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: MacExtend-*
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
