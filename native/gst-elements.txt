@@ -1,0 +1,39 @@
+# GStreamer elements the bundled uxplay needs (see renderers/*.c in UxPlay).
+# Format: element[@plugin]
+#   leading "?"  optional: a warning instead of a failure when missing
+#   "@plugin"    plugin that provides it; used when the element is only registered
+#                on machines with a GPU (CI runners have none), so the plugin DLL is
+#                still bundled and checked for loading.
+
+# pipeline plumbing
+appsrc
+queue
+typefind
+fakesink
+
+# video: parse, decode (hardware via d3d11 when available, else libav), convert, show
+h264parse
+h265parse
+decodebin
+avdec_h264
+avdec_h265
+?d3d11h264dec@d3d11
+?d3d11h265dec@d3d11
+videoconvert
+videoscale
+videoflip
+autovideosink
+d3d11videosink@d3d11
+?d3d12videosink@d3d12
+
+# audio: AAC-ELD (mirroring) and ALAC, output through WASAPI
+avdec_aac
+avdec_alac
+audioconvert
+audioresample
+volume
+level
+autoaudiosink
+wasapisink
+?wasapi2sink@wasapi2
+?directsoundsink
