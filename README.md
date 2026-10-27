@@ -36,6 +36,14 @@ File chưa được ký số, nên Windows SmartScreen có thể cảnh báo. B�
 
 Đóng cửa sổ MacExtend không tắt bộ nhận; app vẫn chạy ở khay hệ thống. Muốn thoát hẳn, chuột phải vào biểu tượng ở khay và chọn **Thoát MacExtend**.
 
+## Cập nhật
+
+MacExtend tự kiểm tra bản mới trên GitHub: 1 phút sau khi mở, sau đó mỗi 6 giờ. Muốn kiểm tra ngay, bấm **Kiểm tra cập nhật** ở cuối cửa sổ. Khi có bản mới, thanh thông báo hiện ra cùng dung lượng cần tải. Bấm **Cập nhật** thì MacExtend tải bản vá, đóng lại, chép file mới và tự mở lại. Bản cài trong Program Files sẽ có một hộp thoại UAC hỏi quyền quản trị. Không cần gỡ bản cũ.
+
+- Bản vá gồm phần app, khoảng 1 MB. Phần uxplay và GStreamer (vài chục MB) chỉ được tải khi chính phần đó thay đổi.
+- Tải hỏng hoặc sai mã SHA-256 thì bản đang dùng không bị đụng tới. Nếu chép file lỗi giữa chừng, các file cũ được khôi phục.
+- Nhật ký cập nhật nằm ở `%LOCALAPPDATA%\MacExtend\logs\update.log`.
+
 ## Cài đặt trong app
 
 | Mục | Ý nghĩa |
@@ -81,7 +89,8 @@ Repo có sẵn workflow `.github/workflows/build.yml` chạy trên máy Windows 
 1. Push repo lên GitHub.
 2. Workflow tự chạy với mỗi lần push vào `main`, hoặc chạy tay ở tab **Actions**, chọn **build**, rồi **Run workflow**.
 3. Khi xong, tải artifact `MacExtend-<phiên bản>`. Artifact chứa file `.zip` portable và bộ cài `.exe`.
-4. Đẩy một tag dạng `v1.0.0` (`git tag v1.0.0 && git push origin v1.0.0`) để workflow tạo luôn một GitHub Release kèm hai file đó.
+4. Mỗi lần push vào `main`, workflow tự tạo một GitHub Release `v<phiên bản>`. Release gồm bộ cài, bản portable và các gói cập nhật (`update.ini`, `MacExtend-x.y.z-app.zip`, `MacExtend-x.y.z-runtime.zip`). App trên máy sẽ tìm thấy bản mới qua các gói này.
+5. Phiên bản là `<version.txt>.<số thứ tự lần build>`, ví dụ `1.0.57`. Muốn lên `1.1.x` thì sửa `version.txt`. Đẩy tag `vX.Y.Z` cũng tạo release đúng phiên bản `X.Y.Z`. Sau đó hãy nâng `version.txt` cao hơn, để các bản build tiếp theo vẫn được coi là mới hơn.
 
 Workflow gồm ba bước:
 - `runtime`: build `uxplay.exe` trong MSYS2 UCRT64 từ commit UxPlay được khóa trong `native/uxplay.ref`. Sau đó gom các plugin GStreamer và DLL cần thiết, rồi kiểm tra bản gom chạy được trên Windows sạch, không có MSYS2.

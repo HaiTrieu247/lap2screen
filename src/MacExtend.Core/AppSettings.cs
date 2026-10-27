@@ -29,6 +29,8 @@ namespace MacExtend.Core
         /// <summary>Fixed 4-digit PIN. Empty means "not generated yet".</summary>
         public string Pin { get; set; } = "";
         public bool StartWithWindows { get; set; }
+        /// <summary>Look for a newer release on GitHub shortly after start and every few hours.</summary>
+        public bool AutoCheckUpdates { get; set; } = true;
 
         public AppSettings Clone() => (AppSettings)MemberwiseClone();
 

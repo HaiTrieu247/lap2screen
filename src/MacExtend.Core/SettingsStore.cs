@@ -37,6 +37,7 @@ namespace MacExtend.Core
             Line(sb, "PinEnabled", Bool(s.PinEnabled));
             Line(sb, "Pin", s.Pin);
             Line(sb, "StartWithWindows", Bool(s.StartWithWindows));
+            Line(sb, "AutoCheckUpdates", Bool(s.AutoCheckUpdates));
             return sb.ToString();
         }
 
@@ -102,6 +103,7 @@ namespace MacExtend.Core
                 case "pinenabled": if (TryBool(value, out var pinOn)) s.PinEnabled = pinOn; break;
                 case "pin": s.Pin = value; break;
                 case "startwithwindows": if (TryBool(value, out var auto)) s.StartWithWindows = auto; break;
+                case "autocheckupdates": if (TryBool(value, out var check)) s.AutoCheckUpdates = check; break;
             }
         }
 

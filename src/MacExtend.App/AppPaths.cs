@@ -14,6 +14,8 @@ namespace MacExtend
         public static string PluginDir => Path.Combine(UxPlayRoot, "lib", "gstreamer-1.0");
         public static string PluginScanner => Path.Combine(UxPlayRoot, "libexec", "gstreamer-1.0", "gst-plugin-scanner.exe");
         public static string UxPlayVersionFile => Path.Combine(UxPlayRoot, "VERSION.txt");
+        /// <summary>Fingerprint of the bundled uxplay/GStreamer build, compared with update.ini's runtime.id.</summary>
+        public static string RuntimeIdFile => Path.Combine(UxPlayRoot, "RUNTIME_ID");
 
         /// <summary>Roaming: settings and the pairing identity that the Mac remembers.</summary>
         public static string DataDir =>
@@ -29,6 +31,8 @@ namespace MacExtend
         public static string LogDir => Path.Combine(LocalDir, "logs");
         public static string LogFile => Path.Combine(LogDir, "uxplay.log");
         public static string GstRegistry => Path.Combine(LocalDir, "gst-registry.bin");
+        public static string UpdatesDir => Path.Combine(LocalDir, "updates");
+        public static string UpdateLog => Path.Combine(LogDir, "update.log");
 
         public static void EnsureDirectories()
         {

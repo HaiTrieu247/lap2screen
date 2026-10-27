@@ -21,8 +21,20 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- GitHub repository the updater reads releases from; CI passes github.repository -->
+    <UpdateRepository Condition="'$(UpdateRepository)' == ''">HaiTrieu247/lap2screen</UpdateRepository>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="UpdateRepository" Value="$(UpdateRepository)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\MacExtend.Core\MacExtend.Core.csproj" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>
 
   <ItemGroup>

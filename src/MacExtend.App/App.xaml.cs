@@ -32,6 +32,13 @@ namespace MacExtend
         {
             base.OnStartup(e);
 
+            // a copy of this exe in %TEMP% applying an update: no UI, no receiver
+            if (UpdateHelper.TryRun(e.Args, out var helperExit))
+            {
+                Shutdown(helperExit);
+                return;
+            }
+
             _singleInstance = new Mutex(true, InstanceName, out var first);
             _showRequest = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
             if (!first)
@@ -62,15 +69,27 @@ namespace MacExtend
 
             _settings = new SettingsService(AppPaths.SettingsFile);
             _controller = new ReceiverController(() => _settings.Current, Dispatcher);
-            _vm = new MainViewModel(_controller, _settings);
+            _vm = new MainViewModel(_controller, _settings, ExitForUpdate);
             _vm.SyncAutoStart();
             _controller.RefreshPreview();
 
             _tray = new TrayIcon(_controller, ShowMainWindow, ExitApp);
+            _vm.Update.NewVersionFound += version => _tray?.ShowUpdate(version, () =>
+            {
+                ShowMainWindow();
+                if (_vm.Update.InstallCommand.CanExecute(null)) _vm.Update.InstallCommand.Execute(null);
+            });
+            var afterUpdate = UpdateResultArg(e.Args);
             _showWait = ThreadPool.RegisterWaitForSingleObject(_showRequest,
                 (_, __) => Dispatcher.BeginInvoke(new Action(ShowMainWindow)), null, Timeout.Infinite, false);
 
-            if (!e.Args.Contains("--background", StringComparer.OrdinalIgnoreCase)) ShowMainWindow();
+            if (afterUpdate != null)
+            {
+                UpdateService.CleanupStaging();
+                Core.Updates.UpdateApplier.CleanupLeftovers(AppPaths.InstallDir);
+                _vm.Update.ShowResultOfLastUpdate(afterUpdate, e.Args.Length > 1 ? e.Args[1] : "");
+            }
+            if (afterUpdate != null || !e.Args.Contains("--background", StringComparer.OrdinalIgnoreCase)) ShowMainWindow();
             _controller.Start();
         }
 
@@ -126,6 +145,29 @@ namespace MacExtend
             {
                 // nowhere left to report to
             }
+        }
+
+        private static string UpdateResultArg(string[] args)
+        {
+            if (args.Length == 0) return null;
+            var first = args[0];
+            return first == UpdateHelper.AfterUpdateArg || first == UpdateHelper.CancelledArg || first == UpdateHelper.FailedArg ? first : null;
+        }
+
+        /// <summary>The update is downloaded: hand over to the helper and get out of its way.</summary>
+        private void ExitForUpdate(string stagingDir)
+        {
+            try
+            {
+                UpdateHelper.Launch(stagingDir);
+            }
+            catch (Exception error) when (error is System.ComponentModel.Win32Exception || error is System.IO.IOException ||
+                                          error is UnauthorizedAccessException)
+            {
+                _vm.Update.ReportLaunchFailure(error.Message);
+                return;
+            }
+            ExitApp();
         }
 
         private void ShowMainWindow()

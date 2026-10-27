@@ -26,6 +26,7 @@ namespace MacExtend.ViewModels
             nameof(DeviceNameInput), nameof(IsAutoResolution), nameof(IsCustomResolution), nameof(CustomWidthText),
             nameof(CustomHeightText), nameof(CustomRefreshText), nameof(CustomH265), nameof(IsFps30), nameof(IsFps60),
             nameof(AudioEnabled), nameof(PinEnabled), nameof(Pin), nameof(PinDisplay), nameof(StartWithWindows),
+            nameof(AutoCheckUpdates),
         };
         private static readonly string[] StatusNames =
         {
@@ -45,13 +46,16 @@ namespace MacExtend.ViewModels
         private bool _checking;
         private bool _fixing;
 
-        public MainViewModel(ReceiverController controller, SettingsService settings)
+        public MainViewModel(ReceiverController controller, SettingsService settings, Action<string> exitForUpdate)
         {
             _controller = controller;
             _settings = settings;
+            Update = new UpdateViewModel(() => _settings.Current.AutoCheckUpdates,
+                                         () => _controller.Phase == ReceiverPhase.Connected, exitForUpdate);
             _controller.StateChanged += () =>
             {
                 Raise(StatusNames);
+                Update.Refresh();
                 // state changes without user input do not re-query commands on their own
                 CommandManager.InvalidateRequerySuggested();
             };
@@ -59,7 +63,7 @@ namespace MacExtend.ViewModels
             StartCommand = new RelayCommand(() => _controller.Start(), () => CanStart);
             StopCommand = new RelayCommand(() => _controller.StopAsync(), () => IsActive);
             RestartCommand = new RelayCommand(() => _controller.RestartAsync(), () => IsActive || CanStart);
-            NewPinCommand = new RelayCommand(() => Update(s => s.Pin = Core.Pin.Generate(Rng)), () => PinEnabled);
+            NewPinCommand = new RelayCommand(() => Change(s => s.Pin = Core.Pin.Generate(Rng)), () => PinEnabled);
             ForgetMacsCommand = new RelayCommand(ForgetMacs);
             FixFirewallCommand = new RelayCommand(() => _ = FixFirewallAsync(), () => FirewallState != CheckState.Ok && !_fixing);
             MakePrivateCommand = new RelayCommand(() => _ = MakePrivateAsync(), () => _publicNetwork != null && !_fixing);
@@ -76,6 +80,8 @@ namespace MacExtend.ViewModels
         public ICommand FixFirewallCommand { get; }
         public ICommand MakePrivateCommand { get; }
         public ICommand OpenLogsCommand { get; }
+
+        public UpdateViewModel Update { get; }
 
         // ---- receiver status ----------------------------------------------------------------
 
@@ -138,7 +144,7 @@ namespace MacExtend.ViewModels
         public string DeviceNameInput
         {
             get => _settings.Current.DeviceName;
-            set => Update(s => s.DeviceName = value ?? "");
+            set => Change(s => s.DeviceName = value ?? "");
         }
 
         public string DeviceNamePlaceholder => DeviceName.DefaultFor(Environment.MachineName);
@@ -146,13 +152,13 @@ namespace MacExtend.ViewModels
         public bool IsAutoResolution
         {
             get => _settings.Current.ResolutionMode == ResolutionMode.Auto;
-            set { if (value) Update(s => s.ResolutionMode = ResolutionMode.Auto); }
+            set { if (value) Change(s => s.ResolutionMode = ResolutionMode.Auto); }
         }
 
         public bool IsCustomResolution
         {
             get => _settings.Current.ResolutionMode == ResolutionMode.Custom;
-            set { if (value) Update(s => s.ResolutionMode = ResolutionMode.Custom); }
+            set { if (value) Change(s => s.ResolutionMode = ResolutionMode.Custom); }
         }
 
         public string CustomWidthText
@@ -176,31 +182,31 @@ namespace MacExtend.ViewModels
         public bool CustomH265
         {
             get => _settings.Current.CustomH265;
-            set => Update(s => s.CustomH265 = value);
+            set => Change(s => s.CustomH265 = value);
         }
 
         public bool IsFps30
         {
             get => _settings.Current.Fps == 30;
-            set { if (value) Update(s => s.Fps = 30); }
+            set { if (value) Change(s => s.Fps = 30); }
         }
 
         public bool IsFps60
         {
             get => _settings.Current.Fps == 60;
-            set { if (value) Update(s => s.Fps = 60); }
+            set { if (value) Change(s => s.Fps = 60); }
         }
 
         public bool AudioEnabled
         {
             get => _settings.Current.AudioEnabled;
-            set => Update(s => s.AudioEnabled = value);
+            set => Change(s => s.AudioEnabled = value);
         }
 
         public bool PinEnabled
         {
             get => _settings.Current.PinEnabled;
-            set => Update(s => s.PinEnabled = value);
+            set => Change(s => s.PinEnabled = value);
         }
 
         public string Pin => _settings.Current.Pin;
@@ -223,8 +229,14 @@ namespace MacExtend.ViewModels
                     Raise(nameof(StartWithWindows));
                     return;
                 }
-                Update(s => s.StartWithWindows = value);
+                Change(s => s.StartWithWindows = value);
             }
+        }
+
+        public bool AutoCheckUpdates
+        {
+            get => _settings.Current.AutoCheckUpdates;
+            set => Change(s => s.AutoCheckUpdates = value);
         }
 
         /// <summary>Re-applies the start-with-Windows entry, for example after the app moved to another folder.</summary>
@@ -389,7 +401,7 @@ namespace MacExtend.ViewModels
 
         // ---- helpers -------------------------------------------------------------------------
 
-        private void Update(Action<AppSettings> change)
+        private void Change(Action<AppSettings> change)
         {
             change(_settings.Current);
             _settings.Current.Clamp();
@@ -401,7 +413,7 @@ namespace MacExtend.ViewModels
 
         private void UpdateNumber(string text, Action<AppSettings, int> apply)
         {
-            if (int.TryParse((text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)) Update(s => apply(s, n));
+            if (int.TryParse((text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)) Change(s => apply(s, n));
             else Raise(SettingNames); // put the last valid value back into the box
         }
 

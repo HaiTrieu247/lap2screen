@@ -107,5 +107,14 @@ commit=$(sed -n 's/^COMMIT=//p' "$here/uxplay.ref" | tr -d '\r')
 gst_version="$({ gst-inspect-1.0 --version || true; } | tr -d '\r' | sed -n 's/^GStreamer \(.*\)/\1/p' | sed -n '1p')"
 printf 'UxPlay %s (%s)\nGStreamer %s\n' "${uxplay_version:-unknown}" "${commit:0:7}" "${gst_version:-unknown}" > "$out/VERSION.txt"
 
+# Fingerprint of what went into the runtime. Rebuilt binaries differ byte for byte (timestamps),
+# so the updater compares this instead: same inputs means the installed runtime can stay.
+sha256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; }
+runtime_id="$({
+  cat "$here/uxplay.ref" "$here/gst-elements.txt" "$here/build-uxplay.sh" "$here/bundle-runtime.sh"
+  { pacman -Q 2>/dev/null || true; } | { grep '^mingw-w64-' || true; }
+} | tr -d '\r' | sha256 | cut -d' ' -f1)"
+printf '%s\n' "$runtime_id" > "$out/RUNTIME_ID"
+
 echo "bundled $(find "$out" -type f | wc -l | tr -d ' ') files, $(du -sh "$out" | cut -f1) into $out"
 cat "$out/VERSION.txt"

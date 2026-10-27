@@ -18,6 +18,7 @@ public class SettingsStoreTests
         PinEnabled = false,
         Pin = "4821",
         StartWithWindows = true,
+        AutoCheckUpdates = false,
     };
 
     private static void AssertSame(AppSettings expected, AppSettings actual)
@@ -33,6 +34,7 @@ public class SettingsStoreTests
         Assert.Equal(expected.PinEnabled, actual.PinEnabled);
         Assert.Equal(expected.Pin, actual.Pin);
         Assert.Equal(expected.StartWithWindows, actual.StartWithWindows);
+        Assert.Equal(expected.AutoCheckUpdates, actual.AutoCheckUpdates);
     }
 
     [Fact]
@@ -117,5 +119,11 @@ public class SettingsStoreTests
 
         Assert.Equal(30, original.Fps);
         Assert.Equal("Phong khach = TV 2", original.DeviceName);
+    }
+
+    [Fact]
+    public void UpdatesAreCheckedByDefault()
+    {
+        Assert.True(SettingsStore.Parse("").AutoCheckUpdates);
     }
 }

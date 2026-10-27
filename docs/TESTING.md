@@ -26,3 +26,15 @@ Chuẩn bị: cài bản mới bằng `MacExtend-x.y.z-setup.exe`. Hai máy dùn
 | T18 | Mở app lần hai | Khi app đang chạy, mở lại từ Start | Cửa sổ đang có hiện lên, không có bộ nhận thứ hai | |
 | T19 | Bản portable | Giải nén zip vào thư mục có dấu, ví dụ `C:\Users\Thịnh\Tải về\MacExtend`, rồi chạy | Chạy bình thường; T1 đến T3 đạt | |
 | T20 | MacExtend bị tắt đột ngột | Khi đang là màn hình phụ, dùng Task Manager kết thúc `MacExtend.exe` | `uxplay.exe` cũng biến mất ngay; Mac mất màn phụ trong khoảng 10 giây; mở lại MacExtend thì chỉ có một bộ nhận | |
+
+## Cập nhật
+
+| # | Kiểm tra | Cách làm | Mong đợi | Kết quả |
+|---|---|---|---|---|
+| U1 | Không có mạng | Ngắt Wi-Fi, bấm Kiểm tra cập nhật | Chân trang báo "Không kiểm tra được cập nhật: không kết nối được GitHub."; app vẫn chạy bình thường | |
+| U2 | Có bản mới | Cài bản N, push một commit để CI tạo bản N+1, bấm Kiểm tra cập nhật | Thanh "Có bản mới N+1" với dung lượng khoảng 1 MB; khay hệ thống báo một lần | |
+| U3 | Cập nhật Program Files | Bấm Cập nhật, chọn Yes ở UAC | App đóng, mở lại và báo "Đã cập nhật lên bản N+1"; Installed apps của Windows hiện N+1 | |
+| U4 | Hủy UAC | Bấm Cập nhật, chọn No ở UAC | App mở lại bản N, báo "Cập nhật đã bị hủy" | |
+| U5 | Runtime đổi | Làm một bản CI có gói MSYS2 khác (hoặc sửa gst-elements.txt), cập nhật | Dung lượng tải gồm cả runtime (vài chục MB); sau cập nhật Mac vẫn kết nối được | |
+| U6 | Bản portable | Giải nén zip vào thư mục người dùng, cập nhật | Không có hộp thoại UAC; app mở lại ở bản mới | |
+

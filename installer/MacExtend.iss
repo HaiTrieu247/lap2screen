@@ -63,6 +63,12 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-NetFirewallRule -DisplayName '{#FirewallRule}' -ErrorAction SilentlyContinue | Remove-NetFirewallRule"""; \
   Flags: runhidden waituntilterminated; RunOnceId: "RemoveFirewallRule"
 
+[UninstallDelete]
+; files the in-app updater added after installation are not in the installer's own list
+Type: filesandordirs; Name: "{app}\uxplay"
+Type: filesandordirs; Name: "{app}\uxplay.old"
+Type: files; Name: "{app}\*.old"
+
 [Registry]
 ; the app writes its own start-with-Windows entry per user; remove it on uninstall for the installing user
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "MacExtend"; Flags: uninsdeletevalue dontcreatekey

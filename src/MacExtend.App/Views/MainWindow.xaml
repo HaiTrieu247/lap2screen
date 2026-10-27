@@ -163,6 +163,25 @@
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Focusable="False">
                 <StackPanel Margin="4,8,28,28">
 
+                    <!-- a newer release is on GitHub -->
+                    <Border CornerRadius="10" Padding="16,12" Margin="0,0,0,16" BorderThickness="1"
+                            Background="{DynamicResource Accent.Soft}" BorderBrush="{DynamicResource Accent}"
+                            Visibility="{Binding Update.ShowBanner, Converter={StaticResource Visible}}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Cập nhật" Style="{StaticResource Button.Primary}"
+                                    Command="{Binding Update.InstallCommand}" Padding="14,6" Margin="12,0,0,0" VerticalAlignment="Center"
+                                    Visibility="{Binding Update.ShowInstallButton, Converter={StaticResource Visible}}" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Update.BannerTitle}" Style="{StaticResource Text.Label}"
+                                           Foreground="{DynamicResource Accent.SoftText}" />
+                                <TextBlock Text="{Binding Update.BannerDetail}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                <ProgressBar Style="{StaticResource ThinProgress}" Maximum="100" Margin="0,8,0,0"
+                                             Value="{Binding Update.Progress, Mode=OneWay}"
+                                             Visibility="{Binding Update.ShowProgress, Converter={StaticResource Visible}}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
                     <Border CornerRadius="10" Padding="16,12" Margin="0,0,0,16" BorderThickness="1"
                             Background="{DynamicResource Notice.Background}" BorderBrush="{DynamicResource Notice.Border}"
                             Visibility="{Binding NeedsRestart, Converter={StaticResource Visible}}">
@@ -363,6 +382,18 @@
                             <Border Style="{StaticResource Hairline}" />
                             <Grid Style="{StaticResource Row}">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Tự kiểm tra cập nhật" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Xem GitHub có bản mới khi mở app và mỗi 6 giờ. Chỉ cài khi bạn bấm Cập nhật." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AutoCheckUpdates}" />
+                            </Grid>
+                            <Border Style="{StaticResource Hairline}" />
+                            <Grid Style="{StaticResource Row}">
+                                <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
@@ -442,8 +473,23 @@
                     <DockPanel Margin="4,18,0,0">
                         <Button DockPanel.Dock="Right" Content="Mở thư mục nhật ký" Style="{StaticResource Button.Subtle}"
                                 Command="{Binding OpenLogsCommand}" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding VersionText}" Style="{StaticResource Text.Caption}"
-                                   Foreground="{DynamicResource Text.Tertiary}" VerticalAlignment="Center" />
+                        <Button DockPanel.Dock="Right" Content="Kiểm tra cập nhật" Style="{StaticResource Button.Subtle}"
+                                Command="{Binding Update.CheckCommand}" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding VersionText}" Style="{StaticResource Text.Caption}"
+                                       Foreground="{DynamicResource Text.Tertiary}" />
+                            <TextBlock Text="{Binding Update.StatusText}" Margin="0,2,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+                                        <Style.Triggers>
+                                            <Trigger Property="Text" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
                     </DockPanel>
                 </StackPanel>
             </ScrollViewer>

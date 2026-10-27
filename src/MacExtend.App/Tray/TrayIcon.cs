@@ -16,6 +16,8 @@ namespace MacExtend.Tray
         private readonly ToolStripMenuItem _status;
         private readonly ToolStripMenuItem _toggle;
         private readonly ToolStripMenuItem _restart;
+        private readonly ToolStripMenuItem _update;
+        private Action _installUpdate;
         private bool _hintShown;
         private Icon _current;
 
@@ -29,11 +31,12 @@ namespace MacExtend.Tray
             _toggle = new ToolStripMenuItem("", null, (_, __) => Toggle());
             _restart = new ToolStripMenuItem("Khởi động lại bộ nhận", null, (_, __) => _controller.RestartAsync());
             var exitItem = new ToolStripMenuItem("Thoát MacExtend", null, (_, __) => exit());
+            _update = new ToolStripMenuItem("", null, (_, __) => _installUpdate?.Invoke()) { Visible = false };
 
             _menu = new ContextMenuStrip { ShowImageMargin = false, Padding = new Padding(0, 4, 0, 4) };
             _menu.Items.AddRange(new ToolStripItem[]
             {
-                _status, new ToolStripSeparator(), openItem, _toggle, _restart, new ToolStripSeparator(), exitItem,
+                _status, new ToolStripSeparator(), openItem, _toggle, _restart, _update, new ToolStripSeparator(), exitItem,
             });
             foreach (ToolStripItem item in _menu.Items)
             {
@@ -58,6 +61,16 @@ namespace MacExtend.Tray
             _hintShown = true;
             _icon.ShowBalloonTip(4000, "MacExtend vẫn đang chạy",
                 "Mac vẫn thấy máy này. Chuột phải vào biểu tượng ở khay hệ thống để thoát.", ToolTipIcon.None);
+        }
+
+        /// <summary>A newer release exists: offer it in the menu and say so once.</summary>
+        public void ShowUpdate(string version, Action install)
+        {
+            _installUpdate = install;
+            _update.Text = "Cập nhật lên bản " + version;
+            _update.Visible = true;
+            _icon.ShowBalloonTip(5000, "Có bản MacExtend " + version,
+                "Mở MacExtend và bấm Cập nhật. Không cần gỡ bản cũ.", ToolTipIcon.None);
         }
 
         public void Dispose()
