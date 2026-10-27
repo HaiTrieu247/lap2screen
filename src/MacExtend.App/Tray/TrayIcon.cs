@@ -17,11 +17,13 @@ namespace MacExtend.Tray
         private readonly ToolStripMenuItem _toggle;
         private readonly ToolStripMenuItem _restart;
         private readonly ToolStripMenuItem _update;
+        private readonly ToolStripMenuItem _showMac;
         private Action _installUpdate;
         private bool _hintShown;
         private Icon _current;
 
-        public TrayIcon(ReceiverController controller, Action open, Action exit)
+        /// <param name="showMac">Brings the Mac display back to the front; offered while a Mac is connected.</param>
+        public TrayIcon(ReceiverController controller, Action open, Action exit, Func<bool> macDisplayOpen, Action showMac)
         {
             _controller = controller;
 
@@ -32,11 +34,12 @@ namespace MacExtend.Tray
             _restart = new ToolStripMenuItem("Khởi động lại bộ nhận", null, (_, __) => _controller.RestartAsync());
             var exitItem = new ToolStripMenuItem("Thoát MacExtend", null, (_, __) => exit());
             _update = new ToolStripMenuItem("", null, (_, __) => _installUpdate?.Invoke()) { Visible = false };
+            _showMac = new ToolStripMenuItem("Hiện màn hình Mac", null, (_, __) => showMac()) { Visible = false };
 
             _menu = new ContextMenuStrip { ShowImageMargin = false, Padding = new Padding(0, 4, 0, 4) };
             _menu.Items.AddRange(new ToolStripItem[]
             {
-                _status, new ToolStripSeparator(), openItem, _toggle, _restart, _update, new ToolStripSeparator(), exitItem,
+                _status, new ToolStripSeparator(), _showMac, openItem, _toggle, _restart, _update, new ToolStripSeparator(), exitItem,
             });
             foreach (ToolStripItem item in _menu.Items)
             {
@@ -46,7 +49,10 @@ namespace MacExtend.Tray
             _icon = new NotifyIcon { ContextMenuStrip = _menu, Visible = true };
             _icon.MouseClick += (_, e) =>
             {
-                if (e.Button == MouseButtons.Left) open();
+                if (e.Button != MouseButtons.Left) return;
+                // while the Mac is streaming, a click on the icon returns to its display
+                if (macDisplayOpen()) showMac();
+                else open();
             };
 
             _controller.StateChanged += Update;
@@ -128,6 +134,7 @@ namespace MacExtend.Tray
             _status.Text = text;
             _toggle.Text = phase == ReceiverPhase.Stopped || phase == ReceiverPhase.Failed ? "Bắt đầu" : "Dừng";
             _restart.Visible = phase != ReceiverPhase.Stopped;
+            _showMac.Visible = phase == ReceiverPhase.Connected;
             _menu.Renderer = new ModernMenuRenderer(!WindowsTheme.SystemUsesLightTheme);
         }
 

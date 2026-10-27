@@ -26,7 +26,7 @@ namespace MacExtend.ViewModels
             nameof(DeviceNameInput), nameof(IsAutoResolution), nameof(IsCustomResolution), nameof(CustomWidthText),
             nameof(CustomHeightText), nameof(CustomRefreshText), nameof(CustomH265), nameof(IsFps30), nameof(IsFps60),
             nameof(AudioEnabled), nameof(PinEnabled), nameof(Pin), nameof(PinDisplay), nameof(StartWithWindows),
-            nameof(AutoCheckUpdates),
+            nameof(AutoCheckUpdates), nameof(FocusOnConnect), nameof(HideCursor),
         };
         private static readonly string[] StatusNames =
         {
@@ -231,6 +231,18 @@ namespace MacExtend.ViewModels
                 }
                 Change(s => s.StartWithWindows = value);
             }
+        }
+
+        public bool FocusOnConnect
+        {
+            get => _settings.Current.FocusOnConnect;
+            set => Change(s => s.FocusOnConnect = value);
+        }
+
+        public bool HideCursor
+        {
+            get => _settings.Current.HideCursor;
+            set => Change(s => s.HideCursor = value);
         }
 
         public bool AutoCheckUpdates

@@ -25,6 +25,7 @@ namespace MacExtend
         private MainViewModel _vm;
         private MainWindow _window;
         private TrayIcon _tray;
+        private AirPlayPresenter _presenter;
         private bool _exiting;
         private bool _crashing;
 
@@ -73,7 +74,12 @@ namespace MacExtend
             _vm.SyncAutoStart();
             _controller.RefreshPreview();
 
-            _tray = new TrayIcon(_controller, ShowMainWindow, ExitApp);
+            _presenter = new AirPlayPresenter(_controller, () => _settings.Current, Dispatcher);
+            _vm.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(MainViewModel.HideCursor)) _presenter.SettingsChanged();
+            };
+            _tray = new TrayIcon(_controller, ShowMainWindow, ExitApp, () => _presenter.HasVideoWindow, () => _presenter.ShowAirPlay());
             _vm.Update.NewVersionFound += version => _tray?.ShowUpdate(version, () =>
             {
                 ShowMainWindow();
@@ -189,6 +195,7 @@ namespace MacExtend
             _window?.CloseForExit();
             _tray.Dispose();
             _tray = null;
+            _presenter?.Dispose();
             await _controller.StopAsync();
             Shutdown();
         }

@@ -31,6 +31,10 @@ namespace MacExtend.Core
         public bool StartWithWindows { get; set; }
         /// <summary>Look for a newer release on GitHub shortly after start and every few hours.</summary>
         public bool AutoCheckUpdates { get; set; } = true;
+        /// <summary>Bring the full-screen Mac display to the front as soon as the Mac starts using it.</summary>
+        public bool FocusOnConnect { get; set; } = true;
+        /// <summary>Hide the Windows mouse pointer while the Mac display is in front.</summary>
+        public bool HideCursor { get; set; } = true;
 
         public AppSettings Clone() => (AppSettings)MemberwiseClone();
 

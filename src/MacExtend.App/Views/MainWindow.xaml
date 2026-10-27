@@ -303,6 +303,31 @@
                                 </Border>
                             </Grid>
 
+                            <Border Style="{StaticResource Hairline}" />
+                            <Grid Style="{StaticResource Row}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Tự chuyển sang màn hình Mac khi kết nối" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Màn hình Mac hiện lên trước mọi cửa sổ ngay khi Mac bắt đầu dùng. Alt+Tab để quay về Windows, bấm biểu tượng ở khay để quay lại." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding FocusOnConnect}" />
+                            </Grid>
+                            <Border Style="{StaticResource Hairline}" />
+                            <Grid Style="{StaticResource Row}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Ẩn con trỏ chuột Windows" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Chỉ ẩn khi đang xem màn hình Mac. Phím tắt Windows và phím Fn vẫn hoạt động." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding HideCursor}" />
+                            </Grid>
+
                             <Border Style="{StaticResource Hairline}" Margin="0,6,0,0" />
 
                             <!-- sound -->

@@ -58,6 +58,8 @@ namespace MacExtend.Services
         }
 
         public ReceiverPhase Phase { get; private set; } = ReceiverPhase.Stopped;
+        /// <summary>uxplay's process id while it runs, 0 otherwise.</summary>
+        public int ProcessId => _host.ProcessId;
         public string ClientName => _tracker.ClientName;
         public string LastError { get; private set; }
         public string EffectiveDeviceName { get; private set; } = "";

@@ -38,6 +38,8 @@ namespace MacExtend.Core
             Line(sb, "Pin", s.Pin);
             Line(sb, "StartWithWindows", Bool(s.StartWithWindows));
             Line(sb, "AutoCheckUpdates", Bool(s.AutoCheckUpdates));
+            Line(sb, "FocusOnConnect", Bool(s.FocusOnConnect));
+            Line(sb, "HideCursor", Bool(s.HideCursor));
             return sb.ToString();
         }
 
@@ -104,6 +106,8 @@ namespace MacExtend.Core
                 case "pin": s.Pin = value; break;
                 case "startwithwindows": if (TryBool(value, out var auto)) s.StartWithWindows = auto; break;
                 case "autocheckupdates": if (TryBool(value, out var check)) s.AutoCheckUpdates = check; break;
+                case "focusonconnect": if (TryBool(value, out var focus)) s.FocusOnConnect = focus; break;
+                case "hidecursor": if (TryBool(value, out var hide)) s.HideCursor = hide; break;
             }
         }
 

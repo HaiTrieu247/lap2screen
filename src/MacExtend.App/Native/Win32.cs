@@ -153,6 +153,125 @@ namespace MacExtend.Native
         public static extern int GetExtendedTcpTable(IntPtr table, ref int size, bool order, int addressFamily,
                                                      int tableClass, int reserved);
 
+        // ---- user32: uxplay's video window, foreground and the cursor shield ----------------
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+
+            public int Width => Right - Left;
+            public int Height => Bottom - Top;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
+        public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+        public delegate void WinEventProc(IntPtr hook, uint eventType, IntPtr hwnd, int idObject, int idChild,
+                                          uint eventThread, uint eventTime);
+
+        public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+        public const uint MONITOR_DEFAULTTONEAREST = 2;
+        public const int GWL_EXSTYLE = -20;
+        public const int WS_EX_TOOLWINDOW = 0x00000080;
+        public const int WS_EX_NOACTIVATE = 0x08000000;
+        public const int SW_RESTORE = 9;
+        public const uint SWP_NOSIZE = 0x0001;
+        public const uint SWP_NOMOVE = 0x0002;
+        public const uint SWP_NOACTIVATE = 0x0010;
+        public const uint SWP_SHOWWINDOW = 0x0040;
+        public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        public static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+        public const byte VK_MENU = 0x12;
+        public const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+        public const uint KEYEVENTF_KEYUP = 0x0002;
+
+        [DllImport("user32.dll")]
+        public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindow(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindowVisible(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsIconic(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool BringWindowToTop(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindow(IntPtr hwnd, int command);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+
+        [DllImport("user32.dll")]
+        public static extern bool AttachThreadInput(uint attach, uint attachTo, bool doAttach);
+
+        [DllImport("kernel32.dll")]
+        public static extern uint GetCurrentThreadId();
+
+        [DllImport("user32.dll")]
+        public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extraInfo);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+        [DllImport("user32.dll")]
+        public static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+        public static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+        public static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
+
+        [DllImport("user32.dll")]
+        public static extern bool GetCursorPos(out POINT point);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetCursorPos(int x, int y);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr module, WinEventProc callback,
+                                                    uint processId, uint threadId, uint flags);
+
+        [DllImport("user32.dll")]
+        public static extern bool UnhookWinEvent(IntPtr hook);
+
         // ---- dwmapi: window frame --------------------------------------------------------
 
         public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;

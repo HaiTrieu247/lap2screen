@@ -44,6 +44,12 @@ MacExtend tự kiểm tra bản mới trên GitHub: 1 phút sau khi mở, sau đ
 - Tải hỏng hoặc sai mã SHA-256 thì bản đang dùng không bị đụng tới. Nếu chép file lỗi giữa chừng, các file cũ được khôi phục.
 - Nhật ký cập nhật nằm ở `%LOCALAPPDATA%\MacExtend\logs\update.log`.
 
+## Khi Mac kết nối
+
+- Ngay khi Mac bắt đầu chiếu, màn hình Mac tự hiện lên trước mọi cửa sổ và con trỏ chuột Windows được ẩn. Cả hai đều tắt được ở mục Hình ảnh.
+- Phím tắt Windows (phím Windows, Alt+Tab, Win+D) và phím Fn (âm lượng, độ sáng) vẫn hoạt động như bình thường.
+- Muốn dùng Windows: Alt+Tab sang ứng dụng khác, con trỏ hiện lại ngay. Muốn quay lại màn hình Mac: Alt+Tab về, hoặc bấm biểu tượng MacExtend ở khay (hay chọn **Hiện màn hình Mac** trong menu của nó).
+
 ## Cài đặt trong app
 
 | Mục | Ý nghĩa |

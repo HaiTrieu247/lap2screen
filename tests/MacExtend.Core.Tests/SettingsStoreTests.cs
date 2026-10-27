@@ -19,6 +19,8 @@ public class SettingsStoreTests
         Pin = "4821",
         StartWithWindows = true,
         AutoCheckUpdates = false,
+        FocusOnConnect = false,
+        HideCursor = false,
     };
 
     private static void AssertSame(AppSettings expected, AppSettings actual)
@@ -35,6 +37,8 @@ public class SettingsStoreTests
         Assert.Equal(expected.Pin, actual.Pin);
         Assert.Equal(expected.StartWithWindows, actual.StartWithWindows);
         Assert.Equal(expected.AutoCheckUpdates, actual.AutoCheckUpdates);
+        Assert.Equal(expected.FocusOnConnect, actual.FocusOnConnect);
+        Assert.Equal(expected.HideCursor, actual.HideCursor);
     }
 
     [Fact]
@@ -125,5 +129,14 @@ public class SettingsStoreTests
     public void UpdatesAreCheckedByDefault()
     {
         Assert.True(SettingsStore.Parse("").AutoCheckUpdates);
+    }
+
+    [Fact]
+    public void AirPlayScreenTakesOverByDefault()
+    {
+        var s = SettingsStore.Parse("");
+
+        Assert.True(s.FocusOnConnect);
+        Assert.True(s.HideCursor);
     }
 }

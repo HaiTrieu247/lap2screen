@@ -26,6 +26,10 @@ Chuẩn bị: cài bản mới bằng `MacExtend-x.y.z-setup.exe`. Hai máy dùn
 | T18 | Mở app lần hai | Khi app đang chạy, mở lại từ Start | Cửa sổ đang có hiện lên, không có bộ nhận thứ hai | |
 | T19 | Bản portable | Giải nén zip vào thư mục có dấu, ví dụ `C:\Users\Thịnh\Tải về\MacExtend`, rồi chạy | Chạy bình thường; T1 đến T3 đạt | |
 | T20 | MacExtend bị tắt đột ngột | Khi đang là màn hình phụ, dùng Task Manager kết thúc `MacExtend.exe` | `uxplay.exe` cũng biến mất ngay; Mac mất màn phụ trong khoảng 10 giây; mở lại MacExtend thì chỉ có một bộ nhận | |
+| T21 | Tự nhảy sang màn Mac | Mở vài cửa sổ khác trên Windows, kết nối từ Mac và chọn Dùng làm màn hình riêng | Màn hình Mac tự hiện lên trước mọi cửa sổ, không cần bấm | |
+| T22 | Ẩn con trỏ | Khi đang xem màn Mac, di chuột Windows | Không thấy con trỏ Windows; phím Fn âm lượng/độ sáng và phím Windows vẫn chạy | |
+| T23 | Quay về Windows | Alt+Tab sang Explorer, rồi bấm biểu tượng MacExtend ở khay | Sau Alt+Tab con trỏ hiện lại và dùng Explorer được; bấm biểu tượng thì màn Mac hiện lại, con trỏ ẩn | |
+| T24 | Tắt các tùy chọn | Tắt "Ẩn con trỏ chuột Windows" khi đang xem màn Mac | Con trỏ hiện lại ngay | |
 
 ## Cập nhật
 
