@@ -40,6 +40,8 @@ namespace MacExtend.Core
             Line(sb, "AutoCheckUpdates", Bool(s.AutoCheckUpdates));
             Line(sb, "FocusOnConnect", Bool(s.FocusOnConnect));
             Line(sb, "HideCursor", Bool(s.HideCursor));
+            Line(sb, "Fullscreen", Bool(s.Fullscreen));
+            Line(sb, "AlwaysOnTop", Bool(s.AlwaysOnTop));
             return sb.ToString();
         }
 
@@ -108,6 +110,8 @@ namespace MacExtend.Core
                 case "autocheckupdates": if (TryBool(value, out var check)) s.AutoCheckUpdates = check; break;
                 case "focusonconnect": if (TryBool(value, out var focus)) s.FocusOnConnect = focus; break;
                 case "hidecursor": if (TryBool(value, out var hide)) s.HideCursor = hide; break;
+                case "fullscreen": if (TryBool(value, out var fullscreen)) s.Fullscreen = fullscreen; break;
+                case "alwaysontop": if (TryBool(value, out var onTop)) s.AlwaysOnTop = onTop; break;
             }
         }
 

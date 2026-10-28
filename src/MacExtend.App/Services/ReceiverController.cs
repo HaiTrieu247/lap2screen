@@ -306,6 +306,8 @@ namespace MacExtend.Services
             _ui.BeginInvoke(new Action(() =>
             {
                 if (e.Kind == LogEventKind.Error) _lastErrorLine = e.Text;
+                // not an error: uxplay keeps running, drops the client and opens a new window for the next session
+                if (e.Kind == LogEventKind.VideoWindowClosed) Log("video window closed by user");
                 if (_tracker.OnLog(e)) OnConnectionChanged();
             }));
         }

@@ -31,10 +31,14 @@ namespace MacExtend.Core
         public bool StartWithWindows { get; set; }
         /// <summary>Look for a newer release on GitHub shortly after start and every few hours.</summary>
         public bool AutoCheckUpdates { get; set; } = true;
-        /// <summary>Bring the full-screen Mac display to the front as soon as the Mac starts using it.</summary>
+        /// <summary>Bring the AirPlay video window to the front as soon as the device starts using it.</summary>
         public bool FocusOnConnect { get; set; } = true;
-        /// <summary>Hide the Windows mouse pointer while the Mac display is in front.</summary>
+        /// <summary>Hide the Windows mouse pointer while the AirPlay video is full screen and in front.</summary>
         public bool HideCursor { get; set; } = true;
+        /// <summary>Open the AirPlay video full screen instead of in a window that can be moved and resized.</summary>
+        public bool Fullscreen { get; set; }
+        /// <summary>Keep the AirPlay video window above other apps while it is a normal or maximized window.</summary>
+        public bool AlwaysOnTop { get; set; }
 
         public AppSettings Clone() => (AppSettings)MemberwiseClone();
 

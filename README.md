@@ -8,7 +8,7 @@ Trên iPhone hoặc iPad, mở **Phản chiếu màn hình** trong Trung tâm đ
 
 MacExtend dùng [UxPlay](https://github.com/FDH2/UxPlay) làm lõi nhận AirPlay. Phần MacExtend thêm vào là:
 - Tự báo đúng độ phân giải và tần số quét của màn laptop cho nguồn phát.
-- Cấu hình độ trễ thấp và hiển thị toàn màn hình bằng Direct3D 11.
+- Cấu hình độ trễ thấp, hiển thị bằng Direct3D 11 trong cửa sổ đổi được kích thước hoặc toàn màn hình.
 - Tự xử lý tường lửa và mạng Công cộng.
 - Tự khởi động lại khi Windows ngủ dậy, khi đổi Wi-Fi hoặc khi uxplay gặp lỗi.
 
@@ -60,7 +60,12 @@ MacExtend tự kiểm tra bản mới trên GitHub: 1 phút sau khi mở, sau đ
 
 ## Khi thiết bị kết nối
 
-- Khi có hình ảnh, màn hình AirPlay tự hiện lên trước mọi cửa sổ và con trỏ chuột Windows được ẩn. Cả hai đều tắt được ở mục Hình ảnh.
+- Mặc định, hình ảnh mở trong một cửa sổ có thanh tiêu đề. Kéo thanh tiêu đề để di chuyển, kéo cạnh hoặc góc để đổi kích thước, thu nhỏ và phóng to như cửa sổ bình thường. Hình luôn giữ đúng tỉ lệ; khi khung cửa sổ khác tỉ lệ hình (ví dụ iPhone dựng dọc), hai bên có viền đen.
+- Nếu cửa sổ mở ra lớn hơn màn hình, MacExtend thu nhỏ nó cho vừa vùng làm việc một lần. Sau đó kích thước và vị trí bạn chọn được giữ nguyên trong suốt phiên.
+- Nhấn **Alt+Enter** khi đang ở cửa sổ video để chuyển giữa cửa sổ và toàn màn hình. Muốn mỗi phiên mở sẵn toàn màn hình, bật **Mở AirPlay ở chế độ toàn màn hình** ở mục Hình ảnh.
+- Muốn cửa sổ video luôn nằm trước các ứng dụng khác, ví dụ vừa xem iPhone vừa gõ trong ứng dụng khác, bật **Giữ cửa sổ AirPlay luôn ở trên cùng** ở mục Hình ảnh, hoặc chọn **Bật luôn ở trên cùng** trong menu khay khi đang kết nối. Mặc định tắt, có hiệu lực ngay. Ở toàn màn hình cửa sổ không được ghim, để Alt+Tab vẫn sang được ứng dụng khác; khi về lại cửa sổ thường, ghim tự bật lại.
+- Khi có hình ảnh, màn hình AirPlay tự hiện lên trước mọi cửa sổ. Con trỏ chuột Windows chỉ được ẩn khi video đang toàn màn hình và ở trước; trong cửa sổ thường con trỏ luôn hiện để kéo và đổi kích thước. Cả hai đều tắt được ở mục Hình ảnh.
+- Đóng cửa sổ video (nút X hoặc Alt+F4) là kết thúc phiên phản chiếu: thiết bị bị ngắt, app về *Sẵn sàng kết nối*, bộ nhận vẫn chạy. Muốn xem tiếp, kết nối lại từ thiết bị; có thể phải chọn lại máy Windows trong Phản chiếu màn hình.
 - Phím tắt Windows (phím Windows, Alt+Tab, Win+D) và phím Fn (âm lượng, độ sáng) vẫn hoạt động như bình thường.
 - Muốn dùng Windows: Alt+Tab sang ứng dụng khác, con trỏ hiện lại ngay. Muốn quay lại màn hình AirPlay: Alt+Tab về, hoặc bấm biểu tượng MacExtend ở khay (hay chọn **Hiện màn hình AirPlay** trong menu của nó).
 
@@ -71,13 +76,15 @@ MacExtend tự kiểm tra bản mới trên GitHub: 1 phút sau khi mở, sau đ
 | Tên hiện trên thiết bị Apple | Tên trong menu Phản chiếu màn hình của Mac, iPhone và iPad. Dấu tiếng Việt được bỏ, vì uxplay trên Windows chỉ nhận ký tự ASCII. |
 | Độ phân giải | Kích thước MacExtend yêu cầu; nguồn phát có thể chọn kích thước khác. *Tự động*: báo đúng kích thước màn laptop, tối đa 1920 × 1080 ở 60 Hz. *Tùy chỉnh*: tự nhập kích thước và tần số; bật H.265 nếu cần lớn hơn 1080p. |
 | Khung hình mỗi giây | 60 mượt hơn, 30 nhẹ hơn cho Wi-Fi yếu. |
+| Mở AirPlay ở chế độ toàn màn hình | *Tắt* (mặc định): mở trong cửa sổ kéo và đổi kích thước được. *Bật*: mở toàn màn hình. Lựa chọn này chỉ quyết định cách mở của các phiên sau khi khởi động lại bộ nhận; trong lúc xem, Alt+Enter luôn chuyển được và không làm đổi cài đặt. |
+| Giữ cửa sổ AirPlay luôn ở trên cùng | *Tắt* (mặc định). *Bật*: cửa sổ video luôn nằm trước các ứng dụng khác, kể cả khi bạn đang dùng ứng dụng đó. Có hiệu lực ngay, không cần khởi động lại bộ nhận; không áp dụng khi toàn màn hình. Khi đang kết nối, bật/tắt được cả từ menu khay. |
 | Âm thanh | Phát tiếng của nguồn phát (Mac, iPhone, iPad) trên loa Windows hoặc tắt. |
 | Mã PIN | Chặn người khác trong cùng mạng chiếu lên máy bạn. *Quên tất cả* xóa danh sách thiết bị đã ghép nối; nếu bật PIN, thiết bị phải nhập lại mã khi ghép nối lại. |
 | Khởi động cùng Windows | Chạy ẩn ở khay hệ thống sau khi đăng nhập. |
 
 Cấu hình hình ảnh và âm thanh dùng chung cho mọi nguồn phát. Với iPhone và iPad, nên để Độ phân giải ở *Tự động* khi bắt đầu; *Tùy chỉnh* và H.265 trên điện thoại chưa được kiểm chứng.
 
-Các thay đổi về hình ảnh, âm thanh và PIN áp dụng sau khi khởi động lại bộ nhận. App hiện thông báo kèm nút **Khởi động lại** khi cần.
+Các thay đổi về hình ảnh, âm thanh và PIN áp dụng sau khi khởi động lại bộ nhận. App hiện thông báo kèm nút **Khởi động lại** khi cần. Riêng **Giữ cửa sổ AirPlay luôn ở trên cùng**, **Tự chuyển sang màn hình AirPlay** và **Ẩn con trỏ chuột Windows** có hiệu lực ngay.
 
 ## Giới hạn
 
@@ -85,6 +92,8 @@ Các thay đổi về hình ảnh, âm thanh và PIN áp dụng sau khi khởi �
 - Bật Yêu cầu mã PIN để hạn chế nguồn lạ. Thiết bị đã ghép nối vẫn có thể thay phiên mà không cần nhập lại mã. Khi PIN tắt, mọi thiết bị cùng mạng đều kết nối được.
 - Chỉ hỗ trợ Phản chiếu màn hình. Nút AirPlay bên trong ứng dụng (gửi video thẳng tới bộ nhận) và nội dung có DRM, ví dụ phim trong các ứng dụng trả phí, có thể không hiện hình.
 - Độ khớp giữa tiếng và hình khi phản chiếu từ iPhone/iPad chưa được kiểm chứng trên thiết bị thật.
+- Chưa hỗ trợ điều khiển iPhone/iPad bằng chuột, bàn phím hay màn hình cảm ứng của Windows như iPhone Mirroring trên Mac. AirPlay chỉ truyền hình và tiếng từ thiết bị sang máy này, không có đường gửi thao tác ngược lại. Các hướng có thể làm và rào cản của từng hướng nằm trong [báo cáo nghiên cứu](docs/research/2026-10-28-ios-remote-control.md).
+- uxplay chạy ở chế độ nhận DPI theo hệ thống (system DPI aware), không theo từng màn hình. Khi cửa sổ video nằm trên màn hình có mức scale khác màn hình chính, Windows co giãn ảnh của cửa sổ nên hình có thể mờ. Bản này không đổi cách uxplay nhận DPI. Toàn màn hình trên màn hình có scale khác màn hình chính chưa có kết quả kiểm thử thật.
 
 ## Khắc phục sự cố
 
@@ -102,6 +111,10 @@ Các thay đổi về hình ảnh, âm thanh và PIN áp dụng sau khi khởi �
 - Trên Mac, vào **System Settings, Displays** và chọn màn hình MacExtend. Ở mục Resolution, chọn đúng **1920 × 1080**. Nếu chỉ thấy các ô "Larger Text ... More Space", bấm **Advanced...** hoặc chuột phải vào khu vực đó, bật **Show all resolutions** rồi chọn 1920 × 1080. Chọn kích thước lớn hơn, ví dụ 2560 × 1440 hoặc 3840 × 2160, thì Mac phải thu nhỏ cả desktop vào luồng 1080p, nên chữ bị nhòe.
 - Kiểm tra trên Mac: chạy `system_profiler SPDisplaysDataType` và xem khối của màn AirPlay. Hai dòng **Resolution** và **UI Looks like** đều phải là 1920 x 1080.
 - MacExtend tự bật chế độ "Override high DPI scaling: Application" cho `uxplay.exe`, để Windows ở mức scale 125% hoặc 150% không kéo giãn hình. Nếu hình vẫn mờ, chuột phải `uxplay\bin\uxplay.exe`, mở **Properties, Compatibility, Change high DPI settings** và kiểm tra mục này đã được chọn.
+- Dùng nhiều màn hình: chế độ trên chỉ khớp với mức scale của màn hình chính. Nếu cửa sổ video nằm trên màn hình có scale khác, hình có thể mờ. Kéo cửa sổ về màn hình chính, hoặc đặt cùng mức scale cho các màn hình.
+
+**Đóng cửa sổ video thì thiết bị bị ngắt**
+- Đây là cách hoạt động bình thường: đóng cửa sổ là kết thúc phiên. Bộ nhận vẫn chạy; kết nối lại từ thiết bị để xem tiếp. Muốn tạm ẩn hình mà không ngắt, bấm nút thu nhỏ hoặc Alt+Tab sang ứng dụng khác.
 
 **Hình bị đơ ngay khi kết nối**
 - Ngắt Phản chiếu màn hình trên thiết bị (trên iPhone/iPad: chọn **Dừng phản chiếu**) rồi kết nối lại, hoặc bấm **Khởi động lại** trong app.
@@ -142,6 +155,7 @@ tests/                  unit test cho Core
 installer/              script Inno Setup
 tools/make_icons.py     sinh các file .ico (Python thuần)
 docs/TESTING.md         checklist kiểm thử trên máy thật
+docs/research/          báo cáo nghiên cứu khả thi (chưa phải tính năng)
 ```
 
 ## Giấy phép và ghi công

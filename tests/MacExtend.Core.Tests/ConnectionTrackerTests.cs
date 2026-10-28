@@ -11,6 +11,83 @@ public class ConnectionTrackerTests
     private static readonly LogEvent Lost =
         UxPlayLogParser.Parse("*** ERROR lost connection with client (network problem?)");
 
+    private static readonly LogEvent WindowClosed =
+        UxPlayLogParser.Parse("GStreamer error (video): d3d11videosink0 Output window was closed");
+
+    [Fact]
+    public void ClosingTheVideoWindowDisconnectsImmediately()
+    {
+        // uxplay drops the client and rebuilds the renderer in the same process; TCP may linger for a moment
+        var t = new ConnectionTracker();
+        t.OnLog(PhoneConnecting);
+
+        Assert.True(t.OnLog(WindowClosed));
+        Assert.False(t.IsConnected);
+        Assert.Null(t.ClientName);
+    }
+
+    [Fact]
+    public void RepeatedWindowClosedIsHarmless()
+    {
+        var t = new ConnectionTracker();
+        t.OnLog(Connecting);
+        t.OnLog(WindowClosed);
+
+        Assert.False(t.OnLog(WindowClosed));
+        Assert.False(t.IsConnected);
+        Assert.Null(t.ClientName);
+    }
+
+    [Fact]
+    public void WindowClosedWhileIdleChangesNothing()
+    {
+        var t = new ConnectionTracker();
+
+        Assert.False(t.OnLog(WindowClosed));
+        Assert.False(t.IsConnected);
+    }
+
+    [Fact]
+    public void ReconnectAfterClosingTheVideoWindow()
+    {
+        var t = new ConnectionTracker();
+        t.OnLog(PhoneConnecting);
+        t.OnLog(WindowClosed);
+
+        Assert.True(t.OnLog(PhoneConnecting));
+        Assert.True(t.IsConnected);
+        Assert.Equal("Thịnh’s iPhone", t.ClientName);
+    }
+
+    [Fact]
+    public void SessionAfterWindowClosedNeedsTwoFreshZeroSamples()
+    {
+        // a zero sample from before the close must not count towards ending the next session
+        var t = new ConnectionTracker();
+        t.OnLog(Connecting);
+        t.OnTcpSample(0);
+        t.OnLog(WindowClosed);
+        t.OnLog(PhoneConnecting);
+
+        Assert.False(t.OnTcpSample(0));
+        Assert.True(t.IsConnected);
+        Assert.True(t.OnTcpSample(0));
+        Assert.False(t.IsConnected);
+    }
+
+    [Fact]
+    public void TcpStillEndsSessionWhenCloseLogIsLate()
+    {
+        var t = new ConnectionTracker();
+        t.OnLog(PhoneConnecting);
+        t.OnTcpSample(0);
+
+        Assert.True(t.OnTcpSample(0));
+        Assert.False(t.IsConnected);
+        Assert.False(t.OnLog(WindowClosed));
+        Assert.Null(t.ClientName);
+    }
+
     [Fact]
     public void ConnectingLogMarksConnectedWithName()
     {

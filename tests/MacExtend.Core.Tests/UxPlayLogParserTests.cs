@@ -61,4 +61,41 @@ public class UxPlayLogParserTests
     {
         Assert.Equal(LogEventKind.None, UxPlayLogParser.Parse(line).Kind);
     }
+
+    [Theory]
+    // renderers/video_renderer.c logs every video bus error as "GStreamer error (video): <element> <message>"
+    [InlineData("GStreamer error (video): d3d11videosink0 Output window was closed")]
+    [InlineData("GStreamer error (video): d3d11videosink_h264 Output window was closed")]
+    [InlineData("GStreamer error (video): d3d11videosink_h265 Output window was closed")]
+    public void ClosedVideoWindowIsRecognised(string line)
+    {
+        var e = UxPlayLogParser.Parse(line);
+
+        Assert.Equal(LogEventKind.VideoWindowClosed, e.Kind);
+        Assert.Equal(line, e.Text);
+        Assert.Null(e.ClientName);
+    }
+
+    [Theory]
+    [InlineData("*** ERROR: GStreamer error (video): d3d11videosink0 Output window was closed")]
+    [InlineData("GStreamer error (audio): wasapisink0 Output window was closed")]
+    [InlineData("gstreamer error (video): d3d11videosink0 Output window was closed")]
+    [InlineData("GStreamer error (video): d3d11videosink0 output window was closed")]
+    [InlineData("GStreamer error (video): d3d11videosink0 Output window was opened")]
+    [InlineData("GStreamer error (video): d3d11videosink0 Internal data stream error")]
+    [InlineData("GStreamer error (video): d3d11videosink0 Window closed")]
+    [InlineData("Output window was closed")]
+    public void SimilarLinesAreNotAClosedVideoWindow(string line)
+    {
+        Assert.NotEqual(LogEventKind.VideoWindowClosed, UxPlayLogParser.Parse(line).Kind);
+    }
+
+    [Theory]
+    [InlineData("GStreamer error (audio): wasapisink0 Output window was closed")]
+    [InlineData("GStreamer error (video): d3d11videosink0 Internal data stream error")]
+    [InlineData("GStreamer error (video): d3d11videosink0 Output window was opened")]
+    public void OtherGStreamerErrorsStayNone(string line)
+    {
+        Assert.Equal(LogEventKind.None, UxPlayLogParser.Parse(line).Kind);
+    }
 }

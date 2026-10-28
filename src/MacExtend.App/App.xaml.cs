@@ -77,9 +77,13 @@ namespace MacExtend
             _presenter = new AirPlayPresenter(_controller, () => _settings.Current, Dispatcher);
             _vm.PropertyChanged += (_, args) =>
             {
-                if (args.PropertyName == nameof(MainViewModel.HideCursor)) _presenter.SettingsChanged();
+                if (args.PropertyName == nameof(MainViewModel.HideCursor) || args.PropertyName == nameof(MainViewModel.AlwaysOnTop))
+                {
+                    _presenter.SettingsChanged();
+                }
             };
-            _tray = new TrayIcon(_controller, ShowMainWindow, ExitApp, () => _presenter.HasVideoWindow, () => _presenter.ShowAirPlay());
+            _tray = new TrayIcon(_controller, ShowMainWindow, ExitApp, () => _presenter.HasVideoWindow, () => _presenter.ShowAirPlay(),
+                                 () => _vm.AlwaysOnTop, onTop => _vm.AlwaysOnTop = onTop);
             _vm.Update.NewVersionFound += version => _tray?.ShowUpdate(version, () =>
             {
                 ShowMainWindow();

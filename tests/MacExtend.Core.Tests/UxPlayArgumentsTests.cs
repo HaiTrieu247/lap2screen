@@ -12,6 +12,8 @@ public class UxPlayArgumentsTests
                                                Func<string, string> resolver = null) =>
         UxPlayArguments.Build(s, "MacExtend-PC", video ?? Video1080, paths ?? Paths, resolver ?? (p => p));
 
+    private const string FullscreenSink = "d3d11videosink fullscreen-toggle-mode=alt-enter+property fullscreen=true";
+
     [Fact]
     public void DefaultsMatchSecondDisplayProfile()
     {
@@ -22,11 +24,85 @@ public class UxPlayArgumentsTests
             "-n", "MacExtend-PC", "-nh",
             "-s", "1920x1080@60", "-fps", "60",
             "-vsync", "no",
-            "-vs", "d3d11videosink", "-fs",
+            "-vs", "d3d11videosink",
             "-nohold",
             "-key", "K",
             "-pin", "1234", "-reg", "R",
         }, args);
+    }
+
+    [Fact]
+    public void FullscreenStartPassesSinkAndOptionsAsOneArgument()
+    {
+        var args = Build(new AppSettings { Pin = "1234", Fullscreen = true });
+
+        Assert.Equal(new[]
+        {
+            "-n", "MacExtend-PC", "-nh",
+            "-s", "1920x1080@60", "-fps", "60",
+            "-vsync", "no",
+            "-vs", FullscreenSink,
+            "-nohold",
+            "-key", "K",
+            "-pin", "1234", "-reg", "R",
+        }, args);
+    }
+
+    [Theory]
+    [InlineData(false, "d3d11videosink")]
+    [InlineData(true, FullscreenSink)]
+    public void NeitherModePassesFsFlag(bool fullscreen, string sink)
+    {
+        var args = Build(new AppSettings { Pin = "1234", Fullscreen = fullscreen });
+
+        Assert.DoesNotContain("-fs", args);
+        AssertPair(args, "-vs", sink);
+        Assert.DoesNotContain(args, a => a.StartsWith("fullscreen", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AlwaysOnTopDoesNotChangeArguments(bool fullscreen)
+    {
+        // MacExtend pins the window itself, so toggling it must not ask for a receiver restart
+        var plain = Build(new AppSettings { Pin = "1234", Fullscreen = fullscreen });
+        var pinned = Build(new AppSettings { Pin = "1234", Fullscreen = fullscreen, AlwaysOnTop = true });
+
+        Assert.Equal(plain, pinned);
+    }
+
+    [Fact]
+    public void FullscreenStartKeepsEveryOtherOption()
+    {
+        var s = new AppSettings { Pin = "4821", Fps = 30, AudioEnabled = false, Fullscreen = true };
+        var video = new RequestedVideo(new DisplayMode(2560, 1440, 120), true);
+
+        var windowed = Build(new AppSettings { Pin = "4821", Fps = 30, AudioEnabled = false }, video);
+        var fullscreen = Build(s, video);
+
+        Assert.Equal(windowed.Count, fullscreen.Count);
+        var vs = IndexOf(windowed, "-vs") + 1;
+        for (var i = 0; i < windowed.Count; i++)
+        {
+            if (i != vs) Assert.Equal(windowed[i], fullscreen[i]);
+        }
+        AssertPair(fullscreen, "-vsync", "no");
+        AssertPair(fullscreen, "-s", "2560x1440@120");
+        AssertPair(fullscreen, "-fps", "30");
+        AssertPair(fullscreen, "-as", "0");
+        AssertPair(fullscreen, "-pin", "4821");
+        Assert.Contains("-h265", fullscreen);
+        Assert.Contains("-nohold", fullscreen);
+    }
+
+    [Fact]
+    public void FullscreenSinkSurvivesWindowsQuoting()
+    {
+        var line = WindowsCommandLine.Join(Build(new AppSettings { Pin = "1234", Fullscreen = true }));
+
+        Assert.Contains(" -vs \"" + FullscreenSink + "\" -nohold ", line);
+        Assert.DoesNotContain(" -fs", line);
     }
 
     [Fact]

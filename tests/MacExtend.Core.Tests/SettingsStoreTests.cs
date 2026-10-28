@@ -21,6 +21,8 @@ public class SettingsStoreTests
         AutoCheckUpdates = false,
         FocusOnConnect = false,
         HideCursor = false,
+        Fullscreen = true,
+        AlwaysOnTop = true,
     };
 
     private static void AssertSame(AppSettings expected, AppSettings actual)
@@ -39,6 +41,8 @@ public class SettingsStoreTests
         Assert.Equal(expected.AutoCheckUpdates, actual.AutoCheckUpdates);
         Assert.Equal(expected.FocusOnConnect, actual.FocusOnConnect);
         Assert.Equal(expected.HideCursor, actual.HideCursor);
+        Assert.Equal(expected.Fullscreen, actual.Fullscreen);
+        Assert.Equal(expected.AlwaysOnTop, actual.AlwaysOnTop);
     }
 
     [Fact]
@@ -138,5 +142,104 @@ public class SettingsStoreTests
 
         Assert.True(s.FocusOnConnect);
         Assert.True(s.HideCursor);
+    }
+
+    [Fact]
+    public void AirPlayOpensInResizableWindowByDefault()
+    {
+        Assert.False(new AppSettings().Fullscreen);
+        Assert.False(SettingsStore.Parse("").Fullscreen);
+    }
+
+    [Fact]
+    public void SettingsFromOlderVersionWithoutFullscreenOpenWindowed()
+    {
+        var parsed = SettingsStore.Parse("# MacExtend settings\nFps=30\nAudioEnabled=false\nFocusOnConnect=true\nHideCursor=true\n");
+
+        Assert.False(parsed.Fullscreen);
+        Assert.Equal(30, parsed.Fps);
+        Assert.False(parsed.AudioEnabled);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void FullscreenRoundTrips(bool fullscreen)
+    {
+        var text = SettingsStore.Serialize(new AppSettings { Fullscreen = fullscreen });
+
+        Assert.Contains("Fullscreen=" + (fullscreen ? "true" : "false") + "\n", text);
+        Assert.Equal(fullscreen, SettingsStore.Parse(text).Fullscreen);
+    }
+
+    [Theory]
+    [InlineData("fullscreen=true")]
+    [InlineData("FULLSCREEN=True")]
+    [InlineData("  FullScreen = TRUE  ")]
+    public void FullscreenKeyIgnoresCase(string line)
+    {
+        Assert.True(SettingsStore.Parse(line).Fullscreen);
+    }
+
+    [Theory]
+    [InlineData("Fullscreen=yes")]
+    [InlineData("Fullscreen=1")]
+    [InlineData("Fullscreen=")]
+    public void InvalidFullscreenFallsBackToWindowedAndKeepsOtherSettings(string line)
+    {
+        var parsed = SettingsStore.Parse("Fps=30\n" + line + "\nHideCursor=false");
+
+        Assert.False(parsed.Fullscreen);
+        Assert.Equal(30, parsed.Fps);
+        Assert.False(parsed.HideCursor);
+    }
+
+    [Fact]
+    public void VideoWindowIsNotPinnedOnTopByDefault()
+    {
+        Assert.False(new AppSettings().AlwaysOnTop);
+        Assert.False(SettingsStore.Parse("").AlwaysOnTop);
+    }
+
+    [Fact]
+    public void SettingsFromOlderVersionWithoutAlwaysOnTopAreNotPinned()
+    {
+        var parsed = SettingsStore.Parse("# MacExtend settings\nFps=30\nHideCursor=true\nFullscreen=true\n");
+
+        Assert.False(parsed.AlwaysOnTop);
+        Assert.True(parsed.Fullscreen);
+        Assert.Equal(30, parsed.Fps);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AlwaysOnTopRoundTrips(bool onTop)
+    {
+        var text = SettingsStore.Serialize(new AppSettings { AlwaysOnTop = onTop });
+
+        Assert.Contains("AlwaysOnTop=" + (onTop ? "true" : "false") + "\n", text);
+        Assert.Equal(onTop, SettingsStore.Parse(text).AlwaysOnTop);
+    }
+
+    [Theory]
+    [InlineData("alwaysontop=true")]
+    [InlineData("  ALWAYSONTOP = True  ")]
+    public void AlwaysOnTopKeyIgnoresCase(string line)
+    {
+        Assert.True(SettingsStore.Parse(line).AlwaysOnTop);
+    }
+
+    [Theory]
+    [InlineData("AlwaysOnTop=yes")]
+    [InlineData("AlwaysOnTop=1")]
+    [InlineData("AlwaysOnTop=")]
+    public void InvalidAlwaysOnTopFallsBackToNotPinnedAndKeepsOtherSettings(string line)
+    {
+        var parsed = SettingsStore.Parse("Fps=30\n" + line + "\nHideCursor=false");
+
+        Assert.False(parsed.AlwaysOnTop);
+        Assert.Equal(30, parsed.Fps);
+        Assert.False(parsed.HideCursor);
     }
 }

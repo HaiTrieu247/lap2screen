@@ -26,7 +26,7 @@ namespace MacExtend.ViewModels
             nameof(DeviceNameInput), nameof(IsAutoResolution), nameof(IsCustomResolution), nameof(CustomWidthText),
             nameof(CustomHeightText), nameof(CustomRefreshText), nameof(CustomH265), nameof(IsFps30), nameof(IsFps60),
             nameof(AudioEnabled), nameof(PinEnabled), nameof(Pin), nameof(PinDisplay), nameof(StartWithWindows),
-            nameof(AutoCheckUpdates), nameof(FocusOnConnect), nameof(HideCursor),
+            nameof(AutoCheckUpdates), nameof(FocusOnConnect), nameof(HideCursor), nameof(Fullscreen), nameof(AlwaysOnTop),
         };
         private static readonly string[] StatusNames =
         {
@@ -268,6 +268,27 @@ namespace MacExtend.ViewModels
         {
             get => _settings.Current.HideCursor;
             set => Change(s => s.HideCursor = value);
+        }
+
+        /// <summary>
+        /// How the next session's video window opens. Part of uxplay's arguments, so a change shows the
+        /// restart notice and leaves a running session alone. Alt+Enter in the video only switches that
+        /// session and is not saved.
+        /// </summary>
+        public bool Fullscreen
+        {
+            get => _settings.Current.Fullscreen;
+            set => Change(s => s.Fullscreen = value);
+        }
+
+        /// <summary>
+        /// MacExtend pins the open video window itself, so a change applies at once, also from the tray menu,
+        /// and needs no restart. Ignored while the video is full screen.
+        /// </summary>
+        public bool AlwaysOnTop
+        {
+            get => _settings.Current.AlwaysOnTop;
+            set => Change(s => s.AlwaysOnTop = value);
         }
 
         public bool AutoCheckUpdates

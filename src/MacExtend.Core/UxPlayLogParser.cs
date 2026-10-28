@@ -1,3 +1,4 @@
+using System;
 using System.Text.RegularExpressions;
 
 namespace MacExtend.Core
@@ -8,6 +9,8 @@ namespace MacExtend.Core
         ClientConnecting,
         ConnectionLost,
         Error,
+        /// <summary>The user closed the video window. uxplay drops the client and waits for the next one.</summary>
+        VideoWindowClosed,
     }
 
     public sealed class LogEvent
@@ -36,6 +39,11 @@ namespace MacExtend.Core
             @"^connection request from (?<name>.*) \((?<model>[^()]*)\) with deviceID = ",
             RegexOptions.CultureInvariant);
 
+        // renderers/video_renderer.c: "GStreamer error (video): %s %s" with the element name and the error.
+        // d3d11videosink reports a window closed with X or Alt+F4 as "Output window was closed".
+        private const string VideoErrorPrefix = "GStreamer error (video):";
+        private const string WindowClosedMessage = "Output window was closed";
+
         public static LogEvent Parse(string line)
         {
             if (string.IsNullOrEmpty(line)) return LogEvent.None;
@@ -52,6 +60,11 @@ namespace MacExtend.Core
             if (line.StartsWith("*** ERROR"))
             {
                 return new LogEvent(LogEventKind.Error, null, null, line);
+            }
+            if (line.StartsWith(VideoErrorPrefix, StringComparison.Ordinal) &&
+                line.IndexOf(WindowClosedMessage, VideoErrorPrefix.Length, StringComparison.Ordinal) >= 0)
+            {
+                return new LogEvent(LogEventKind.VideoWindowClosed, null, null, line);
             }
             return LogEvent.None;
         }

@@ -8,10 +8,12 @@ using MacExtend.Native;
 namespace MacExtend.Views
 {
     /// <summary>
-    /// An invisible window laid over the Mac display so the Windows pointer disappears there.
+    /// An invisible window laid over the full-screen AirPlay video so the Windows pointer disappears there.
     /// Windows shows the cursor of the window under the mouse: this one has none. Alpha 1 instead
-    /// of 0 keeps it hit-testable (fully transparent pixels let the mouse fall through). It never
-    /// takes keyboard focus, so shortcuts keep reaching Windows and the app in front.
+    /// of 0 keeps it hit-testable (fully transparent pixels let the mouse fall through). It covers the
+    /// whole monitor, so it is only used in full screen: with a normal window it would also swallow
+    /// clicks on the title bar, the resize frame, the taskbar and other apps. It never takes keyboard
+    /// focus, so shortcuts keep reaching Windows and the app in front.
     /// </summary>
     internal sealed class CursorShield : Window
     {
@@ -38,7 +40,7 @@ namespace MacExtend.Views
             };
         }
 
-        /// <param name="bounds">Physical pixels of the monitor showing the Mac display.</param>
+        /// <param name="bounds">Physical pixels of the monitor showing the full-screen video.</param>
         public void Cover(Win32.RECT bounds)
         {
             var wasCovering = _covering;

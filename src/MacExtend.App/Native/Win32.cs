@@ -191,12 +191,17 @@ namespace MacExtend.Native
         public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
         public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
         public const uint MONITOR_DEFAULTTONEAREST = 2;
+        public const int GWL_STYLE = -16;
         public const int GWL_EXSTYLE = -20;
+        public const long WS_CAPTION = 0x00C00000;
+        public const long WS_THICKFRAME = 0x00040000;
+        public const int WS_EX_TOPMOST = 0x00000008;
         public const int WS_EX_TOOLWINDOW = 0x00000080;
         public const int WS_EX_NOACTIVATE = 0x08000000;
         public const int SW_RESTORE = 9;
         public const uint SWP_NOSIZE = 0x0001;
         public const uint SWP_NOMOVE = 0x0002;
+        public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_NOACTIVATE = 0x0010;
         public const uint SWP_SHOWWINDOW = 0x0040;
         public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
@@ -219,6 +224,9 @@ namespace MacExtend.Native
 
         [DllImport("user32.dll")]
         public static extern bool IsIconic(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsZoomed(IntPtr hwnd);
 
         [DllImport("user32.dll")]
         public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);

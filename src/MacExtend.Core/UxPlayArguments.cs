@@ -21,6 +21,18 @@ namespace MacExtend.Core
     /// <summary>uxplay command line tuned for "Use as Separate Display" from a Mac.</summary>
     public static class UxPlayArguments
     {
+        /// <summary>
+        /// Plain sink: uxplay itself adds Alt+Enter toggling and opens a normal window that can be moved
+        /// and resized. "-fs" is never passed: with d3d11videosink it starts full screen with Alt+Enter turned off.
+        /// </summary>
+        public const string WindowedSink = "d3d11videosink";
+
+        /// <summary>
+        /// Starts full screen and keeps Alt+Enter. uxplay splits the "-vs" value at the first space into the
+        /// sink and its properties, so this stays one argument.
+        /// </summary>
+        public const string FullscreenSink = "d3d11videosink fullscreen-toggle-mode=alt-enter+property fullscreen=true";
+
         /// <param name="pathResolver">Maps a path to one uxplay can open (8.3 short path for non-ASCII paths on Windows).</param>
         public static IReadOnlyList<string> Build(AppSettings s, string deviceName, RequestedVideo video,
                                                   UxPlayPaths paths, Func<string, string> pathResolver)
@@ -32,7 +44,7 @@ namespace MacExtend.Core
                 "-fps", s.Fps.ToString(CultureInfo.InvariantCulture),
                 // no audio/video timestamp sync: lowest latency, recommended by UxPlay for second-monitor use
                 "-vsync", "no",
-                "-vs", "d3d11videosink", "-fs",
+                "-vs", s.Fullscreen ? FullscreenSink : WindowedSink,
                 // a reconnecting Mac replaces a stale session instead of being refused
                 "-nohold",
                 "-key", pathResolver(paths.KeyFile),

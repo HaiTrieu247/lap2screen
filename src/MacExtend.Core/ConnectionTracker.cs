@@ -12,7 +12,8 @@ namespace MacExtend.Core
     /// <summary>
     /// Decides whether a Mac is currently using the display. uxplay logs the start of a session at
     /// INFO level but the end only at DEBUG level, so the end is detected from TCP connections
-    /// owned by the uxplay process dropping to zero.
+    /// owned by the uxplay process dropping to zero. Closing the video window is logged, so that
+    /// ends the session at once; the TCP check still covers a log line that arrives late.
     /// </summary>
     public sealed class ConnectionTracker
     {
@@ -34,6 +35,7 @@ namespace MacExtend.Core
                     _zeroSamples = 0;
                     return changed;
                 case LogEventKind.ConnectionLost:
+                case LogEventKind.VideoWindowClosed:
                     return Disconnect();
                 default:
                     return false;

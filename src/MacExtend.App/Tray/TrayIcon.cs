@@ -18,12 +18,15 @@ namespace MacExtend.Tray
         private readonly ToolStripMenuItem _restart;
         private readonly ToolStripMenuItem _update;
         private readonly ToolStripMenuItem _showMac;
+        private readonly ToolStripMenuItem _onTop;
         private Action _installUpdate;
         private bool _hintShown;
         private Icon _current;
 
         /// <param name="showMac">Brings the AirPlay display back to the front; offered while a device is connected.</param>
-        public TrayIcon(ReceiverController controller, Action open, Action exit, Func<bool> macDisplayOpen, Action showMac)
+        /// <param name="onTop">The "always on top" setting; offered next to <paramref name="showMac"/>.</param>
+        public TrayIcon(ReceiverController controller, Action open, Action exit, Func<bool> macDisplayOpen, Action showMac,
+                        Func<bool> onTop, Action<bool> setOnTop)
         {
             _controller = controller;
 
@@ -35,12 +38,15 @@ namespace MacExtend.Tray
             var exitItem = new ToolStripMenuItem("Thoát MacExtend", null, (_, __) => exit());
             _update = new ToolStripMenuItem("", null, (_, __) => _installUpdate?.Invoke()) { Visible = false };
             _showMac = new ToolStripMenuItem("Hiện màn hình AirPlay", null, (_, __) => showMac()) { Visible = false };
+            _onTop = new ToolStripMenuItem("", null, (_, __) => setOnTop(!onTop())) { Visible = false };
 
             _menu = new ContextMenuStrip { ShowImageMargin = false, Padding = new Padding(0, 4, 0, 4) };
             _menu.Items.AddRange(new ToolStripItem[]
             {
-                _status, new ToolStripSeparator(), _showMac, openItem, _toggle, _restart, _update, new ToolStripSeparator(), exitItem,
+                _status, new ToolStripSeparator(), _showMac, _onTop, openItem, _toggle, _restart, _update, new ToolStripSeparator(), exitItem,
             });
+            // the menu has no check margin, so the item says what a click does; the setting can also change in the window
+            _menu.Opening += (_, __) => _onTop.Text = onTop() ? "Tắt luôn ở trên cùng" : "Bật luôn ở trên cùng";
             foreach (ToolStripItem item in _menu.Items)
             {
                 item.Padding = new Padding(8, 5, 24, 5);
@@ -135,6 +141,7 @@ namespace MacExtend.Tray
             _toggle.Text = phase == ReceiverPhase.Stopped || phase == ReceiverPhase.Failed ? "Bắt đầu" : "Dừng";
             _restart.Visible = phase != ReceiverPhase.Stopped;
             _showMac.Visible = phase == ReceiverPhase.Connected;
+            _onTop.Visible = phase == ReceiverPhase.Connected;
             _menu.Renderer = new ModernMenuRenderer(!WindowsTheme.SystemUsesLightTheme);
         }
 

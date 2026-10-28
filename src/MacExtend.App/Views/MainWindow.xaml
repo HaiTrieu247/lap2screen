@@ -334,6 +334,32 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Mở AirPlay ở chế độ toàn màn hình" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Tắt để mở cửa sổ có thể kéo và đổi kích thước. Khi xem, nhấn Alt+Enter để chuyển chế độ." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding Fullscreen}" />
+                            </Grid>
+
+                            <Border Style="{StaticResource Hairline}" />
+                            <Grid Style="{StaticResource Row}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Giữ cửa sổ AirPlay luôn ở trên cùng" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Cửa sổ video nằm trước các ứng dụng khác, kể cả khi bạn đang dùng chúng. Có hiệu lực ngay; không áp dụng khi toàn màn hình." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AlwaysOnTop}" />
+                            </Grid>
+
+                            <Border Style="{StaticResource Hairline}" />
+                            <Grid Style="{StaticResource Row}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                                     <TextBlock Text="Tự chuyển sang màn hình AirPlay khi kết nối" Style="{StaticResource Text.Label}" />
                                     <TextBlock Text="Màn hình AirPlay hiện lên trước mọi cửa sổ khi có hình ảnh. Alt+Tab để quay về Windows, bấm biểu tượng ở khay để quay lại." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                                 </StackPanel>
@@ -347,7 +373,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                                     <TextBlock Text="Ẩn con trỏ chuột Windows" Style="{StaticResource Text.Label}" />
-                                    <TextBlock Text="Chỉ ẩn khi đang xem màn hình AirPlay. Phím tắt Windows và phím Fn vẫn hoạt động." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                    <TextBlock Text="Chỉ ẩn khi màn hình AirPlay đang toàn màn hình và ở trước. Phím tắt Windows và phím Fn vẫn hoạt động." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding HideCursor}" />
                             </Grid>

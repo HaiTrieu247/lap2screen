@@ -27,4 +27,13 @@ public class WindowsCommandLineTests
     {
         Assert.Equal("-n \"May cua Thinh\" -nh", WindowsCommandLine.Join(new[] { "-n", "May cua Thinh", "-nh" }));
     }
+
+    [Fact]
+    public void JoinKeepsVideoSinkWithOptionsAsOneArgument()
+    {
+        // uxplay splits "-vs" at the first space into the sink name and its properties
+        const string sink = "d3d11videosink fullscreen-toggle-mode=alt-enter+property fullscreen=true";
+
+        Assert.Equal("-vs \"" + sink + "\" -nohold", WindowsCommandLine.Join(new[] { "-vs", sink, "-nohold" }));
+    }
 }

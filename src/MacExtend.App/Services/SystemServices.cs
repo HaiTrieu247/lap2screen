@@ -91,7 +91,7 @@ namespace MacExtend.Services
 
         /// <summary>
         /// Same as Compatibility, "Change high DPI settings", "Override high DPI scaling: Application"
-        /// for uxplay.exe, so its full-screen video is drawn 1:1 instead of stretched at 125 %/150 % scaling.
+        /// for uxplay.exe, so its video is drawn 1:1 instead of stretched at 125 %/150 % scaling.
         /// Applies to processes started after the change.
         /// </summary>
         /// <returns>false if the setting could not be written.</returns>
