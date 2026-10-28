@@ -30,6 +30,8 @@ namespace MacExtend
         public static string RegisterFile => Path.Combine(DataDir, "uxplay.register");
         public static string LogDir => Path.Combine(LocalDir, "logs");
         public static string LogFile => Path.Combine(LogDir, "uxplay.log");
+        /// <summary>Bluetooth state changes only; never what was typed.</summary>
+        public static string BluetoothLog => Path.Combine(LogDir, "bluetooth.log");
         public static string GstRegistry => Path.Combine(LocalDir, "gst-registry.bin");
         public static string UpdatesDir => Path.Combine(LocalDir, "updates");
         public static string UpdateLog => Path.Combine(LogDir, "update.log");

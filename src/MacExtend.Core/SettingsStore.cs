@@ -42,6 +42,7 @@ namespace MacExtend.Core
             Line(sb, "HideCursor", Bool(s.HideCursor));
             Line(sb, "Fullscreen", Bool(s.Fullscreen));
             Line(sb, "AlwaysOnTop", Bool(s.AlwaysOnTop));
+            Line(sb, "BluetoothControl", Bool(s.BluetoothControl));
             return sb.ToString();
         }
 
@@ -112,6 +113,7 @@ namespace MacExtend.Core
                 case "hidecursor": if (TryBool(value, out var hide)) s.HideCursor = hide; break;
                 case "fullscreen": if (TryBool(value, out var fullscreen)) s.Fullscreen = fullscreen; break;
                 case "alwaysontop": if (TryBool(value, out var onTop)) s.AlwaysOnTop = onTop; break;
+                case "bluetoothcontrol": if (TryBool(value, out var bluetooth)) s.BluetoothControl = bluetooth; break;
             }
         }
 

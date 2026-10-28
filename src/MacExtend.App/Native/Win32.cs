@@ -280,6 +280,117 @@ namespace MacExtend.Native
         [DllImport("user32.dll")]
         public static extern bool UnhookWinEvent(IntPtr hook);
 
+        // ---- user32: keyboard and mouse while the laptop controls an Apple device ------------
+
+        public const int WH_KEYBOARD_LL = 13;
+        public const int WH_MOUSE_LL = 14;
+        public const int HC_ACTION = 0;
+        /// <summary>Set for keys that send an E0 prefix: the navigation cluster, Keypad Enter, Keypad /.</summary>
+        public const uint LLKHF_EXTENDED = 0x01;
+        public const uint LLKHF_INJECTED = 0x10;
+        public const uint LLMHF_INJECTED = 0x01;
+        public const int WM_QUIT = 0x0012;
+        public const int WM_KEYDOWN = 0x0100;
+        public const int WM_SYSKEYDOWN = 0x0104;
+        public const int WM_MOUSEMOVE = 0x0200;
+        public const int WM_LBUTTONDOWN = 0x0201;
+        public const int WM_LBUTTONUP = 0x0202;
+        public const int WM_RBUTTONDOWN = 0x0204;
+        public const int WM_RBUTTONUP = 0x0205;
+        public const int WM_MBUTTONDOWN = 0x0207;
+        public const int WM_MBUTTONUP = 0x0208;
+        public const int WM_MOUSEWHEEL = 0x020A;
+        public const int WM_APP = 0x8000;
+        public const uint EVENT_SYSTEM_DESKTOPSWITCH = 0x0020;
+        public const uint GA_ROOT = 2;
+        public const int WS_EX_TRANSPARENT = 0x00000020;
+        public const int VK_LBUTTON = 0x01;
+        public const int VK_RBUTTON = 0x02;
+        public const int VK_MBUTTON = 0x04;
+
+        public delegate IntPtr LowLevelProc(int code, IntPtr wParam, IntPtr lParam);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct KBDLLHOOKSTRUCT
+        {
+            public uint vkCode;
+            public uint scanCode;
+            public uint flags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MSLLHOOKSTRUCT
+        {
+            public POINT pt;
+            public uint mouseData;
+            public uint flags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MSG
+        {
+            public IntPtr hwnd;
+            public uint message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public uint time;
+            public POINT pt;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr SetWindowsHookEx(int hookType, LowLevelProc callback, IntPtr module, uint threadId);
+
+        [DllImport("user32.dll")]
+        public static extern bool UnhookWindowsHookEx(IntPtr hook);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern int GetMessage(out MSG message, IntPtr hwnd, uint filterMin, uint filterMax);
+
+        public const uint PM_NOREMOVE = 0x0000;
+
+        [DllImport("user32.dll")]
+        public static extern bool PeekMessage(out MSG message, IntPtr hwnd, uint filterMin, uint filterMax, uint remove);
+
+        [DllImport("user32.dll")]
+        public static extern bool TranslateMessage(ref MSG message);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr DispatchMessage(ref MSG message);
+
+        [DllImport("user32.dll")]
+        public static extern bool PostThreadMessage(uint threadId, int message, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern short GetAsyncKeyState(int virtualKey);
+
+        [DllImport("user32.dll")]
+        public static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
+
+        [DllImport("user32.dll")]
+        public static extern bool ClientToScreen(IntPtr hwnd, ref POINT point);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr WindowFromPoint(POINT point);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr GetModuleHandle(string moduleName);
+
+        [DllImport("winmm.dll")]
+        public static extern uint timeBeginPeriod(uint period);
+
+        [DllImport("winmm.dll")]
+        public static extern uint timeEndPeriod(uint period);
+
         // ---- dwmapi: window frame --------------------------------------------------------
 
         public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;

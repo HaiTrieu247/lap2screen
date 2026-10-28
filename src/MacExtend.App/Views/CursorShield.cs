@@ -12,7 +12,8 @@ namespace MacExtend.Views
     /// Windows shows the cursor of the window under the mouse: this one has none. Alpha 1 instead
     /// of 0 keeps it hit-testable (fully transparent pixels let the mouse fall through). It covers the
     /// whole monitor, so it is only used in full screen: with a normal window it would also swallow
-    /// clicks on the title bar, the resize frame, the taskbar and other apps. It never takes keyboard
+    /// clicks on the title bar, the resize frame, the taskbar and other apps; the one exception is a video
+    /// controlled over Bluetooth, whose clicks go to the device anyway. It never takes keyboard
     /// focus, so shortcuts keep reaching Windows and the app in front.
     /// </summary>
     internal sealed class CursorShield : Window
@@ -40,7 +41,11 @@ namespace MacExtend.Views
             };
         }
 
-        /// <param name="bounds">Physical pixels of the monitor showing the full-screen video.</param>
+        public bool IsCovering => _covering;
+
+        public IntPtr Handle => new WindowInteropHelper(this).Handle;
+
+        /// <param name="bounds">Physical pixels of the monitor showing the full-screen video, or of the video window while controlled.</param>
         public void Cover(Win32.RECT bounds)
         {
             var wasCovering = _covering;

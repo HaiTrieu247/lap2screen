@@ -39,6 +39,8 @@ namespace MacExtend.Core
         public bool Fullscreen { get; set; }
         /// <summary>Keep the AirPlay video window above other apps while it is a normal or maximized window.</summary>
         public bool AlwaysOnTop { get; set; }
+        /// <summary>Run the Bluetooth helper so the laptop can act as a keyboard and mouse for the device.</summary>
+        public bool BluetoothControl { get; set; }
 
         public AppSettings Clone() => (AppSettings)MemberwiseClone();
 

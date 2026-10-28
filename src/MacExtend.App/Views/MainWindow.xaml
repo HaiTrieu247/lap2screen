@@ -396,6 +396,82 @@
 
                             <Border Style="{StaticResource Hairline}" Margin="0,6,0,0" />
 
+                            <!-- control: the laptop as a Bluetooth keyboard and mouse for the device mirroring -->
+                            <TextBlock Text="Điều khiển" Style="{StaticResource SectionHeader}" />
+                            <Grid Style="{StaticResource Row}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Điều khiển thiết bị bằng chuột và bàn phím" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Laptop đóng vai bàn phím và chuột Bluetooth khi iPhone hoặc iPad đang phản chiếu. Bấm vào hình để điều khiển, Ctrl+Alt+Q để trả lại Windows." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BluetoothControl}" />
+                            </Grid>
+                            <StackPanel Visibility="{Binding BluetoothControl, Converter={StaticResource Visible}}">
+                                <Border Style="{StaticResource Hairline}" />
+                                <Grid Style="{StaticResource Row}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CheckGlyph}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding BluetoothCheck}" Value="Ok">
+                                                        <Setter Property="Text" Value="&#xE73E;" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource Status.Connected}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding BluetoothCheck}" Value="Problem">
+                                                        <Setter Property="Text" Value="&#xE7BA;" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource Status.Error}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Bluetooth" Style="{StaticResource Text.Label}" />
+                                        <TextBlock Text="{Binding BluetoothText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                        <TextBlock Text="{Binding PairingHint}" Style="{StaticResource Text.Caption}" Margin="0,6,0,0"
+                                                   Visibility="{Binding ShowPairingHint, Converter={StaticResource Visible}}" />
+                                    </StackPanel>
+                                </Grid>
+                                <!-- only when more than one device is connected and none matches the one mirroring -->
+                                <StackPanel Visibility="{Binding ShowHostPicker, Converter={StaticResource Visible}}">
+                                    <Border Style="{StaticResource Hairline}" />
+                                    <Grid Style="{StaticResource Row}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Thiết bị để điều khiển" Style="{StaticResource Text.Label}" />
+                                            <TextBlock Text="Chọn thiết bị đang phản chiếu." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                        <Border Grid.Column="1" Style="{StaticResource SegmentGroup}">
+                                            <ItemsControl ItemsSource="{Binding BluetoothHosts}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <RadioButton Content="{Binding Display}" Style="{StaticResource Segment}" GroupName="BluetoothHost"
+                                                                     IsChecked="{Binding IsSelected}" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Border>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <Border Style="{StaticResource Hairline}" Margin="0,6,0,0" />
+
                             <!-- security -->
                             <TextBlock Text="Bảo mật" Style="{StaticResource SectionHeader}" />
                             <Grid Style="{StaticResource Row}">

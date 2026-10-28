@@ -23,6 +23,7 @@ public class SettingsStoreTests
         HideCursor = false,
         Fullscreen = true,
         AlwaysOnTop = true,
+        BluetoothControl = true,
     };
 
     private static void AssertSame(AppSettings expected, AppSettings actual)
@@ -43,6 +44,7 @@ public class SettingsStoreTests
         Assert.Equal(expected.HideCursor, actual.HideCursor);
         Assert.Equal(expected.Fullscreen, actual.Fullscreen);
         Assert.Equal(expected.AlwaysOnTop, actual.AlwaysOnTop);
+        Assert.Equal(expected.BluetoothControl, actual.BluetoothControl);
     }
 
     [Fact]
@@ -241,5 +243,32 @@ public class SettingsStoreTests
         Assert.False(parsed.AlwaysOnTop);
         Assert.Equal(30, parsed.Fps);
         Assert.False(parsed.HideCursor);
+    }
+
+    [Fact]
+    public void BluetoothControlIsOffByDefaultAndInOlderFiles()
+    {
+        Assert.False(new AppSettings().BluetoothControl);
+        Assert.False(SettingsStore.Parse("# MacExtend settings\nFps=30\nAlwaysOnTop=true\n").BluetoothControl);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void BluetoothControlRoundTrips(bool on)
+    {
+        var text = SettingsStore.Serialize(new AppSettings { BluetoothControl = on });
+
+        Assert.Contains("BluetoothControl=" + (on ? "true" : "false") + "\n", text);
+        Assert.Equal(on, SettingsStore.Parse(text).BluetoothControl);
+    }
+
+    [Theory]
+    [InlineData("bluetoothcontrol=TRUE", true)]
+    [InlineData("BluetoothControl=on", false)]
+    [InlineData("BluetoothControl=", false)]
+    public void BluetoothControlParsesLikeOtherSwitches(string line, bool expected)
+    {
+        Assert.Equal(expected, SettingsStore.Parse("Fps=30\n" + line).BluetoothControl);
     }
 }

@@ -11,11 +11,11 @@
 |---|---|---|
 | A. Gửi thao tác ngược lại qua AirPlay | Không làm được. MacExtend và UxPlay không có kênh nào gửi thao tác về thiết bị; Apple cũng giới thiệu AirPlay là cách để xem, không để tương tác. | Mã nguồn: đã xác minh (mục 2). Apple: không có tài liệu kỹ thuật nói rõ giao thức không có kênh ngược, chỉ có câu mô tả ở mục 3. |
 | B. Tái tạo iPhone Mirroring của Apple | Không làm được. Tính năng cần Mac chạy macOS Sequoia 15 trở lên và iPhone chạy iOS 18 trở lên, cùng Apple Account; không có giao thức công khai. | Yêu cầu: đã xác minh bằng nguồn Apple. "Không có giao thức công khai": suy luận (không tìm thấy tài liệu). |
-| C. Windows tự giả làm chuột/bàn phím Bluetooth (phần mềm) | Chưa chứng minh được, có xung đột đã xác minh: HID over GATT bắt buộc có Device Information Service, còn Windows không cho ứng dụng tự đăng dịch vụ này. Thêm hai điểm chưa rõ: chạy từ app WPF không đóng gói được không, và adapter có hỗ trợ vai trò peripheral không. | Xung đột DIS: đã xác minh bằng nguồn Microsoft và Bluetooth SIG. Hoạt động thực tế với iOS: chưa thử. |
+| C. Windows tự giả làm chuột/bàn phím Bluetooth (phần mềm) | Có bằng chứng triển khai bên ngoài; nên thử trước. DIS bị giữ bởi Windows không đủ để kết luận hướng này bị chặn. Xem cập nhật mục 10. | Tác giả dự án tham khảo báo đã thử iPhone; MacExtend chưa thử; iPad chưa kiểm chứng. |
 | D. Cầu nối phần cứng: Windows gửi qua USB tới một bo mạch đóng vai chuột/bàn phím Bluetooth | Hướng khả thi nhất. Firmware trên bo tự có đủ HID, Battery và Device Information Service. Đạt mức "điều khiển bằng con trỏ": iPad có con trỏ sẵn, iPhone qua AssistiveTouch. Không đạt cảm giác chạm trực tiếp chính xác như iPhone Mirroring. | ESP32-S3 và mẫu firmware Nordic: đã xác minh bằng nguồn. Trải nghiệm với iOS: chưa thử. |
 | E. Tự động hóa qua USB/công cụ lập trình viên | Không phù hợp làm tính năng dùng ngay. | Suy luận; chưa thử. |
 
-Đề xuất: nếu muốn đi tiếp, làm một prototype riêng theo hướng D (mục 8) trên cả iPhone và iPad trước khi hứa hẹn tính năng.
+Đề xuất cập nhật: thử hướng C bằng phần mềm độc lập trước (mục 10), rồi mới tích hợp. Hướng D là phương án dự phòng nếu adapter hoặc driver Windows không đáp ứng. Cả hai đều cần kiểm thử cùng AirPlay trên iPhone và iPad thật.
 
 ## 1. Bốn khái niệm cần tách bạch
 
@@ -48,13 +48,13 @@ Nguồn: [Apple Support 120421, "Use your iPhone from your Mac"](https://support
 
 1. **Dịch vụ bị hạn chế.** [Microsoft, Bluetooth GATT Server](https://learn.microsoft.com/en-us/windows/apps/develop/devices-sensors/gatt-server) (bản ngày 2026-05-27): "The following Services are reserved by the system and cannot be published at this time:" gồm Device Information Service (DIS), Generic Attribute Profile Service (GATT), Generic Access Profile Service (GAP), Scan Parameters Service (SCP). "Attempting to create a blocked service will result in BluetoothError.DisabledByPolicy being returned from the call to CreateAsync." HID Service (0x1812) không được nhắc tới: không nằm trong danh sách cấm, nhưng cũng không được nói là dùng được.
 2. **HID over GATT cần DIS.** [Bluetooth SIG, HID over GATT Profile 1.0](https://www.bluetooth.com/specifications/specs/hid-over-gatt-profile-1-0/), [bản HTML của đặc tả](https://www.bluetooth.com/specifications/specs/html/?src=HOGP_v1.0/out/en/index-en.html), mục 3: "The HID Device shall have one or more instances of the HID Service, one or more instances of the Battery Service, one instance of the Device Information Service, and optionally the Scan Parameters Service". Bảng 3.1 ghi HID Service, Battery Service, Device Information Service đều bắt buộc (M). Mục 2.1: "The HID Device shall be a GATT server."
-   - Hệ quả: một ứng dụng Windows chỉ có thể đăng HID Service và Battery Service, không thể tự đăng DIS, nên **chưa thể tuân thủ HOGP**. Windows có tự cung cấp DIS của hệ thống để thay vào hay không, và iOS có chấp nhận thiết bị như vậy hay không: chưa có nguồn, chỉ biết được bằng thử nghiệm.
+   - Giới hạn này không tự chứng minh thiết bị không thể hoạt động: ứng dụng không tự đăng DIS khác với toàn bộ máy không có DIS. Có ghi nhận bên ngoài về DIS do hệ thống cung cấp, xem mục 10. Mức tuân thủ chuẩn và khả năng hoạt động trên máy đích vẫn phải kiểm tra riêng.
 3. **Capability và package identity.** [GattServiceProvider](https://learn.microsoft.com/en-us/uwp/api/windows.devices.bluetooth.genericattributeprofile.gattserviceprovider) ghi "App capabilities | bluetooth", có từ Windows 10 Creators Update (10.0.15063.0). Trang GATT Server viết "You must declare the "bluetooth" capability in *Package.appxmanifest*." [App capability declarations](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/app-capability-declarations): "*Most* scenarios for app capabilities are relevant only to apps that have package identity." [WinRT APIs not supported in desktop apps](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/winrt-api-desktop-app-support) không liệt kê `Windows.Devices.Bluetooth` trong nhóm cần package identity, nhưng tự ghi "The list might not be comprehensive."
    - Hệ quả: MacExtend là app WPF .NET Framework 4.8 không đóng gói. Không có tài liệu Microsoft nào nói `GattServiceProvider` chạy được hay không chạy được trong trường hợp này: **chưa chứng minh**, phải thử. Nếu cần package identity thì phải đóng gói MSIX hoặc "packaging with external location".
 4. **Adapter.** [BluetoothAdapter.IsPeripheralRoleSupported](https://learn.microsoft.com/en-us/uwp/api/windows.devices.bluetooth.bluetoothadapter.isperipheralrolesupported?view=winrt-28000): "Gets a boolean indicating if the adapater supports LowEnergy peripheral role." Tài liệu chỉ nói theo từng adapter; việc phụ thuộc driver là suy luận. Không thể hứa trước cho mọi laptop.
 5. **Descriptor, ghép nối, mã hóa, kết nối lại.** Thiết bị HID cần report descriptor đúng (chuột: nút, chuyển động tương đối, cuộn; bàn phím: mã phím), ghép nối có mã hóa (bonding) và kết nối lại được sau khi tắt mở. Trên một GATT server tự viết, các phần này phải tự làm; chưa thử.
 
-Kết luận hướng C: có một xung đột đã xác minh (DIS bắt buộc nhưng bị Windows giữ) và hai điểm chưa rõ (đóng gói, adapter). Không nên chọn làm hướng chính.
+Kết luận hướng C cập nhật: giới hạn API là có thật, nhưng chưa đủ để loại hướng phần mềm. Bằng chứng mới ở mục 10 khiến hướng này đáng làm thử trước; khả năng chạy từ app net48 hiện tại và hỗ trợ từng adapter vẫn chưa được MacExtend kiểm chứng.
 
 ## 5. Con trỏ trên iPhone và iPad
 
@@ -110,7 +110,7 @@ Nếu vẫn muốn thử hướng C (không cần phần cứng), làm thành m�
 | Không có giao thức công khai cho iPhone Mirroring | Suy luận (không tìm thấy tài liệu) | |
 | Windows giữ DIS, GAP, GATT, SCP; tạo các dịch vụ này trả về DisabledByPolicy | Đã xác minh bằng nguồn | Microsoft, Bluetooth GATT Server |
 | HOGP bắt buộc HID Service, Battery Service, DIS | Đã xác minh bằng nguồn | Bluetooth SIG, HOGP 1.0 mục 3, bảng 3.1 |
-| HID Service đăng từ app có hoạt động với iOS | Chưa thử | |
+| HID Service đăng từ app có hoạt động với iOS | Dự án bên ngoài báo thành công; MacExtend chưa thử | Xem mục 10 |
 | GATT server cần capability `bluetooth` trong Package.appxmanifest | Đã xác minh bằng nguồn | Microsoft, GATT Server; GattServiceProvider |
 | GATT server chạy được từ WPF .NET Framework 4.8 không đóng gói | Chưa chứng minh (tài liệu không nói) | Microsoft, capability declarations; WinRT APIs not supported in desktop apps |
 | Hỗ trợ vai trò peripheral tùy adapter | Đã xác minh bằng nguồn; phụ thuộc driver là suy luận | Microsoft, IsPeripheralRoleSupported |
@@ -123,7 +123,7 @@ Nếu vẫn muốn thử hướng C (không cần phần cứng), làm thành m�
 | Thông số Bluetooth LE và USB của nRF52840 | Chưa xác minh (trang Nordic lỗi 403) | |
 | Công cụ tự động hóa iOS cần chế độ nhà phát triển và bộ công cụ Apple | Suy luận | |
 
-## 10. Chưa thử
+## Những điểm chưa thử trong khảo sát ban đầu
 
 - Chưa chạy bất kỳ thử nghiệm Bluetooth nào, trên Windows hay iOS.
 - Chưa biết adapter/driver Bluetooth của laptop mục tiêu có hỗ trợ vai trò peripheral hay không.
@@ -131,3 +131,53 @@ Nếu vẫn muốn thử hướng C (không cần phần cứng), làm thành m�
 - Chưa xác nhận iOS/iPadOS có nhận digitizer tuyệt đối qua Bluetooth hay không.
 - Chưa thử firmware nào trên ESP32-S3 hay nRF52840.
 - Chưa đọc bản PDF của đặc tả HOGP và phần cuối bản HTML; chưa đọc được datasheet ESP32-S3 (PDF không đọc được) và trang thông số nRF52840.
+
+## 10. Cập nhật: thử Bluetooth HID bằng phần mềm trước
+
+Bổ sung ngày 2026-10-28. Đây là kết quả đọc nguồn công khai, chưa phải kết quả chạy trên máy của người dùng. Những kết luận ưu tiên phần cứng ở bản khảo sát đầu được thay bằng đề xuất dưới đây.
+
+### Bằng chứng mới
+
+[windows-ble-hid](https://github.com/abhishek-raj/windows-ble-hid) triển khai bàn phím/chuột BLE trên Windows bằng `GattServiceProvider`. Tác giả báo iPhone nhận thao tác, chuột cần AssistiveTouch; iPadOS và kết nối lại trên iPhone chưa được thử. Dự án có CLI chẩn đoán `BleHid.Cli.exe --diagnose`, cần Windows build 19041+ và adapter hỗ trợ peripheral. Đây là báo cáo của tác giả, chưa được chúng tôi tái hiện.
+
+[DEVELOPMENT.md](https://github.com/abhishek-raj/windows-ble-hid/blob/main/DEVELOPMENT.md) ghi nhận DIS do Windows cung cấp trong bảng GATT đo được. Vì vậy, việc ứng dụng bị cấm tự đăng DIS không đủ để bác bỏ hướng này; ghi nhận đó cũng chưa chứng minh mọi máy đều tuân thủ HOGP.
+
+[Project Core tham khảo](https://github.com/abhishek-raj/windows-ble-hid/blob/main/src/BleHid.Core/BleHid.Core.csproj) nhắm `net8.0-windows10.0.22000.0`, hỗ trợ tối thiểu build 19041. MacExtend hiện là `net48`, nên không thể thêm trực tiếp DLL này làm tham chiếu. Các liên kết trên trỏ nhánh main đang thay đổi; khi dùng mã phải khóa commit, đọc giấy phép và lưu bản tương ứng.
+
+### Cách thử ít thay đổi nhất
+
+1. Trên Windows, dùng CLI chẩn đoán ở trên; lưu model adapter, driver và bản Windows. Kiểm tra peripheral bằng API [IsPeripheralRoleSupported](https://learn.microsoft.com/en-us/uwp/api/windows.devices.bluetooth.bluetoothadapter.isperipheralrolesupported). Số phiên bản Bluetooth tự nó chưa trả lời được câu hỏi này.
+2. Chạy một giao diện của công cụ tham khảo, ghép nối từ thiết bị Apple, rồi thử bàn phím và chuột riêng trước. iPhone bật [AssistiveTouch](https://support.apple.com/en-us/111775); iPad ghép chuột qua [Cài đặt Bluetooth](https://support.apple.com/en-us/108938).
+3. Giữ công cụ chạy, bật Phản chiếu màn hình tới MacExtend. Chọn thiết bị nhận input trong công cụ và bật capture. Dùng phím thoát capture được công cụ công bố, `Ctrl+Alt+Q`, để lấy lại chuột/phím Windows.
+4. Thử bảng B trong TESTING.md trên từng thiết bị. Chỉ chuyển sang tích hợp sau khi có kết quả.
+
+Đây là phép thử chạy hai chương trình song song; MacExtend chưa có nút Bluetooth. Chưa có bằng chứng ở lần khảo sát này rằng tổ hợp đó đã chạy ổn cùng AirPlay. Apple cũng [ghi nhận phụ kiện Bluetooth có thể ảnh hưởng Wi-Fi trên một số iPad](https://support.apple.com/en-us/108938), nên phải đo độ trễ và giật hình khi bật cả hai.
+
+### Kiến trúc đề xuất cho repo này
+
+```text
+iPhone/iPad ── AirPlay qua Wi-Fi/LAN ──> uxplay.exe ──> cửa sổ video
+     ^
+     └── Bluetooth LE HID ── bộ điều khiển riêng <── chuột/phím Windows
+                                    ^
+                                    └── IPC cục bộ ── MacExtend WPF
+```
+
+Phần dưới là thiết kế đề xuất dựa trên mã repo, chưa được triển khai:
+
+- Thêm helper Windows dùng .NET hiện đại để quản lý BLE HID. WPF net48 trao đổi trạng thái và lệnh qua named pipe giới hạn cho người dùng hiện tại. Chưa nâng framework toàn bộ app chỉ để thử Bluetooth.
+- Thêm `InputController` ở `src/MacExtend.App/Services`, quản lý trạng thái: tắt, không hỗ trợ, đang ghép nối, sẵn sàng, đang điều khiển. AirPlay và Bluetooth có vòng đời độc lập; khởi động lại uxplay không cần khởi động lại helper.
+- Dùng `AirPlayPresenter` và `VideoWindow` để nhận biết cửa sổ video còn sống/đang ở trước. Video thuộc tiến trình uxplay nên chỉ thêm sự kiện chuột/phím vào MainWindow WPF sẽ không bắt được thao tác trên video.
+- Người dùng chọn đích Bluetooth rõ ràng. Không mặc định thiết bị BLE vừa ghép chính là nguồn AirPlay: repo chưa có cách đối chiếu danh tính hai kết nối. Khi nguồn AirPlay đổi, dừng capture và yêu cầu chọn lại đích.
+- Bản đầu dùng chuột tương đối, phím, nút và cuộn. Chọn chế độ điều khiển rõ ràng rồi ẩn chuột Windows trong vùng video, theo dõi con trỏ thiết bị trên hình phản chiếu. Không hứa bấm đúng tọa độ hoặc đa điểm; con trỏ có thể chịu gia tốc và hút vào thành phần UI.
+- Rà lại `CursorShield`: hiện nó là lớp phủ toàn màn hình nhận hit test để giấu chuột, không chuyển tiếp thao tác. Cần một nơi duy nhất sở hữu capture để tránh lớp phủ làm mất input hoặc chặn cách thoát.
+- Capture phải thả ngay khi mất focus, đóng video, AirPlay ngắt, BLE ngắt hoặc helper lỗi. Có phím thoát xử lý tại máy Windows; không phụ thuộc gửi BLE thành công. Gửi trạng thái nhả toàn bộ phím/nút nếu đường truyền còn hoạt động. Alt+Tab và phím chuyển toàn màn hình cần được dành cho máy Windows theo thiết kế hiện có.
+- Thêm cài đặt bật/tắt, chọn thiết bị, trạng thái kết nối, phím thoát; mặc định tắt. Chỉ đóng gói helper vào CI/installer/updater sau khi kiểm thử. Bản Windows cũ hơn build 19041 vẫn nhận AirPlay và báo Bluetooth chưa hỗ trợ nếu dùng nền tảng tham khảo.
+
+### Tiêu chí quyết định
+
+Ưu tiên prototype phần mềm vì có thể thử bằng Bluetooth sẵn trên laptop. Nếu không có peripheral hoặc không ghép nối/nhận input ổn định trên thiết bị đích, chuyển sang cầu USB–BLE ở mục 6. Việc tích hợp hoàn chỉnh chỉ được coi là đạt khi cả điều khiển, phản chiếu và cách lấy lại chuột/phím Windows hoạt động cùng nhau trên thiết bị thật.
+
+### Đã tích hợp (1.0.8-beta.1)
+
+Thử nghiệm ngoài đạt B1–B3 trên iPhone, nên phần điều khiển đã được đưa vào MacExtend, khác thiết kế ở trên một điểm: không có helper riêng. .NET Framework 4.8 gọi được API GATT server của WinRT qua gói `Microsoft.Windows.SDK.Contracts`, nên app WPF tự đóng vai bàn phím/chuột và bắt chuột/phím trên một luồng riêng. Cách này bỏ được pipe, tiến trình thứ hai và runtime .NET đi kèm. Nhận định "net48 không dùng được" ở mục trên chỉ đúng với việc tham chiếu thẳng DLL net8 của dự án tham khảo. Mã nằm ở `src/MacExtend.App/Services/Bluetooth/` và `src/MacExtend.Core/Bluetooth/`; bảng kiểm thử B trong TESTING.md đã đổi theo bản tích hợp.

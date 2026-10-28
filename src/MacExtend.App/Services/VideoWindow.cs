@@ -75,6 +75,20 @@ namespace MacExtend.Services
             return true;
         }
 
+        /// <summary>
+        /// Screen bounds of the picture: the window without its title bar and frame. Sends no messages to the
+        /// window, so it is safe inside a low-level input hook.
+        /// </summary>
+        public static bool TryGetClientBounds(IntPtr hwnd, out PixelRect bounds)
+        {
+            bounds = default(PixelRect);
+            if (!IsAlive(hwnd) || Win32.IsIconic(hwnd) || !Win32.GetClientRect(hwnd, out var r)) return false;
+            var origin = new Win32.POINT();
+            if (!Win32.ClientToScreen(hwnd, ref origin) || r.Width <= 0 || r.Height <= 0) return false;
+            bounds = new PixelRect(origin.X, origin.Y, origin.X + r.Width, origin.Y + r.Height);
+            return true;
+        }
+
         /// <summary>Work area (monitor minus taskbar) of the monitor showing the window.</summary>
         public static bool TryGetWorkArea(IntPtr hwnd, out PixelRect work)
         {

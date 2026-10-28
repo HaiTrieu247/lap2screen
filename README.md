@@ -69,6 +69,22 @@ MacExtend tự kiểm tra bản mới trên GitHub: 1 phút sau khi mở, sau đ
 - Phím tắt Windows (phím Windows, Alt+Tab, Win+D) và phím Fn (âm lượng, độ sáng) vẫn hoạt động như bình thường.
 - Muốn dùng Windows: Alt+Tab sang ứng dụng khác, con trỏ hiện lại ngay. Muốn quay lại màn hình AirPlay: Alt+Tab về, hoặc bấm biểu tượng MacExtend ở khay (hay chọn **Hiện màn hình AirPlay** trong menu của nó).
 
+## Điều khiển iPhone/iPad bằng chuột và bàn phím (beta)
+
+Khi iPhone hoặc iPad đang phản chiếu, laptop có thể đóng vai bàn phím và chuột Bluetooth cho thiết bị đó. Hình và tiếng vẫn đi qua AirPlay; chỉ thao tác đi qua Bluetooth.
+
+Cần: Bluetooth của laptop đóng vai bàn phím được (Bluetooth LE ở chế độ peripheral; nhiều adapter có, một số không) và Bluetooth của Windows đang bật.
+
+1. Bật **Điều khiển thiết bị bằng chuột và bàn phím** ở mục Điều khiển. Dòng Bluetooth bên dưới báo máy có dùng được không.
+2. Phản chiếu từ iPhone hoặc iPad như bình thường. Laptop chỉ hiện ra như bàn phím Bluetooth trong lúc đang phản chiếu, và thêm khoảng 10 giây sau khi ngừng.
+3. Lần đầu: trong lúc đang phản chiếu, trên thiết bị vào **Cài đặt > Bluetooth**, chọn tên laptop. iPhone cần bật **Cài đặt > Trợ năng > Cảm ứng > AssistiveTouch** để hiện con trỏ chuột; iPad không cần.
+4. Bấm vào hình trong cửa sổ video để bắt đầu điều khiển. Con trỏ Windows ẩn đi; di chuột, bấm, cuộn và gõ phím đều đi sang thiết bị. Nhìn con trỏ của thiết bị trên hình để di. Phím Windows đóng vai phím Command.
+5. Nhấn **Ctrl+Alt+Q** để trả chuột và bàn phím cho Windows. Alt+Tab, chuyển sang cửa sổ khác, khóa máy, đóng video hoặc mất kết nối cũng trả lại ngay.
+
+Menu khay có mục **Điều khiển** / **Dừng điều khiển** khi đang phản chiếu. Nếu có hơn một thiết bị nối Bluetooth và không thiết bị nào trùng tên với thiết bị đang phản chiếu, chọn thiết bị ở mục Điều khiển.
+
+Con trỏ chạy theo kiểu chuột thật: bấm vào một điểm trên hình không làm con trỏ của thiết bị nhảy tới đó. Tốc độ con trỏ chỉnh ở Cài đặt > Trợ năng > Điều khiển con trỏ trên thiết bị. Phần Bluetooth dựa trên [windows-ble-hid](https://github.com/abhishek-raj/windows-ble-hid) (MIT). Nhật ký nằm ở `%LOCALAPPDATA%\MacExtend\logs\bluetooth.log` và chỉ ghi thay đổi trạng thái, không ghi phím đã gõ.
+
 ## Cài đặt trong app
 
 | Mục | Ý nghĩa |
@@ -80,6 +96,7 @@ MacExtend tự kiểm tra bản mới trên GitHub: 1 phút sau khi mở, sau đ
 | Giữ cửa sổ AirPlay luôn ở trên cùng | *Tắt* (mặc định). *Bật*: cửa sổ video luôn nằm trước các ứng dụng khác, kể cả khi bạn đang dùng ứng dụng đó. Có hiệu lực ngay, không cần khởi động lại bộ nhận; không áp dụng khi toàn màn hình. Khi đang kết nối, bật/tắt được cả từ menu khay. |
 | Âm thanh | Phát tiếng của nguồn phát (Mac, iPhone, iPad) trên loa Windows hoặc tắt. |
 | Mã PIN | Chặn người khác trong cùng mạng chiếu lên máy bạn. *Quên tất cả* xóa danh sách thiết bị đã ghép nối; nếu bật PIN, thiết bị phải nhập lại mã khi ghép nối lại. |
+| Điều khiển thiết bị bằng chuột và bàn phím | *Tắt* (mặc định). *Bật*: laptop đóng vai bàn phím và chuột Bluetooth khi iPhone/iPad đang phản chiếu. Có hiệu lực ngay. Xem mục trên. |
 | Khởi động cùng Windows | Chạy ẩn ở khay hệ thống sau khi đăng nhập. |
 
 Cấu hình hình ảnh và âm thanh dùng chung cho mọi nguồn phát. Với iPhone và iPad, nên để Độ phân giải ở *Tự động* khi bắt đầu; *Tùy chỉnh* và H.265 trên điện thoại chưa được kiểm chứng.
@@ -92,7 +109,7 @@ Các thay đổi về hình ảnh, âm thanh và PIN áp dụng sau khi khởi �
 - Bật Yêu cầu mã PIN để hạn chế nguồn lạ. Thiết bị đã ghép nối vẫn có thể thay phiên mà không cần nhập lại mã. Khi PIN tắt, mọi thiết bị cùng mạng đều kết nối được.
 - Chỉ hỗ trợ Phản chiếu màn hình. Nút AirPlay bên trong ứng dụng (gửi video thẳng tới bộ nhận) và nội dung có DRM, ví dụ phim trong các ứng dụng trả phí, có thể không hiện hình.
 - Độ khớp giữa tiếng và hình khi phản chiếu từ iPhone/iPad chưa được kiểm chứng trên thiết bị thật.
-- Chưa hỗ trợ điều khiển iPhone/iPad bằng chuột, bàn phím hay màn hình cảm ứng của Windows như iPhone Mirroring trên Mac. AirPlay chỉ truyền hình và tiếng từ thiết bị sang máy này, không có đường gửi thao tác ngược lại. Các hướng có thể làm và rào cản của từng hướng nằm trong [báo cáo nghiên cứu](docs/research/2026-10-28-ios-remote-control.md).
+- Điều khiển bằng chuột và bàn phím qua Bluetooth đang ở dạng beta: công cụ tham khảo đã chạy được với iPhone trên laptop thử, còn bản tích hợp trong MacExtend và iPad chưa được kiểm thử trên thiết bị thật. Chưa có bấm đúng điểm trên hình, cử chỉ nhiều ngón, màn hình cảm ứng Windows hay phím media.
 - uxplay chạy ở chế độ nhận DPI theo hệ thống (system DPI aware), không theo từng màn hình. Khi cửa sổ video nằm trên màn hình có mức scale khác màn hình chính, Windows co giãn ảnh của cửa sổ nên hình có thể mờ. Bản này không đổi cách uxplay nhận DPI. Toàn màn hình trên màn hình có scale khác màn hình chính chưa có kết quả kiểm thử thật.
 
 ## Khắc phục sự cố
@@ -167,6 +184,7 @@ Thành phần đi kèm:
 - [GStreamer](https://gstreamer.freedesktop.org) (LGPL) và [FFmpeg](https://ffmpeg.org) (gói MSYS2, LGPL/GPL): giải mã và hiển thị.
 - libplist (LGPL), OpenSSL (Apache 2.0).
 - Font [Be Vietnam Pro](https://github.com/bettergui/BeVietnamPro) (SIL OFL 1.1).
+- Phần bàn phím và chuột Bluetooth chuyển thể từ [windows-ble-hid](https://github.com/abhishek-raj/windows-ble-hid) (MIT), commit b33a004.
 
 Văn bản giấy phép của các thành phần nằm trong `uxplay/licenses` và `licenses` trong thư mục cài đặt.
 

@@ -19,6 +19,11 @@ namespace MacExtend.Core
         public int Bottom { get; }
         public int Width => Right - Left;
         public int Height => Bottom - Top;
+        public int CenterX => Left + Width / 2;
+        public int CenterY => Top + Height / 2;
+
+        /// <summary>Right and bottom are exclusive, as in a Win32 RECT.</summary>
+        public bool Contains(int x, int y) => x >= Left && x < Right && y >= Top && y < Bottom;
 
         public bool Equals(PixelRect other) =>
             Left == other.Left && Top == other.Top && Right == other.Right && Bottom == other.Bottom;

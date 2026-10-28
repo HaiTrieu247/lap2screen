@@ -1,8 +1,12 @@
 ; Inno Setup 6 script for MacExtend.
-; CI: ISCC /DAppVersion=1.2.3 /DSourceDir=<staged app folder> /O<output dir> installer\MacExtend.iss
+; CI: ISCC /DAppVersion=1.2.3 /DAppLabel=1.2.3-beta.1 /DSourceDir=<staged app folder> /O<output dir> installer\MacExtend.iss
 
 #ifndef AppVersion
   #define AppVersion "1.0.0"
+#endif
+; what the user reads: the version, or the version with its pre-release suffix. AppVersion stays numeric.
+#ifndef AppLabel
+  #define AppLabel AppVersion
 #endif
 #ifndef SourceDir
   #define SourceDir "..\build\MacExtend"
@@ -14,13 +18,13 @@
 AppId={{6F1C2B9E-3D4A-4E57-9C61-2A8B7D5E4F10}
 AppName=MacExtend
 AppVersion={#AppVersion}
-AppVerName=MacExtend {#AppVersion}
+AppVerName=MacExtend {#AppLabel}
 AppPublisher=MacExtend
 AppComments=AirPlay receiver for Mac extended displays and iPhone/iPad screen mirroring
 DefaultDirName={autopf}\MacExtend
 DefaultGroupName=MacExtend
 DisableProgramGroupPage=yes
-OutputBaseFilename=MacExtend-{#AppVersion}-setup
+OutputBaseFilename=MacExtend-{#AppLabel}-setup
 SetupIconFile=..\src\MacExtend.App\Assets\app.ico
 UninstallDisplayIcon={app}\MacExtend.exe
 LicenseFile=..\LICENSE

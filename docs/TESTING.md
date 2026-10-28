@@ -1,5 +1,27 @@
 # Kiểm thử
 
+## Thử nghiệm B: điều khiển Bluetooth khi phản chiếu (bản beta)
+
+**Đã thử trước khi tích hợp** (2026-10-28, công cụ ngoài windows-ble-hid v0.6.0 chạy song song MacExtend, iPhone): adapter của laptop thử hỗ trợ peripheral; phím, chuột (AssistiveTouch) và cuộn chạy được; vẫn ổn định khi đang phản chiếu. Lần đầu công cụ báo `HID service 0x1812: RadioNotAvailable` vì Bluetooth của Windows đang tắt. Đây là kết quả của công cụ ngoài, không phải của MacExtend.
+
+**Bản tích hợp trong MacExtend** (từ 1.0.8-beta.1): mọi hàng dưới đây **chưa kiểm chứng**. Trên Mac chỉ chạy được unit test của Core và biên dịch app. Cách dùng xem README, mục *Điều khiển iPhone/iPad bằng chuột và bàn phím*.
+
+Ghi cho mỗi lượt: bản MacExtend, Windows build, model adapter/driver Bluetooth, model thiết bị, iOS/iPadOS, AssistiveTouch, băng tần Wi-Fi và kết quả thực tế. Chạy riêng với iPhone và iPad. Gửi kèm `%LOCALAPPDATA%\MacExtend\logs\bluetooth.log` (chỉ có thay đổi trạng thái) và `uxplay.log` khi có lỗi.
+
+| # | Phép thử | Tiêu chí | Kết quả |
+|---|---|---|---|
+| B1 | Bật công tắc khi chưa phản chiếu | Dòng Bluetooth báo *Sẵn sàng...*; tắt Bluetooth Windows thì báo *đang tắt*, bật lại thì tự về *Sẵn sàng*; AirPlay không bị ảnh hưởng | Chưa kiểm chứng |
+| B2 | Ghép lần đầu | Đang phản chiếu, Cài đặt > Bluetooth trên thiết bị thấy tên laptop, ghép được; app báo *Đã kết nối <thiết bị>* | Chưa kiểm chứng |
+| B3 | Bấm để điều khiển | Bấm vào hình: con trỏ Windows ẩn, dải *Đang điều khiển...* hiện rồi mờ sau khoảng 3 giây; bấm, kéo, cuộn và gõ trong Ghi chú đi sang thiết bị; cú bấm đầu không chạm vào thiết bị; bấm vào thanh tiêu đề hay viền cửa sổ không bắt đầu điều khiển | Chưa kiểm chứng |
+| B4 | Gõ văn bản | Chữ hoa, Shift/Ctrl/Alt, phím Windows như Command (Cmd+Space, Cmd+H), ký tự đặc biệt, tiếng Việt bằng bàn phím tiếng Việt trên thiết bị (tắt UniKey/EVKey trên Windows) | Chưa kiểm chứng |
+| B5 | Cửa sổ, toàn màn hình, xoay | Thử cửa sổ thường và toàn màn hình, dọc/ngang, scale 100/150%; ghi lệch, giật hoặc trôi con trỏ sau khi dừng tay | Chưa kiểm chứng |
+| B6 | Trả lại Windows | Ctrl+Alt+Q; Alt+Tab (Windows chuyển cửa sổ ngay); Win+L; Ctrl+Alt+Del rồi Hủy; một cửa sổ khác bật lên trước. Mỗi lần: chuột/phím Windows dùng được ngay, không kẹt phím hay nút trên Windows lẫn trên thiết bị, kể cả khi đang giữ phím hoặc đang kéo | Chưa kiểm chứng |
+| B7 | Mất kết nối | Đang điều khiển thì tắt Bluetooth trên thiết bị, ngắt AirPlay, đóng cửa sổ video, tắt công tắc trong app: điều khiển dừng ngay, Windows dùng được ngay | Chưa kiểm chứng |
+| B8 | Kết nối lại | Ngừng phản chiếu: sau khoảng 10 giây thiết bị mất bàn phím Bluetooth và có lại bàn phím ảo. Phản chiếu lại: thiết bị tự nối lại, không phải ghép lại (ghi thời gian). Thử cả sau khi khóa/mở thiết bị, tắt/bật Bluetooth, khởi động lại MacExtend và Windows | Chưa kiểm chứng |
+| B9 | Đổi nguồn và nhiều thiết bị | iPhone và iPad cùng đã ghép: thiết bị trùng tên với nguồn đang phản chiếu được chọn; không trùng thì app hiện ô chọn. Nguồn mới thay phiên khi đang điều khiển: điều khiển dừng | Chưa kiểm chứng |
+| B10 | Dùng liên tục | 30 phút: ghi mất phím, kẹt nút, hình/tiếng giật so với khi tắt công tắc, việc phải ghép lại; lặp B6 sau lượt dài | Chưa kiểm chứng |
+| B11 | Menu khay | Khi đã kết nối: mục *Điều khiển <thiết bị>* bắt đầu điều khiển và đưa video lên trước; khi đang điều khiển: *Dừng điều khiển* trả lại Windows | Chưa kiểm chứng |
+
 Kiểm thử gồm hai phần tách biệt:
 
 1. **Kiểm tra tự động trên Mac** (người triển khai chạy): unit test phần logic và biên dịch app WPF. Phần này chỉ chứng minh logic và mã biên dịch được, không chứng minh app chạy đúng trên Windows.

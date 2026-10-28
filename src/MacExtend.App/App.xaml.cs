@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using MacExtend.Native;
 using MacExtend.Services;
+using MacExtend.Services.Bluetooth;
 using MacExtend.Themes;
 using MacExtend.Tray;
 using MacExtend.ViewModels;
@@ -26,6 +27,7 @@ namespace MacExtend
         private MainWindow _window;
         private TrayIcon _tray;
         private AirPlayPresenter _presenter;
+        private BluetoothController _bluetooth;
         private bool _exiting;
         private bool _crashing;
 
@@ -70,19 +72,22 @@ namespace MacExtend
 
             _settings = new SettingsService(AppPaths.SettingsFile);
             _controller = new ReceiverController(() => _settings.Current, Dispatcher);
-            _vm = new MainViewModel(_controller, _settings, ExitForUpdate);
+            _presenter = new AirPlayPresenter(_controller, () => _settings.Current, Dispatcher);
+            _bluetooth = new BluetoothController(() => _settings.Current, _controller, _presenter, Dispatcher);
+            _bluetooth.Refresh();
+            _vm = new MainViewModel(_controller, _bluetooth, _settings, ExitForUpdate);
             _vm.SyncAutoStart();
             _controller.RefreshPreview();
 
-            _presenter = new AirPlayPresenter(_controller, () => _settings.Current, Dispatcher);
             _vm.PropertyChanged += (_, args) =>
             {
                 if (args.PropertyName == nameof(MainViewModel.HideCursor) || args.PropertyName == nameof(MainViewModel.AlwaysOnTop))
                 {
                     _presenter.SettingsChanged();
                 }
+                if (args.PropertyName == nameof(MainViewModel.BluetoothControl)) _bluetooth.Refresh();
             };
-            _tray = new TrayIcon(_controller, ShowMainWindow, ExitApp, () => _presenter.HasVideoWindow, () => _presenter.ShowAirPlay(),
+            _tray = new TrayIcon(_controller, _bluetooth, ShowMainWindow, ExitApp, () => _presenter.HasVideoWindow, () => _presenter.ShowAirPlay(),
                                  () => _vm.AlwaysOnTop, onTop => _vm.AlwaysOnTop = onTop);
             _vm.Update.NewVersionFound += version => _tray?.ShowUpdate(version, () =>
             {
@@ -115,6 +120,7 @@ namespace MacExtend
         {
             _showWait?.Unregister(null);
             _tray?.Dispose();
+            _bluetooth?.Dispose();
             _controller?.Dispose();
             _singleInstance?.Dispose();
             base.OnExit(e);
@@ -131,6 +137,9 @@ namespace MacExtend
             WriteCrashLog(error);
             try
             {
+                // input back to Windows before the dialog below waits for a click; the hooks and the Bluetooth
+                // service end with the process
+                _bluetooth?.ReleaseInput();
                 _controller?.ShutdownNow();
                 _tray?.Dispose();
             }
@@ -199,6 +208,7 @@ namespace MacExtend
             _window?.CloseForExit();
             _tray.Dispose();
             _tray = null;
+            _bluetooth?.Dispose();
             _presenter?.Dispose();
             await _controller.StopAsync();
             Shutdown();

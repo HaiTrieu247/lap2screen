@@ -64,6 +64,7 @@ jobs:
     runs-on: windows-latest
     outputs:
       version: ${{ steps.version.outputs.value }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v5
 
@@ -75,16 +76,22 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          # tag vX.Y.Z builds X.Y.Z; every other build is <version.txt>.<run number>, always increasing
+          # tag vX.Y.Z builds X.Y.Z; every other build is <version.txt>.<run number>, always increasing.
+          # A tag with a suffix (v1.0.8-beta.1) is a pre-release: the app, installer and update.ini carry the
+          # number (1.0.8), file names and the release carry the whole label.
           $prefix = (Get-Content version.txt -Raw).Trim()
           $v = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { "$prefix.$env:GITHUB_RUN_NUMBER" }
+          $number = ($v -split '-', 2)[0]
+          if ($number -notmatch '^\d+\.\d+\.\d+$') { throw "version '$v' must start with X.Y.Z" }
           "value=$v" >> $env:GITHUB_OUTPUT
+          "number=$number" >> $env:GITHUB_OUTPUT
+          "prerelease=$(if ($v -ne $number) { 'true' } else { 'false' })" >> $env:GITHUB_OUTPUT
 
       - name: Unit tests
         run: dotnet test tests/MacExtend.Core.Tests -c Release
 
       - name: Build app
-        run: dotnet build src/MacExtend.App -c Release -o build/MacExtend -p:Version=${{ steps.version.outputs.value }} -p:UpdateRepository=${{ github.repository }} -p:DebugType=none
+        run: dotnet build src/MacExtend.App -c Release -o build/MacExtend -p:Version=${{ steps.version.outputs.number }} -p:InformationalVersion=${{ steps.version.outputs.value }} -p:UpdateRepository=${{ github.repository }} -p:DebugType=none
 
       - uses: actions/download-artifact@v4
         with:
@@ -115,7 +122,7 @@ jobs:
           $runtimeId = (Get-Content build/MacExtend/uxplay/RUNTIME_ID -Raw).Trim()
           $lines = @(
             '# MacExtend update manifest'
-            "version=$v"
+            "version=${{ steps.version.outputs.number }}"
             "app.file=$($app.Name)"
             "app.sha256=$((Get-FileHash $app -Algorithm SHA256).Hash.ToLower())"
             "app.size=$($app.Length)"
@@ -132,7 +139,7 @@ jobs:
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
-          & $iscc "/DAppVersion=${{ steps.version.outputs.value }}" "/DSourceDir=$PWD\build\MacExtend" "/O$PWD\dist" installer\MacExtend.iss
+          & $iscc "/DAppVersion=${{ steps.version.outputs.number }}" "/DAppLabel=${{ steps.version.outputs.value }}" "/DSourceDir=$PWD\build\MacExtend" "/O$PWD\dist" installer\MacExtend.iss
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
       - uses: actions/upload-artifact@v4
@@ -141,7 +148,9 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  # Every push to main (and every v* tag) becomes a release, so the app's updater can find it.
+  # Every push to main (and every v* tag) becomes a release, so the app's updater can find it. A tag with a
+  # suffix (v1.0.8-beta.1) becomes a pre-release: never Latest, so the updater, which reads only the latest
+  # release, does not offer it to anyone.
   release:
     name: GitHub release
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
@@ -161,6 +170,7 @@ jobs:
           tag_name: v${{ needs.app.outputs.version }}
           name: MacExtend ${{ needs.app.outputs.version }}
           target_commitish: ${{ github.sha }}
-          make_latest: 'true'
+          prerelease: ${{ needs.app.outputs.prerelease }}
+          make_latest: ${{ needs.app.outputs.prerelease == 'true' && 'false' || 'true' }}
           files: dist/*
           generate_release_notes: true

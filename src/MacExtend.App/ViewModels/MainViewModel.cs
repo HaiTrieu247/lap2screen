@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -6,7 +7,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using MacExtend.Core;
+using MacExtend.Core.Bluetooth;
 using MacExtend.Services;
+using MacExtend.Services.Bluetooth;
 
 namespace MacExtend.ViewModels
 {
@@ -27,6 +30,12 @@ namespace MacExtend.ViewModels
             nameof(CustomHeightText), nameof(CustomRefreshText), nameof(CustomH265), nameof(IsFps30), nameof(IsFps60),
             nameof(AudioEnabled), nameof(PinEnabled), nameof(Pin), nameof(PinDisplay), nameof(StartWithWindows),
             nameof(AutoCheckUpdates), nameof(FocusOnConnect), nameof(HideCursor), nameof(Fullscreen), nameof(AlwaysOnTop),
+            nameof(BluetoothControl),
+        };
+        private static readonly string[] BluetoothNames =
+        {
+            nameof(BluetoothText), nameof(BluetoothCheck), nameof(BluetoothHosts), nameof(ShowHostPicker), nameof(ShowPairingHint),
+            nameof(StatusDetail),
         };
         private static readonly string[] StatusNames =
         {
@@ -36,6 +45,7 @@ namespace MacExtend.ViewModels
         };
 
         private readonly ReceiverController _controller;
+        private readonly BluetoothController _bluetooth;
         private readonly SettingsService _settings;
         private CheckState _firewallState = CheckState.Checking;
         private CheckState _networkState = CheckState.Checking;
@@ -47,9 +57,10 @@ namespace MacExtend.ViewModels
         private bool _fixing;
         private bool _phoneGuide;
 
-        public MainViewModel(ReceiverController controller, SettingsService settings, Action<string> exitForUpdate)
+        public MainViewModel(ReceiverController controller, BluetoothController bluetooth, SettingsService settings, Action<string> exitForUpdate)
         {
             _controller = controller;
+            _bluetooth = bluetooth;
             _settings = settings;
             Update = new UpdateViewModel(() => _settings.Current.AutoCheckUpdates,
                                          () => _controller.Phase == ReceiverPhase.Connected, exitForUpdate);
@@ -60,6 +71,8 @@ namespace MacExtend.ViewModels
                 // state changes without user input do not re-query commands on their own
                 CommandManager.InvalidateRequerySuggested();
             };
+
+            _bluetooth.StateChanged += () => Raise(BluetoothNames);
 
             StartCommand = new RelayCommand(() => _controller.Start(), () => CanStart);
             StopCommand = new RelayCommand(() => _controller.StopAsync(), () => IsActive);
@@ -119,7 +132,13 @@ namespace MacExtend.ViewModels
                     case ReceiverPhase.Ready:
                         return "Trên thiết bị Apple cùng mạng, mở Phản chiếu màn hình và chọn " + EffectiveDeviceName + ".";
                     case ReceiverPhase.Connected:
-                        return "Nguồn phát: " + ClientName + ". Màn hình Windows sẽ luôn sáng cho đến khi ngắt kết nối.";
+                        var detail = "Nguồn phát: " + ClientName + ". Màn hình Windows sẽ luôn sáng cho đến khi ngắt kết nối.";
+                        switch (_bluetooth.State)
+                        {
+                            case BluetoothState.Connected: return detail + " Bấm vào hình để điều khiển bằng chuột và bàn phím.";
+                            case BluetoothState.Controlling: return detail + " Đang điều khiển, nhấn Ctrl+Alt+Q để trả lại Windows.";
+                            default: return detail;
+                        }
                     case ReceiverPhase.Failed: return _controller.LastError ?? "Xem nhật ký để biết chi tiết.";
                     default: return "Bấm Bắt đầu để nhận kết nối trong Phản chiếu màn hình.";
                 }
@@ -290,6 +309,58 @@ namespace MacExtend.ViewModels
             get => _settings.Current.AlwaysOnTop;
             set => Change(s => s.AlwaysOnTop = value);
         }
+
+        /// <summary>The laptop as a Bluetooth keyboard and mouse for the device mirroring. Applies at once.</summary>
+        public bool BluetoothControl
+        {
+            get => _settings.Current.BluetoothControl;
+            set => Change(s => s.BluetoothControl = value);
+        }
+
+        // ---- Bluetooth control --------------------------------------------------------------
+
+        public string BluetoothText => _bluetooth.StatusText;
+
+        public CheckState BluetoothCheck
+        {
+            get
+            {
+                switch (_bluetooth.State)
+                {
+                    case BluetoothState.Connected:
+                    case BluetoothState.Controlling:
+                        return CheckState.Ok;
+                    case BluetoothState.NoAdapter:
+                    case BluetoothState.NoPeripheral:
+                    case BluetoothState.RadioOff:
+                    case BluetoothState.Blocked:
+                    case BluetoothState.Failed:
+                        return CheckState.Problem;
+                    default:
+                        return CheckState.Checking;
+                }
+            }
+        }
+
+        public IReadOnlyList<HostChoice> BluetoothHosts =>
+            _bluetooth.Hosts.Select(h => new HostChoice(h, string.Equals(h.Id, _bluetooth.TargetId, StringComparison.OrdinalIgnoreCase),
+                                                        _bluetooth.SelectHost)).ToList();
+
+        public bool ShowHostPicker => _bluetooth.Hosts.Count > 1;
+
+        /// <summary>No device connected yet: say how to pair one.</summary>
+        public bool ShowPairingHint
+        {
+            get
+            {
+                var state = _bluetooth.State;
+                return state == BluetoothState.WaitingForMirroring || state == BluetoothState.Starting || state == BluetoothState.WaitingForDevice;
+            }
+        }
+
+        public string PairingHint { get; } =
+            "Lần đầu: khi đang phản chiếu, trên thiết bị vào Cài đặt > Bluetooth và chọn " + LaptopName() +
+            ". iPhone cần bật Cài đặt > Trợ năng > Cảm ứng > AssistiveTouch để hiện con trỏ.";
 
         public bool AutoCheckUpdates
         {
@@ -483,10 +554,22 @@ namespace MacExtend.ViewModels
             return string.Format(CultureInfo.InvariantCulture, "{0} × {1}, {2} Hz{3}", m.Width, m.Height, m.RefreshHz, video.H265 ? ", H.265" : "");
         }
 
+        /// <summary>The name Windows gives this laptop over Bluetooth: the computer name, in its own case.</summary>
+        private static string LaptopName()
+        {
+            try
+            {
+                return System.Net.Dns.GetHostName();
+            }
+            catch (System.Net.Sockets.SocketException)
+            {
+                return Environment.MachineName;
+            }
+        }
+
         private static string BuildVersionText()
         {
-            var version = typeof(MainViewModel).Assembly.GetName().Version;
-            var text = "MacExtend " + version.ToString(3);
+            var text = "MacExtend " + VersionLabel();
             try
             {
                 if (File.Exists(AppPaths.UxPlayVersionFile))
@@ -499,6 +582,17 @@ namespace MacExtend.ViewModels
             {
             }
             return text + ". Mã nguồn mở theo giấy phép GPLv3.";
+        }
+
+        /// <summary>"1.0.8", or "1.0.8-beta.1" for a pre-release; the SDK may append "+commit" to the informational version.</summary>
+        private static string VersionLabel()
+        {
+            var assembly = typeof(MainViewModel).Assembly;
+            var label = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                                .Select(a => a.InformationalVersion.Split('+')[0])
+                                .FirstOrDefault();
+            return string.IsNullOrEmpty(label) ? assembly.GetName().Version.ToString(3) : label;
         }
     }
 }
