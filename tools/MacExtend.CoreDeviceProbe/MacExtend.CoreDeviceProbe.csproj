@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Developer probe for the CoreDevice (pymobiledevice3 serve-web) experiment; not part of the MacExtend app,
+       its installer or its updater. See tools/coredevice/README.md. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <RootNamespace>MacExtend.CoreDeviceProbe</RootNamespace>
+    <AssemblyName>MacExtend.CoreDeviceProbe</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Version>0.1.0</Version>
+    <Product>MacExtend CoreDevice probe</Product>
+    <Copyright>GPL-3.0-or-later</Copyright>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MacExtend.Core\MacExtend.Core.csproj" />
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+</Project>

@@ -148,6 +148,60 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  # Experimental CoreDevice probe (tools/coredevice/README.md): a separate console tool, never part of the app,
+  # its packages or the release. Needs neither the uxplay runtime nor a device: the smoke tests use a fake
+  # serve-web on the real locked Python runtime.
+  coredevice-probe:
+    name: CoreDevice probe (experimental, not shipped)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: '3.12'
+          architecture: x64
+
+      - name: Python runtime from the lock (twice; the second run reuses the venv)
+        shell: pwsh
+        run: |
+          ./tools/coredevice/setup.ps1 -Python '${{ steps.python.outputs.python-path }}'
+          ./tools/coredevice/setup.ps1 -Python '${{ steps.python.outputs.python-path }}'
+
+      - name: Unit tests
+        run: dotnet test tests/MacExtend.Core.Tests -c Release
+
+      - name: Build solution
+        run: dotnet build MacExtend.sln -c Release
+
+      - name: Build probe
+        run: dotnet build tools/MacExtend.CoreDeviceProbe -c Release -o build/coredevice-probe/bin -p:DebugType=none
+
+      - name: Smoke tests (net48 probe, real venv, fake serve-web)
+        shell: pwsh
+        run: ./tools/coredevice/test-probe.ps1 -Probe build/coredevice-probe/bin/MacExtend.CoreDeviceProbe.exe
+
+      - name: Package
+        id: package
+        shell: pwsh
+        run: |
+          $dir = 'build/coredevice-probe'
+          Copy-Item tools/coredevice/setup.ps1, tools/coredevice/compile-lock.ps1, tools/coredevice/requirements.in, tools/coredevice/requirements-win-x64.lock.txt, tools/coredevice/README.md $dir
+          "name=coredevice-probe-$($env:GITHUB_SHA.Substring(0, 7))" >> $env:GITHUB_OUTPUT
+
+      # deliberately not MacExtend-*: the release job collects artifacts by that pattern
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: build/coredevice-probe
+          if-no-files-found: error
+
   # Every push to main (and every v* tag) becomes a release, so the app's updater can find it. A tag with a
   # suffix (v1.0.8-beta.1) becomes a pre-release: never Latest, so the updater, which reads only the latest
   # release, does not offer it to anyone.

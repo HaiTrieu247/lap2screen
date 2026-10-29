@@ -181,3 +181,12 @@ Phần dưới là thiết kế đề xuất dựa trên mã repo, chưa đượ
 ### Đã tích hợp (1.0.8-beta.1)
 
 Thử nghiệm ngoài đạt B1–B3 trên iPhone, nên phần điều khiển đã được đưa vào MacExtend, khác thiết kế ở trên một điểm: không có helper riêng. .NET Framework 4.8 gọi được API GATT server của WinRT qua gói `Microsoft.Windows.SDK.Contracts`, nên app WPF tự đóng vai bàn phím/chuột và bắt chuột/phím trên một luồng riêng. Cách này bỏ được pipe, tiến trình thứ hai và runtime .NET đi kèm. Nhận định "net48 không dùng được" ở mục trên chỉ đúng với việc tham chiếu thẳng DLL net8 của dự án tham khảo. Mã nằm ở `src/MacExtend.App/Services/Bluetooth/` và `src/MacExtend.Core/Bluetooth/`; bảng kiểm thử B trong TESTING.md đã đổi theo bản tích hợp.
+
+## 11. Bổ sung 2026-10-29: chạm trực tiếp qua CoreDevice
+
+Mục 7 đánh giá công cụ lập trình viên là "không phù hợp". Đánh giá đó chưa xét `developer core-device display serve-web` của pymobiledevice3: dịch vụ CoreDevice mà Xcode dùng để phản chiếu, đã có sẵn chạm theo tọa độ (nhấn, kéo, nhả), phím vật lý, nút Home và clipboard mà không cần ký ứng dụng chạy kèm. Phân biệt rõ hai loại bằng chứng:
+
+- Đã xác minh bằng mã nguồn pymobiledevice3 11.47.0 (tag `v11.47.0`, commit `f7b034ec`, chứa bản sửa cleanup Windows `d700d8e`): hợp đồng HTTP, tọa độ HID 0..65535, cách viewer nhả chạm/phím, trình tự dừng và trả phiên media, giới hạn camera/micro, ý nghĩa `--no-audio`. Chi tiết ở [2026-10-29-coredevice-probe.md](2026-10-29-coredevice-probe.md).
+- Chưa thử trên phần cứng: độ mượt, giải mã HEVC trên trình duyệt Windows, iPad, Wi-Fi, ảnh hưởng tới camera/micro/âm thanh và AirPlay. Kết quả ghi ở [2026-10-29-coredevice-results.md](2026-10-29-coredevice-results.md).
+
+Điều kiện người dùng vẫn nặng hơn Bluetooth: tin cậy máy tính, bật Developer Mode, mount Developer Disk Image sau mỗi lần khởi động lại thiết bị, Python đi kèm, và không dùng được camera/micro khi phiên đang chạy. Vì vậy Bluetooth (mục 10) vẫn là đường điều khiển của sản phẩm; CoreDevice chỉ có công cụ thử riêng `tools/MacExtend.CoreDeviceProbe`, không đóng gói trong app.

@@ -85,6 +85,10 @@ Menu khay có mục **Điều khiển** / **Dừng điều khiển** khi đang p
 
 Con trỏ chạy theo kiểu chuột thật: bấm vào một điểm trên hình không làm con trỏ của thiết bị nhảy tới đó. Tốc độ con trỏ chỉnh ở Cài đặt > Trợ năng > Điều khiển con trỏ trên thiết bị. Phần Bluetooth dựa trên [windows-ble-hid](https://github.com/abhishek-raj/windows-ble-hid) (MIT). Nhật ký nằm ở `%LOCALAPPDATA%\MacExtend\logs\bluetooth.log` và chỉ ghi thay đổi trạng thái, không ghi phím đã gõ.
 
+### Thử nghiệm: chạm trực tiếp qua CoreDevice
+
+Đang thử một hướng khác không cần ghép Bluetooth: dịch vụ CoreDevice dành cho lập trình viên của Apple (qua pymobiledevice3, cộng đồng dịch ngược), cho phép bấm đúng điểm, giữ và kéo trên hình. Nó chỉ là công cụ console riêng, không nằm trong app hay bản cài, và chưa được thử trên thiết bị thật. Cần bật Developer Mode, và trong lúc chạy camera/micro của thiết bị có thể không dùng được. Xem [tools/coredevice/README.md](tools/coredevice/README.md) và [kết quả thử](docs/research/2026-10-29-coredevice-results.md).
+
 ## Cài đặt trong app
 
 | Mục | Ý nghĩa |
@@ -171,6 +175,8 @@ src/MacExtend.App/      app WPF: cửa sổ, khay hệ thống, chạy uxplay, t
 tests/                  unit test cho Core
 installer/              script Inno Setup
 tools/make_icons.py     sinh các file .ico (Python thuần)
+tools/coredevice/       thử nghiệm CoreDevice: runtime Python khóa phiên bản, smoke test (không thuộc app)
+tools/MacExtend.CoreDeviceProbe/  công cụ console thử CoreDevice (không thuộc app)
 docs/TESTING.md         checklist kiểm thử trên máy thật
 docs/research/          báo cáo nghiên cứu khả thi (chưa phải tính năng)
 ```

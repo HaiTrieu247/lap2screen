@@ -1,0 +1,7 @@
+# CoreDevice probe runtime (Windows x64, Python 3.12). Not part of the MacExtend product.
+# The version is fixed: serve-web's HTTP endpoints are reverse-engineered, not a stable API.
+# 11.47.0 = tag v11.47.0, commit f7b034ec49696b1769c80257aadfa5387271dc6b; it contains d700d8e
+# (first Ctrl-C cancels the command so serve-web's cleanup runs). See
+# docs/research/2026-10-29-coredevice-probe.md before changing it.
+# Regenerate requirements-win-x64.lock.txt with compile-lock.ps1 on Windows.
+pymobiledevice3==11.47.0

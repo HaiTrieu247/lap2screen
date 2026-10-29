@@ -16,3 +16,7 @@ out/
 .superpowers/
 .DS_Store
 __pycache__/
+
+# CoreDevice probe: local runtime and hardware-test output
+tools/coredevice/.venv/
+tools/coredevice/results/

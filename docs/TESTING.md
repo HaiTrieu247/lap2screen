@@ -22,6 +22,30 @@ Ghi cho mỗi lượt: bản MacExtend, Windows build, model adapter/driver Blue
 | B10 | Dùng liên tục | 30 phút: ghi mất phím, kẹt nút, hình/tiếng giật so với khi tắt công tắc, việc phải ghép lại; lặp B6 sau lượt dài | Chưa kiểm chứng |
 | B11 | Menu khay | Khi đã kết nối: mục *Điều khiển <thiết bị>* bắt đầu điều khiển và đưa video lên trước; khi đang điều khiển: *Dừng điều khiển* trả lại Windows | Chưa kiểm chứng |
 
+## Thử nghiệm C: chạm trực tiếp qua CoreDevice (công cụ thử, không thuộc app)
+
+Công cụ `tools/MacExtend.CoreDeviceProbe` chạy `pymobiledevice3 serve-web` (khóa 11.47.0). Cài đặt và lệnh cụ thể ở [tools/coredevice/README.md](../tools/coredevice/README.md); hợp đồng upstream ở [research/2026-10-29-coredevice-probe.md](research/2026-10-29-coredevice-probe.md). Ghi kết quả vào [research/2026-10-29-coredevice-results.md](research/2026-10-29-coredevice-results.md), tách iPhone/iPad và USB userspace / USB tunneld / Wi-Fi. Hàng nào chưa chạy trên thiết bị thật thì giữ **Chưa chạy**.
+
+Thứ tự: chạy serve-web trực tiếp qua USB trước, rồi C7 (camera/micro) và C10–C12 (trả media) ngay, sau đó mới tới probe, tunneld, Wi-Fi, kết nối lại và AirPlay đồng thời.
+
+| # | Phép thử | Tiêu chí |
+|---|---|---|
+| C1 | Hình | Viewer hiện hình trên Edge và Chrome (HEVC qua WebCodecs); ghi trình duyệt, GPU/driver, chuỗi codec. Thời gian từ lúc chạy tới *sẵn sàng* và tới khung hình đầu |
+| C2 | Chạm, giữ, kéo, Home | Bấm vào hình chạm đúng điểm; giữ mở menu ngữ cảnh; kéo cuộn danh sách và nhấc khi thả; chuột phải hoặc nút Home về màn hình chính |
+| C3 | Nhả | Kéo rồi thả ngoài hình, Alt+Tab khi đang giữ, đổi tab, thu nhỏ trình duyệt: không còn ngón tay hay phím bị giữ trên thiết bị |
+| C4 | Bàn phím | Chữ, số, Shift, Backspace, Enter, mũi tên, Cmd (phím Windows) + Space/H; ghi phím tắt nào bị Windows giữ lại |
+| C5 | Tiếng Việt, clipboard | UniKey/EVKey tắt, bàn phím tiếng Việt trên iOS: gõ được dấu. Văn bản tiếng Việt đầy đủ qua *Send to device* rồi dán. Ghi riêng nếu bật UniKey (chỉ khảo sát) |
+| C6 | Xoay | Xoay thiết bị và nút xoay của viewer: hình đúng hướng, chạm vẫn đúng điểm ở cả dọc và ngang |
+| C7 | Camera, micro | Thứ tự 1: mở Camera/Ghi âm/cuộc gọi video trước rồi chạy serve-web (ghi thông báo lỗi). Thứ tự 2: serve-web đang chạy rồi mở Camera, Ghi âm, cuộc gọi video (ghi hình đen, tiếng câm, cuộc gọi có tiếng không) |
+| C8 | Âm thanh | Loa và tai nghe của thiết bị, và âm thanh AirPlay của MacExtend: trước, trong và sau phiên; với CoreDevice riêng, AirPlay riêng và cả hai cùng lúc |
+| C9 | Lệnh API probe | Đóng viewer, chạy `tap 32768 32768`, `hold`, `drag`, `key 0x04`, `release`, `home` ở hướng dọc: thiết bị phản hồi đúng, không kẹt |
+| C10 | Trả media sau `stop` | Probe báo stopped trong 40 giây; `get-media-stream-server-status`, Camera và Ghi âm hoạt động, chỉ báo chia sẻ màn hình tắt |
+| C11 | Trả media sau Ctrl+C | Như C10, với Ctrl+C trong cửa sổ probe; thêm một lần Ctrl+C thứ hai khi đang dừng |
+| C12 | Sau kill cưỡng bức | Kill probe bằng Task Manager, đóng cửa sổ probe, và để hết 40 giây: không còn tiến trình Python hay cổng mở; ghi media có bị giữ không và bước phục hồi nào hiệu quả (chạy lại serve-web rồi dừng đúng cách, cuối cùng mới khởi động lại thiết bị) |
+| C13 | Mất kết nối | Rút cáp, khóa thiết bị, tắt Wi-Fi khi đang chạy: userspace cần chạy lại probe; tunneld tự nối lại hình; không có thao tác bị gửi lại |
+| C14 | Độ trễ | Ít nhất 20 thao tác mỗi transport; ghi cách đo (ví dụ quay video 240 fps cả tay và màn hình) và trung vị/lớn nhất |
+| C15 | Cùng AirPlay | MacExtend đang phản chiếu qua AirPlay, đồng thời probe: hai hình, âm thanh, chạm, và khi dừng probe AirPlay vẫn chạy |
+
 Kiểm thử gồm hai phần tách biệt:
 
 1. **Kiểm tra tự động trên Mac** (người triển khai chạy): unit test phần logic và biên dịch app WPF. Phần này chỉ chứng minh logic và mã biên dịch được, không chứng minh app chạy đúng trên Windows.
