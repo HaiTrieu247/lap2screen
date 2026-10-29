@@ -10,8 +10,11 @@
 |---|---|---|
 | Unit test Core (tham số, môi trường, client, log) | macOS, .NET 10 | Đạt, 2026-10-29 |
 | Build probe net48 | macOS, .NET 10 SDK | Đạt (chỉ biên dịch) |
-| `setup.ps1` hai lần, `pip check`, phiên bản, `serve-web --help` | job *CoreDevice probe*, windows-latest | Chưa chạy (chờ CI) |
-| Smoke probe net48 với serve-web giả, venv thật | job *CoreDevice probe*, windows-latest | Chưa chạy (chờ CI) |
+| `setup.ps1` hai lần, `pip check`, phiên bản, `serve-web --help` | job *CoreDevice probe*, windows-latest | Đạt, 2026-10-29: pymobiledevice3 11.47.0, CPython 3.12 x64 |
+| Unit test Core, build solution, build probe net48 | job *CoreDevice probe*, windows-latest | Đạt, 2026-10-29 |
+| Smoke probe net48 với serve-web giả, venv thật | job *CoreDevice probe*, windows-latest | Đạt, 2026-10-29: cả 19 kịch bản trong `SCENARIOS` |
+
+Lượt CI: [run 40826987621](https://github.com/HaiTrieu247/lap2screen/actions/runs/40826987621), commit 6430ad9 trên `beta/bluetooth`, chạy tay (`workflow_dispatch`). Artifact `coredevice-probe-6430ad9`.
 
 ## Môi trường của mỗi lượt
 
@@ -41,4 +44,4 @@ Mỗi ô ghi Đạt / Không đạt / Chưa chạy, kèm ghi chú ngắn. Cột 
 
 ## Kết luận hiện tại
 
-Chưa đủ bằng chứng để quyết định thay Bluetooth. Đã có: đường triển khai xác minh từ mã nguồn, công cụ thử và CI không cần thiết bị. Còn thiếu toàn bộ phép thử phần cứng ở trên, trước hết C1, C7 và C10–C12.
+Chưa đủ bằng chứng để quyết định thay Bluetooth. Đã có: đường triển khai xác minh từ mã nguồn, công cụ thử, và CI không cần thiết bị đã chạy xanh trên Windows. Còn thiếu toàn bộ phép thử phần cứng ở trên, trước hết C1, C7 và C10–C12.
