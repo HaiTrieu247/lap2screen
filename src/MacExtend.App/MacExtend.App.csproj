@@ -31,7 +31,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- the CoreDevice runtime zip this build was made with (CI passes -p:CoreDeviceRuntime*=...; empty in a local
+         build). The keys are the ones RuntimePackage.FromMetadata reads. -->
+    <AssemblyMetadata Include="CoreDeviceRuntimeId" Value="$(CoreDeviceRuntimeId)" />
+    <AssemblyMetadata Include="CoreDeviceRuntimeFile" Value="$(CoreDeviceRuntimeFile)" />
+    <AssemblyMetadata Include="CoreDeviceRuntimeSha256" Value="$(CoreDeviceRuntimeSha256)" />
+    <AssemblyMetadata Include="CoreDeviceRuntimeSize" Value="$(CoreDeviceRuntimeSize)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\MacExtend.Core\MacExtend.Core.csproj" />
+    <ProjectReference Include="..\MacExtend.CoreDeviceHost\MacExtend.CoreDeviceHost.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />

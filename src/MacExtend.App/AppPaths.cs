@@ -7,6 +7,7 @@ namespace MacExtend
     internal static class AppPaths
     {
         public static string InstallDir => AppDomain.CurrentDomain.BaseDirectory;
+        public static string SelfExe => Path.Combine(InstallDir, "MacExtend.exe");
 
         public static string UxPlayRoot => Path.Combine(InstallDir, "uxplay");
         public static string UxPlayBin => Path.Combine(UxPlayRoot, "bin");
@@ -16,6 +17,16 @@ namespace MacExtend
         public static string UxPlayVersionFile => Path.Combine(UxPlayRoot, "VERSION.txt");
         /// <summary>Fingerprint of the bundled uxplay/GStreamer build, compared with update.ini's runtime.id.</summary>
         public static string RuntimeIdFile => Path.Combine(UxPlayRoot, "RUNTIME_ID");
+
+        /// <summary>Python + pymobiledevice3 for "Điều khiển trực tiếp"; installed by the first setup, never by the installer.</summary>
+        public static string CoreDeviceRoot => Path.Combine(InstallDir, "coredevice");
+        /// <summary>The interpreter folder: the firewall rules' programs and the Scheduled Task's working directory.</summary>
+        public static string CoreDevicePythonDir => Path.Combine(CoreDeviceRoot, "python");
+        /// <summary>serve-web and the short pymobiledevice3 commands.</summary>
+        public static string CoreDevicePython => Path.Combine(CoreDevicePythonDir, "python.exe");
+        /// <summary>tunneld for Wi-Fi: the Scheduled Task's program (or started with UAC by a portable copy).</summary>
+        public static string CoreDevicePythonw => Path.Combine(CoreDevicePythonDir, "pythonw.exe");
+        public static string CoreDeviceRuntimeIdFile => Path.Combine(CoreDeviceRoot, "RUNTIME_ID");
 
         /// <summary>Roaming: settings and the pairing identity that the Mac remembers.</summary>
         public static string DataDir =>
@@ -35,6 +46,12 @@ namespace MacExtend
         public static string GstRegistry => Path.Combine(LocalDir, "gst-registry.bin");
         public static string UpdatesDir => Path.Combine(LocalDir, "updates");
         public static string UpdateLog => Path.Combine(LogDir, "update.log");
+        /// <summary>Classified session and setup status lines only; never keys, clipboard, full UDIDs or raw Python output.</summary>
+        public static string CoreDeviceLog => Path.Combine(LogDir, "coredevice.log");
+        public static string WebViewDataDir => Path.Combine(LocalDir, "WebView2");
+        /// <summary>pymobiledevice3's own folder (pair records, RemotePairing records, DDI cache): Path.home() on Windows.</summary>
+        public static string PymobiledeviceHome =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".pymobiledevice3");
 
         public static void EnsureDirectories()
         {

@@ -35,6 +35,13 @@ namespace MacExtend
         {
             base.OnStartup(e);
 
+            // serve-web's Ctrl+C helper and the elevated CoreDevice setup and removal: no UI, no receiver
+            if (Services.CoreDevice.CoreDeviceHelpers.TryRun(e.Args, out var coreDeviceExit))
+            {
+                Shutdown(coreDeviceExit);
+                return;
+            }
+
             // a copy of this exe in %TEMP% applying an update: no UI, no receiver
             if (UpdateHelper.TryRun(e.Args, out var helperExit))
             {

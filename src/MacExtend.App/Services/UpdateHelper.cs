@@ -28,7 +28,8 @@ namespace MacExtend.Services
         private const int ErrorCancelled = 1223;
         // Inno Setup AppId from installer/MacExtend.iss
         private const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{6F1C2B9E-3D4A-4E57-9C61-2A8B7D5E4F10}_is1";
-        private static readonly string[] HelperFiles = { "MacExtend.exe", "MacExtend.exe.config", "MacExtend.Core.dll" };
+        // App.OnStartup reaches CoreDeviceHelpers (CtrlCHelper) before this helper's own mode, so the copy needs that DLL too
+        private static readonly string[] HelperFiles = { "MacExtend.exe", "MacExtend.exe.config", "MacExtend.Core.dll", "MacExtend.CoreDeviceHost.dll" };
 
         /// <summary>Applying into this folder needs administrator rights (Program Files).</summary>
         public static bool NeedsElevation(string installDir) => !CanWrite(installDir);
