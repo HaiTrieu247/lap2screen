@@ -155,6 +155,52 @@ namespace MacExtend.CoreDeviceHost
             }
         }
 
+        /// <summary>
+        /// Runs a short command (usbmux list, amfi, mounter, lockdown remotepairing) in a job of its own, launched like
+        /// serve-web, and waits up to <paramref name="timeout"/>; past that the job is terminated. stdout comes back
+        /// whole (JSON from print_json); stderr lines are only classified with <see cref="CliLog"/>.
+        /// </summary>
+        public static CommandResult RunCommand(string executable, IReadOnlyList<string> args, IDictionary<string, string> environment, TimeSpan timeout)
+        {
+            using (var host = new CoreDeviceProcessHost())
+            {
+                var stdout = new StringBuilder();
+                var errors = new List<CliError>();
+                var child = host.LaunchInJob(executable, args, environment, false, _ => { });
+                try
+                {
+                    var outReader = Task.Run(() => ReadAll(child.Stdout, stdout));
+                    var errReader = Task.Run(() => ReadLines(child.Stderr, line =>
+                    {
+                        var error = CliLog.Parse(line);
+                        if (error != CliError.None) lock (errors) errors.Add(error);
+                    }));
+                    var finished = NativeMethods.WaitForSingleObject(child.Process, (uint)timeout.TotalMilliseconds) == NativeMethods.WAIT_OBJECT_0;
+                    uint exitCode = 1;
+                    if (finished) NativeMethods.GetExitCodeProcess(child.Process, out exitCode);
+                    // a descendant that outlived the command would hold the pipes open
+                    NativeMethods.TerminateJobObject(host._job, 1);
+                    Task.WaitAll(new Task[] { outReader, errReader }, 5000);
+                    lock (errors)
+                    lock (stdout)
+                    {
+                        return new CommandResult(finished ? (int)exitCode : -1, stdout.ToString(), CliLog.Pick(errors), !finished);
+                    }
+                }
+                finally
+                {
+                    NativeMethods.TerminateJobObject(host._job, 1);
+                    child.Dispose();
+                }
+            }
+        }
+
+        /// <summary>
+        /// When set, every stdout/stderr line goes here instead of <see cref="ServeWebLog"/> (tunneld uses it). The handler
+        /// must classify the line and drop it: raw lines carry the UDID and addresses.
+        /// </summary>
+        public Action<string> RawLineHandler { get; set; }
+
         public int ActiveProcessCount()
         {
             var buffer = Marshal.AllocHGlobal(NativeMethods.AccountingInfoSize);
@@ -462,7 +508,12 @@ namespace MacExtend.CoreDeviceHost
                 using (var reader = new StreamReader(stream, new UTF8Encoding(false)))
                 {
                     string line;
-                    while ((line = reader.ReadLine()) != null) OnLine(ServeWebLog.Parse(line));
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        var raw = RawLineHandler;
+                        if (raw != null) raw(line);
+                        else OnLine(ServeWebLog.Parse(line));
+                    }
                 }
             })
             {
@@ -502,6 +553,16 @@ namespace MacExtend.CoreDeviceHost
                 }
             }
             StatusLine?.Invoke(line);
+        }
+
+        private static void ReadLines(SafeFileHandle pipe, Action<string> onLine)
+        {
+            using (var stream = new FileStream(pipe, FileAccess.Read, 4096, false))
+            using (var reader = new StreamReader(stream, new UTF8Encoding(false)))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null) onLine(line);
+            }
         }
 
         private static void ReadAll(SafeFileHandle pipe, StringBuilder into)
