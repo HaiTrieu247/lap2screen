@@ -137,7 +137,10 @@ namespace MacExtend.Views
 
             if (_unavailableTitle != null)
             {
-                // N7: sticky. No phase replaces it, and the session's end does not close the window under it.
+                // N7: sticky. No phase replaces it, and the session's end does not close the window under it. Nothing
+                // can show the device here, so a session, also one opened again later from the tray, is stopped
+                // rather than keep the device's camera and microphone blocked.
+                if (view.IsActive && (view.Phase != SessionPhase.Stopping || view.WaitingForPreviousStop)) _ = _service.StopAsync();
                 ShowPlaceholder(false, _unavailableTitle, _unavailableDetail, download: true);
                 UpdateTools(false);
                 UpdateBand();
@@ -253,9 +256,10 @@ namespace MacExtend.Views
                 if (_viewer != viewer) return;
                 var core = viewer.CoreWebView2;
                 Lock(core.Settings);
-                // the session's own viewer page and the blank page between sessions, nothing else
-                core.NavigationStarting += (_, a) => { if (!ViewerBridge.IsAllowedNavigation(a.Uri, _loadedPort)) a.Cancel = true; };
-                core.FrameNavigationStarting += (_, a) => { if (!ViewerBridge.IsAllowedNavigation(a.Uri, _loadedPort)) a.Cancel = true; };
+                // the session's own viewer page and the blank page between sessions, nothing else, and never from history
+                // (the mouse's back button): after a cable restart that history is viewer, blank, viewer
+                core.NavigationStarting += (_, a) => { if (!MayNavigate(a)) a.Cancel = true; };
+                core.FrameNavigationStarting += (_, a) => { if (!MayNavigate(a)) a.Cancel = true; };
                 core.NewWindowRequested += (_, a) => a.Handled = true;
                 core.DownloadStarting += (_, a) =>
                 {
@@ -264,7 +268,8 @@ namespace MacExtend.Views
                 };
                 core.PermissionRequested += (_, a) => a.State = CoreWebView2PermissionState.Deny;
                 core.NavigationCompleted += OnNavigationCompleted;
-                core.ProcessFailed += OnProcessFailed;
+                // bound to its control: after its browser process crashed, the control's CoreWebView2 getter throws
+                core.ProcessFailed += (_, a) => OnProcessFailed(viewer, a);
                 await core.AddScriptToExecuteOnDocumentCreatedAsync(ViewerBridge.DocumentScript(Hex(stage)));
                 if (_viewer != viewer) return;
                 _viewerReady = true;
@@ -287,6 +292,22 @@ namespace MacExtend.Views
             }
             catch (WebView2RuntimeNotFoundException)
             {
+                return false;
+            }
+        }
+
+        private bool MayNavigate(CoreWebView2NavigationStartingEventArgs a) =>
+            !IsHistory(a) && ViewerBridge.IsAllowedNavigation(a.Uri, _loadedPort);
+
+        private static bool IsHistory(CoreWebView2NavigationStartingEventArgs a)
+        {
+            try
+            {
+                return a.NavigationKind == CoreWebView2NavigationKind.BackOrForward;
+            }
+            catch (Exception e) when (e is NotImplementedException || e is InvalidCastException)
+            {
+                // a runtime without NavigationKind: the address check alone still keeps history from the blank page
                 return false;
             }
         }
@@ -323,12 +344,11 @@ namespace MacExtend.Views
             }
         }
 
-        /// <summary>N7: the WebView2 cannot run here. Nothing could show the device, so the session ends too.</summary>
+        /// <summary>N7: the WebView2 cannot run here. Refresh keeps saying so and stops the session.</summary>
         private void MakeUnavailable(bool missing)
         {
             _unavailableTitle = missing ? MissingTitle : BrokenTitle;
             _unavailableDetail = missing ? MissingDetail : BrokenDetail;
-            _ = _service.StopAsync();
             Refresh();
         }
 
@@ -344,7 +364,14 @@ namespace MacExtend.Views
             if (viewer == null) return;
             viewer.PreviewKeyDown -= OnKey;
             Picture.Children.Remove(viewer);
-            viewer.Dispose();
+            try
+            {
+                viewer.Dispose();
+            }
+            catch (Exception e) when (e is InvalidOperationException || e is COMException || e is ObjectDisposedException)
+            {
+                // a control whose browser process crashed may fail to release what is already gone
+            }
         }
 
         private void Load(int port, string url)
@@ -399,16 +426,19 @@ namespace MacExtend.Views
             UpdateBand();
         }
 
-        private void OnProcessFailed(object sender, CoreWebView2ProcessFailedEventArgs e)
+        /// <summary>Reads only the event's args: once the browser process is gone, the control's CoreWebView2 getter throws.</summary>
+        private void OnProcessFailed(WebView2 viewer, CoreWebView2ProcessFailedEventArgs e)
         {
-            if (_closed || _viewer == null || !ReferenceEquals(sender, _viewer.CoreWebView2)) return;
-            Log("viewer: WebView2 " + e.ProcessFailedKind);
-            switch (e.ProcessFailedKind)
+            if (_closed || _viewer != viewer) return;
+            var kind = e.ProcessFailedKind;
+            Log("viewer: WebView2 " + kind);
+            switch (kind)
             {
                 case CoreWebView2ProcessFailedKind.BrowserProcessExited:
-                    // this WebView2 is done; a new one is made outside its own event, once for this one
-                    var failed = _viewer;
-                    _ = Dispatcher.BeginInvoke(new Action(() => RestartViewer(failed)));
+                    // this WebView2 is done: nothing may use it any more (Navigate, RunScript and FocusViewer check
+                    // _viewerReady), and a new one is made outside its own event, once for this one
+                    _viewerReady = false;
+                    _ = Dispatcher.BeginInvoke(new Action(() => RestartViewer(viewer)));
                     break;
                 case CoreWebView2ProcessFailedKind.RenderProcessExited:
                 case CoreWebView2ProcessFailedKind.RenderProcessUnresponsive:
@@ -420,6 +450,7 @@ namespace MacExtend.Views
         private async void RestartViewer(WebView2 failed)
         {
             if (_closed || _viewer != failed) return;
+            // DropViewer takes the dead control out and disposes it without touching its CoreWebView2
             DropViewer();
             if (_viewerStarts >= MaxViewerStarts)
             {
