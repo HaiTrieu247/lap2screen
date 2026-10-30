@@ -2,8 +2,10 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using MacExtend.Core;
+using MacExtend.Core.CoreDevice;
 using MacExtend.Services;
 using MacExtend.Services.Bluetooth;
+using MacExtend.Services.CoreDevice;
 using MacExtend.Themes;
 
 namespace MacExtend.Tray
@@ -13,6 +15,7 @@ namespace MacExtend.Tray
     {
         private readonly ReceiverController _controller;
         private readonly BluetoothController _bluetooth;
+        private readonly CoreDeviceService _direct;
         private readonly NotifyIcon _icon;
         private readonly ContextMenuStrip _menu;
         private readonly ToolStripMenuItem _status;
@@ -22,18 +25,24 @@ namespace MacExtend.Tray
         private readonly ToolStripMenuItem _showMac;
         private readonly ToolStripMenuItem _onTop;
         private readonly ToolStripMenuItem _control;
+        private readonly ToolStripMenuItem _directItem;
         private Action _installUpdate;
         private bool _hintShown;
+        private bool _forcedStopShown;
+        private bool _exiting;
         private Icon _current;
 
         /// <param name="showMac">Brings the AirPlay display back to the front; offered while a device is connected.</param>
         /// <param name="onTop">The "always on top" setting; offered next to <paramref name="showMac"/>.</param>
         /// <param name="bluetooth">Offers to start or stop controlling the device while that is possible.</param>
-        public TrayIcon(ReceiverController controller, BluetoothController bluetooth, Action open, Action exit, Func<bool> macDisplayOpen,
-                        Action showMac, Func<bool> onTop, Action<bool> setOnTop)
+        /// <param name="direct">The direct-control session: its item says whether a click starts or stops one.</param>
+        /// <param name="toggleDirect">Opens a direct-control session, or stops the one running.</param>
+        public TrayIcon(ReceiverController controller, BluetoothController bluetooth, CoreDeviceService direct, Action toggleDirect, Action open,
+                        Action exit, Func<bool> macDisplayOpen, Action showMac, Func<bool> onTop, Action<bool> setOnTop)
         {
             _controller = controller;
             _bluetooth = bluetooth;
+            _direct = direct;
 
             _status = new ToolStripMenuItem { Enabled = false };
             var openItem = new ToolStripMenuItem("Mở MacExtend", null, (_, __) => open());
@@ -45,11 +54,12 @@ namespace MacExtend.Tray
             _showMac = new ToolStripMenuItem("Hiện màn hình AirPlay", null, (_, __) => showMac()) { Visible = false };
             _onTop = new ToolStripMenuItem("", null, (_, __) => setOnTop(!onTop())) { Visible = false };
             _control = new ToolStripMenuItem("", null, (_, __) => ToggleControl()) { Visible = false };
+            _directItem = new ToolStripMenuItem("", null, (_, __) => toggleDirect());
 
             _menu = new ContextMenuStrip { ShowImageMargin = false, Padding = new Padding(0, 4, 0, 4) };
             _menu.Items.AddRange(new ToolStripItem[]
             {
-                _status, new ToolStripSeparator(), _showMac, _onTop, _control, openItem, _toggle, _restart, _update, new ToolStripSeparator(), exitItem,
+                _status, new ToolStripSeparator(), _showMac, _onTop, _control, _directItem, openItem, _toggle, _restart, _update, new ToolStripSeparator(), exitItem,
             });
             // the menu has no check margin, so the item says what a click does; the setting can also change in the window
             _menu.Opening += (_, __) => _onTop.Text = onTop() ? "Tắt luôn ở trên cùng" : "Bật luôn ở trên cùng";
@@ -61,7 +71,7 @@ namespace MacExtend.Tray
             _icon = new NotifyIcon { ContextMenuStrip = _menu, Visible = true };
             _icon.MouseClick += (_, e) =>
             {
-                if (e.Button != MouseButtons.Left) return;
+                if (e.Button != MouseButtons.Left || _exiting) return;
                 // while a device is streaming, a click on the icon returns to its display
                 if (macDisplayOpen()) showMac();
                 else open();
@@ -69,7 +79,18 @@ namespace MacExtend.Tray
 
             _controller.StateChanged += Update;
             _bluetooth.StateChanged += Update;
+            _direct.StateChanged += Update;
             ThemeManager.Changed += Update;
+            Update();
+        }
+
+        /// <summary>
+        /// The app is exiting and waits for the direct-control session to stop (N5): the icon says "Đang dừng..." and
+        /// its menu offers nothing until the app is gone.
+        /// </summary>
+        public void ShowExiting()
+        {
+            _exiting = true;
             Update();
         }
 
@@ -96,6 +117,7 @@ namespace MacExtend.Tray
         {
             _controller.StateChanged -= Update;
             _bluetooth.StateChanged -= Update;
+            _direct.StateChanged -= Update;
             ThemeManager.Changed -= Update;
             _icon.Visible = false;
             _icon.Dispose();
@@ -150,6 +172,9 @@ namespace MacExtend.Tray
             _current = next;
 
             if (_bluetooth.IsControlling) text = "Đang điều khiển " + _bluetooth.TargetName;
+            var direct = _direct.View;
+            text = DirectControlTexts.TrayStatus(direct) ?? text;
+            if (_exiting) text = CoreDeviceMessages.Phase(SessionPhase.Stopping);
             var tip = "MacExtend: " + text;
             _icon.Text = tip.Length > 63 ? tip.Substring(0, 62) + "…" : tip;
             _status.Text = text;
@@ -159,7 +184,22 @@ namespace MacExtend.Tray
             _onTop.Visible = phase == ReceiverPhase.Connected;
             _control.Visible = _bluetooth.IsControlling || _bluetooth.CanControl;
             _control.Text = _bluetooth.IsControlling ? "Dừng điều khiển" : "Điều khiển " + _bluetooth.TargetName;
+            _directItem.Text = DirectControlTexts.TrayItem(direct);
+            _directItem.Enabled = DirectControlTexts.TrayItemEnabled(direct);
+            if (_exiting)
+            {
+                // nothing to offer while the app waits for the session's stop
+                foreach (ToolStripItem item in _menu.Items) item.Visible = item == _status;
+            }
             _menu.Renderer = new ModernMenuRenderer(!WindowsTheme.SystemUsesLightTheme);
+
+            // once per session: a stop that had to kill serve-web may have left the camera and microphone held
+            if (direct.IsActive) _forcedStopShown = false;
+            else if (DirectControlTexts.WarnForcedStop(direct) && !_forcedStopShown)
+            {
+                _forcedStopShown = true;
+                _icon.ShowBalloonTip(5000, DirectControlTexts.ForcedStopTitle, DirectControlTexts.ForcedStopText, ToolTipIcon.None);
+            }
         }
 
         private static Icon LoadIcon(string name)

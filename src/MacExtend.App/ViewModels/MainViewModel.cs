@@ -8,8 +8,10 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using MacExtend.Core;
 using MacExtend.Core.Bluetooth;
+using MacExtend.Core.CoreDevice;
 using MacExtend.Services;
 using MacExtend.Services.Bluetooth;
+using MacExtend.Services.CoreDevice;
 
 namespace MacExtend.ViewModels
 {
@@ -46,6 +48,8 @@ namespace MacExtend.ViewModels
 
         private readonly ReceiverController _controller;
         private readonly BluetoothController _bluetooth;
+        private readonly CoreDeviceService _direct;
+        private readonly DirectControlUi _directUi;
         private readonly SettingsService _settings;
         private CheckState _firewallState = CheckState.Checking;
         private CheckState _networkState = CheckState.Checking;
@@ -57,10 +61,15 @@ namespace MacExtend.ViewModels
         private bool _fixing;
         private bool _phoneGuide;
 
-        public MainViewModel(ReceiverController controller, BluetoothController bluetooth, SettingsService settings, Action<string> exitForUpdate)
+        /// <param name="direct">The direct-control session, for its status line.</param>
+        /// <param name="directUi">Opens a session or the setup window; tells when it looks for devices and when the setup window closed.</param>
+        public MainViewModel(ReceiverController controller, BluetoothController bluetooth, CoreDeviceService direct, DirectControlUi directUi,
+                             SettingsService settings, Action<string> exitForUpdate)
         {
             _controller = controller;
             _bluetooth = bluetooth;
+            _direct = direct;
+            _directUi = directUi;
             _settings = settings;
             Update = new UpdateViewModel(() => _settings.Current.AutoCheckUpdates,
                                          () => _controller.Phase == ReceiverPhase.Connected, exitForUpdate);
@@ -73,6 +82,9 @@ namespace MacExtend.ViewModels
             };
 
             _bluetooth.StateChanged += () => Raise(BluetoothNames);
+            // N20: the setup window closing can change "Chưa thiết lập" too, not only a session
+            _direct.StateChanged += RaiseDirect;
+            _directUi.Changed += RaiseDirect;
 
             StartCommand = new RelayCommand(() => _controller.Start(), () => CanStart);
             StopCommand = new RelayCommand(() => _controller.StopAsync(), () => IsActive);
@@ -82,6 +94,8 @@ namespace MacExtend.ViewModels
             FixFirewallCommand = new RelayCommand(() => _ = FixFirewallAsync(), () => FirewallState != CheckState.Ok && !_fixing);
             MakePrivateCommand = new RelayCommand(() => _ = MakePrivateAsync(), () => _publicNetwork != null && !_fixing);
             OpenLogsCommand = new RelayCommand(() => Process.Start("explorer.exe", "\"" + AppPaths.LogDir + "\""));
+            OpenDirectCommand = new RelayCommand(() => _ = _directUi.OpenAsync(), () => !_directUi.IsOpening);
+            DirectSetupCommand = new RelayCommand(_directUi.OpenSetup);
 
             VersionText = BuildVersionText();
         }
@@ -94,6 +108,8 @@ namespace MacExtend.ViewModels
         public ICommand FixFirewallCommand { get; }
         public ICommand MakePrivateCommand { get; }
         public ICommand OpenLogsCommand { get; }
+        public ICommand OpenDirectCommand { get; }
+        public ICommand DirectSetupCommand { get; }
 
         public UpdateViewModel Update { get; }
 
@@ -378,6 +394,17 @@ namespace MacExtend.ViewModels
             catch (UnauthorizedAccessException)
             {
             }
+        }
+
+        // ---- direct control -----------------------------------------------------------------
+
+        /// <summary>The session's status while one runs; otherwise whether this build's runtime is set up.</summary>
+        public string DirectControlText => DirectControlTexts.Settings(_direct.View, CoreDeviceRuntime.IsCurrent, _directUi.IsOpening);
+
+        private void RaiseDirect()
+        {
+            Raise(nameof(DirectControlText));
+            CommandManager.InvalidateRequerySuggested();
         }
 
         // ---- system checks ------------------------------------------------------------------

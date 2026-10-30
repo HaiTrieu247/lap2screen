@@ -34,6 +34,7 @@ namespace MacExtend.Services.CoreDevice
         private static bool _rulesAdded;
 
         private static readonly TimeSpan StartJoinTimeout = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan GatePoll = TimeSpan.FromMilliseconds(500);
 
         // 1 once a tunneld this controller started is its to stop; handed over atomically between the start and StopAsync
         private int _ours;
@@ -64,7 +65,7 @@ namespace MacExtend.Services.CoreDevice
                 var phase = StartAsync(stop.Token, token);
                 Volatile.Write(ref _startPhase, phase);
                 var started = await phase.ConfigureAwait(false);
-                if (started.Outcome != TunnelOutcome.Ready) return await FailedAsync(started.Outcome, started.RulesAdded, startedByUs: false).ConfigureAwait(false);
+                if (started.Outcome != TunnelOutcome.Ready) return await FailedAsync(started.Outcome, started.RulesAdded, startedByUs: false, token).ConfigureAwait(false);
                 rulesThisCall = started.RulesAdded;
                 startedByUs = true;
             }
@@ -83,7 +84,7 @@ namespace MacExtend.Services.CoreDevice
                 }
                 if (json != null && TunneldListing.HasTunnel(json, udid)) return TunnelOutcome.Ready;
             }
-            return await FailedAsync(TunnelOutcome.Timeout, rulesThisCall, startedByUs).ConfigureAwait(false);
+            return await FailedAsync(TunnelOutcome.Timeout, rulesThisCall, startedByUs, token).ConfigureAwait(false);
         }
 
         private struct StartResult
@@ -98,7 +99,7 @@ namespace MacExtend.Services.CoreDevice
             var result = new StartResult();
             if (!WindowsSetupState.UseTask && !_rulesAdded)
             {
-                result.Outcome = await AddRulesAsync().ConfigureAwait(false);
+                result.Outcome = await AddRulesAsync(token).ConfigureAwait(false);
                 result.RulesAdded = true;
                 if (result.Outcome == TunnelOutcome.AdminDeclined) return result;
             }
@@ -169,19 +170,39 @@ namespace MacExtend.Services.CoreDevice
             }
         }
 
-        private static async Task<TunnelOutcome> FailedAsync(TunnelOutcome outcome, bool rulesThisCall, bool startedByUs)
+        private static async Task<TunnelOutcome> FailedAsync(TunnelOutcome outcome, bool rulesThisCall, bool startedByUs, CancellationToken token)
         {
             Log("Wi-Fi tunnel failed: " + outcome);
             // a copy without the task may have lost its rules: add them (idempotent) so the next try can work
-            if (!WindowsSetupState.UseTask && !rulesThisCall && TunnelPlan.ReaddRulesAfter(outcome, startedByUs)) await AddRulesAsync().ConfigureAwait(false);
+            if (!WindowsSetupState.UseTask && !rulesThisCall && TunnelPlan.ReaddRulesAfter(outcome, startedByUs)) await AddRulesAsync(token).ConfigureAwait(false);
             return outcome;
         }
 
-        private static async Task<TunnelOutcome> AddRulesAsync()
+        /// <summary>
+        /// The rules, with one UAC, through the app's setup gate: a setup window's install or pairing may be asking UAC
+        /// now, and two prompts must not overlap. It waits for that action, until the session is stopped.
+        /// </summary>
+        private static async Task<TunnelOutcome> AddRulesAsync(CancellationToken token)
         {
-            var result = await CoreDeviceRuntime.AddFirewallRulesAsync().ConfigureAwait(false);
-            if (result == "ok") _rulesAdded = true;
-            return result == "cancelled" ? TunnelOutcome.AdminDeclined : TunnelOutcome.Ready;
+            var gate = CoreDeviceRuntime.SetupGate;
+            var owner = new object();
+            var waited = false;
+            while (!gate.TryEnter(owner, null, SetupMessages.AddingRules))
+            {
+                if (!waited) Log("firewall rules wait for a setup action");
+                waited = true;
+                await Task.Delay(GatePoll, token).ConfigureAwait(false);
+            }
+            try
+            {
+                var result = await CoreDeviceRuntime.AddFirewallRulesAsync().ConfigureAwait(false);
+                if (result == "ok") _rulesAdded = true;
+                return result == "cancelled" ? TunnelOutcome.AdminDeclined : TunnelOutcome.Ready;
+            }
+            finally
+            {
+                gate.Exit(owner);
+            }
         }
 
         private static async Task<string> ListAsync(CancellationToken token)

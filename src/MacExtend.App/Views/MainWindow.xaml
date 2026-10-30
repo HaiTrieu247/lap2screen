@@ -469,6 +469,25 @@
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
+                            <Border Style="{StaticResource Hairline}" />
+                            <!-- direct control: CoreDevice over the cable or Wi-Fi, its own window, independent of AirPlay -->
+                            <Grid Style="{StaticResource Row}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Điều khiển trực tiếp" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Qua cáp hoặc Wi-Fi, trong cửa sổ riêng, không cần AirPlay. Bấm đúng điểm, giữ, kéo và gõ phím trên iPhone, iPad." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                    <TextBlock Text="{Binding DirectControlText}" Style="{StaticResource Text.Caption}" Margin="0,6,0,0" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="Thiết lập..." Style="{StaticResource Button.Secondary}" Command="{Binding DirectSetupCommand}"
+                                            Padding="12,6" Margin="0,0,8,0" />
+                                    <Button Content="Mở điều khiển" Style="{StaticResource Button.Primary}" Command="{Binding OpenDirectCommand}"
+                                            Padding="12,6" />
+                                </StackPanel>
+                            </Grid>
 
                             <Border Style="{StaticResource Hairline}" Margin="0,6,0,0" />
 

@@ -1,0 +1,79 @@
+<Window x:Class="MacExtend.Views.DevicePickerWindow"
+        x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Chọn thiết bị"
+        Width="420" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="False"
+        Background="{DynamicResource Window.Background}"
+        Foreground="{DynamicResource Text.Primary}"
+        FontFamily="{StaticResource Font.Sans}" FontSize="13.5"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True"
+        Icon="pack://application:,,,/MacExtend;component/Assets/app.ico">
+
+    <Window.Resources>
+        <!-- one device: a card, the chosen one in the accent -->
+        <Style x:Key="DeviceRow" TargetType="ListBoxItem">
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Surface" CornerRadius="8" Padding="14,10" SnapsToDevicePixels="True"
+                                Background="{DynamicResource Sheet.Background}" BorderBrush="{DynamicResource Sheet.Border}" BorderThickness="1">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource Control.Hover}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource Accent.Soft}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="24,20,24,20">
+        <TextBlock Text="Chọn thiết bị" Style="{StaticResource Text.Headline}" FontSize="20" />
+        <TextBlock Text="Có nhiều thiết bị dùng được. Chọn thiết bị để điều khiển; thiết bị đang cắm cáp nằm trên cùng."
+                   Style="{StaticResource Text.Body}" Margin="0,4,0,0" />
+
+        <ListBox x:Name="Devices" Margin="0,16,0,0" MaxHeight="300" Padding="0" BorderThickness="0" Background="Transparent"
+                 FocusVisualStyle="{x:Null}" ItemContainerStyle="{StaticResource DeviceRow}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Thiết bị"
+                 MouseDoubleClick="OnDoubleClick">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel>
+                        <!-- a cable or the Wi-Fi waves -->
+                        <TextBlock x:Name="Glyph" DockPanel.Dock="Left" Style="{StaticResource Text.Icon}" FontSize="18" Text="&#xE88E;"
+                                   Foreground="{DynamicResource Text.Secondary}" Margin="0,0,14,0" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Label}" />
+                            <TextBlock Text="{Binding RouteText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Route}" Value="Wifi">
+                            <Setter TargetName="Glyph" Property="Text" Value="&#xE701;" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                            <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource Accent.SoftText}" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="Hủy" IsCancel="True" Style="{StaticResource Button.Secondary}" MinWidth="88" Margin="0,0,8,0" />
+            <Button Content="Điều khiển" IsDefault="True" Style="{StaticResource Button.Primary}" MinWidth="96" Click="OnChoose" />
+        </StackPanel>
+    </StackPanel>
+</Window>

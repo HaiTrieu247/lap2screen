@@ -6,6 +6,7 @@ using System.Windows;
 using MacExtend.Native;
 using MacExtend.Services;
 using MacExtend.Services.Bluetooth;
+using MacExtend.Services.CoreDevice;
 using MacExtend.Themes;
 using MacExtend.Tray;
 using MacExtend.ViewModels;
@@ -17,6 +18,9 @@ namespace MacExtend
     {
         private const string InstanceName = @"Local\MacExtend.SingleInstance";
         private const string ShowEventName = @"Local\MacExtend.Show";
+        // N5: exit waits this long for the direct-control session's stop: touch released, serve-web's cleanup (up to 40 s),
+        // then a tunneld the session started. After that the job objects end serve-web with the process.
+        private static readonly TimeSpan DirectStopBound = TimeSpan.FromSeconds(70);
 
         private Mutex _singleInstance;
         private EventWaitHandle _showRequest;
@@ -28,6 +32,9 @@ namespace MacExtend
         private TrayIcon _tray;
         private AirPlayPresenter _presenter;
         private BluetoothController _bluetooth;
+        // one direct-control service (and its Wi-Fi TunnelController) for the app's lifetime
+        private CoreDeviceService _direct;
+        private DirectControlUi _directUi;
         private bool _exiting;
         private bool _crashing;
 
@@ -82,7 +89,9 @@ namespace MacExtend
             _presenter = new AirPlayPresenter(_controller, () => _settings.Current, Dispatcher);
             _bluetooth = new BluetoothController(() => _settings.Current, _controller, _presenter, Dispatcher);
             _bluetooth.Refresh();
-            _vm = new MainViewModel(_controller, _bluetooth, _settings, ExitForUpdate);
+            _direct = new CoreDeviceService(Dispatcher);
+            _directUi = new DirectControlUi(_direct, _settings);
+            _vm = new MainViewModel(_controller, _bluetooth, _direct, _directUi, _settings, ExitForUpdate);
             _vm.SyncAutoStart();
             _controller.RefreshPreview();
 
@@ -94,8 +103,8 @@ namespace MacExtend
                 }
                 if (args.PropertyName == nameof(MainViewModel.BluetoothControl)) _bluetooth.Refresh();
             };
-            _tray = new TrayIcon(_controller, _bluetooth, ShowMainWindow, ExitApp, () => _presenter.HasVideoWindow, () => _presenter.ShowAirPlay(),
-                                 () => _vm.AlwaysOnTop, onTop => _vm.AlwaysOnTop = onTop);
+            _tray = new TrayIcon(_controller, _bluetooth, _direct, _directUi.Toggle, ShowMainWindow, ExitApp, () => _presenter.HasVideoWindow,
+                                 () => _presenter.ShowAirPlay(), () => _vm.AlwaysOnTop, onTop => _vm.AlwaysOnTop = onTop);
             _vm.Update.NewVersionFound += version => _tray?.ShowUpdate(version, () =>
             {
                 ShowMainWindow();
@@ -117,7 +126,9 @@ namespace MacExtend
 
         protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
         {
-            // Windows is logging off or shutting down: stop uxplay now, the UI thread may not get another turn
+            // Windows is logging off or shutting down: stop uxplay now, the UI thread may not get another turn. The
+            // direct-control session is asked to stop (serve-web's Ctrl+C) and runs on without the UI thread.
+            _direct?.Dispose();
             _controller?.ShutdownNow();
             _settings?.Flush();
             base.OnSessionEnding(e);
@@ -127,6 +138,7 @@ namespace MacExtend
         {
             _showWait?.Unregister(null);
             _tray?.Dispose();
+            _direct?.Dispose();
             _bluetooth?.Dispose();
             _controller?.Dispose();
             _singleInstance?.Dispose();
@@ -148,6 +160,8 @@ namespace MacExtend
                 // service end with the process
                 _bluetooth?.ReleaseInput();
                 _controller?.ShutdownNow();
+                // asked to stop; serve-web may still get its cleanup while the dialog below waits
+                _direct?.Dispose();
                 _tray?.Dispose();
             }
             catch (Exception)
@@ -181,8 +195,11 @@ namespace MacExtend
         }
 
         /// <summary>The update is downloaded: hand over to the helper and get out of its way.</summary>
-        private void ExitForUpdate(string stagingDir)
+        private async void ExitForUpdate(string stagingDir)
         {
+            // the helper waits only 30 s for this process to end, and a new runtime replaces serve-web's files: a
+            // direct-control session is stopped first (N5), its window saying "Đang dừng..." meanwhile
+            if (_direct.IsActive) await Task.WhenAny(_direct.StopAsync(), Task.Delay(DirectStopBound));
             try
             {
                 UpdateHelper.Launch(stagingDir);
@@ -213,11 +230,26 @@ namespace MacExtend
             _exiting = true;
             _settings.Flush();
             _window?.CloseForExit();
-            _tray.Dispose();
-            _tray = null;
+            // N5: the direct-control session stops before the process ends, so serve-web gets its one Ctrl+C and gives
+            // the device's camera and microphone back; its window, the setup window and a dialog close now
+            _directUi.CloseForExit();
+            var directStop = _direct.StopAsync();
+            var bound = Task.Delay(DirectStopBound);
+            if (directStop.IsCompleted)
+            {
+                _tray.Dispose();
+                _tray = null;
+            }
+            else
+            {
+                _tray.ShowExiting();
+            }
             _bluetooth?.Dispose();
             _presenter?.Dispose();
             await _controller.StopAsync();
+            await Task.WhenAny(directStop, bound);
+            _tray?.Dispose();
+            _tray = null;
             Shutdown();
         }
     }

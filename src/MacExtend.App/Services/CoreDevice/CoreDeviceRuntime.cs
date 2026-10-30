@@ -21,6 +21,14 @@ namespace MacExtend.Services.CoreDevice
         private const string Ok = "ok";
         private const int ErrorCancelled = 1223;
 
+        /// <summary>
+        /// One setup action at a time in the whole app: the setup windows' actions, the "Thiết lập lại" of "Mở điều khiển"
+        /// (DirectControlUi) and the firewall rules a Wi-Fi session adds (TunnelController), so two UAC prompts or two
+        /// helpers never overlap. The session takes it on the thread pool, so <see cref="SetupGate.Changed"/> may be
+        /// raised there.
+        /// </summary>
+        public static SetupGate SetupGate { get; } = new SetupGate();
+
         /// <summary>The zip this build was made with (CI metadata); null for a local build.</summary>
         public static RuntimePackage Package { get; } = RuntimePackage.FromMetadata(key =>
             typeof(CoreDeviceRuntime).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == key)?.Value);

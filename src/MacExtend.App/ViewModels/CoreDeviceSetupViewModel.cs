@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Windows.Threading;
 using MacExtend.Core;
 using MacExtend.Core.CoreDevice;
 using MacExtend.CoreDeviceHost;
@@ -108,11 +109,13 @@ namespace MacExtend.ViewModels
         private static readonly TimeSpan SessionStopBound = TimeSpan.FromSeconds(120);
 
         /// <summary>
-        /// Shared by every setup window of this process (all on the UI thread): install, rules, pairing, mount and the
-        /// checks never overlap, even when a window was closed while its action still runs.
+        /// Shared by every setup window of this process, the "Thiết lập lại" of "Mở điều khiển" and a Wi-Fi session adding
+        /// its firewall rules: install, rules, pairing, mount and the checks never overlap, even when a window was closed
+        /// while its action still runs. The windows take it on the UI thread, the session on the thread pool.
         /// </summary>
-        private static readonly SetupGate Gate = new SetupGate();
+        private static SetupGate Gate => CoreDeviceRuntime.SetupGate;
 
+        private readonly Dispatcher _ui;
         private readonly SettingsService _settings;
         private readonly CoreDeviceService _service;
         // cancelled when the window closes: a download in progress stops, and no UAC prompt follows for a closed window
@@ -130,13 +133,14 @@ namespace MacExtend.ViewModels
 
         public CoreDeviceSetupViewModel(SettingsService settings, CoreDeviceService service)
         {
+            _ui = Dispatcher.CurrentDispatcher;
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _service = service ?? throw new ArgumentNullException(nameof(service));
             RefreshCommand = new RelayCommand(() => _ = RefreshAsync(), () => !Busy);
             PickZipCommand = new RelayCommand(() => _ = PickZipAsync(), () => !Busy);
             var number = 0;
             foreach (var step in SetupSteps.Evaluate(_facts)) Steps.Add(new SetupStepItem(++number, step.Id, ActionFor(step.Id)));
-            Gate.Changed += OnGateChanged;
+            Gate.Changed += OnGateChangedAnyThread;
             if (Gate.IsHeld)
             {
                 // a window closed meanwhile still runs its action: show it, and check once it is over
@@ -232,7 +236,14 @@ namespace MacExtend.ViewModels
         public void CancelWork()
         {
             _closed.Cancel();
-            Gate.Changed -= OnGateChanged;
+            Gate.Changed -= OnGateChangedAnyThread;
+        }
+
+        /// <summary>A Wi-Fi session takes the gate on the thread pool (its firewall rules): this window hears of it on the UI thread.</summary>
+        private void OnGateChangedAnyThread()
+        {
+            if (_ui.CheckAccess()) OnGateChanged();
+            else _ = _ui.BeginInvoke(new Action(OnGateChanged));
         }
 
         /// <summary>Another window's action started, said something or ended. Its own changes this window makes itself.</summary>
