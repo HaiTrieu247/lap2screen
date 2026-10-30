@@ -81,23 +81,17 @@ namespace MacExtend.Core.CoreDevice
             return env;
         }
 
-        // Single quotes only and no '%' or newline, so it survives Windows argv quoting and Task Scheduler's %VAR% expansion.
-        // With logToFile the log is {runtime}\tunneld.log, derived from sys.executable (the runtime folder is admin-only
-        // when installed); without it, output goes to os.devnull (the portable folder is user-writable, so an elevated
-        // truncating write there would be a junction attack).
-        private const string BootstrapPrefix = "import sys,os,runpy; d=os.path.dirname(os.path.dirname(os.path.abspath(sys.executable))); f=open(";
-        private const string BootstrapLogTarget = "os.path.join(d,'tunneld.log')";
-        private const string BootstrapNullTarget = "os.devnull";
-        private const string BootstrapSuffix = ",'w',encoding='utf-8',buffering=1); sys.stdout=sys.stderr=f; "
-            + "sys.argv=['pymobiledevice3','--no-color','remote','tunneld','--no-usb','--no-usbmux','--no-mobdev2']; "
-            + "runpy.run_module('pymobiledevice3',run_name='__main__',alter_sys=True)";
+        // Single quotes only and no '%', '"', backslash or newline, so it survives Windows argv quoting and Task Scheduler's
+        // %VAR% expansion. The task runs elevated with the user's own (writable) environment, so the code first rebuilds a
+        // minimal one from GetSystemWindowsDirectoryW and points OPENSSL_CONF at os.devnull (OpenSSL would otherwise load
+        // a user-chosen config, which can name a module DLL). Output goes to os.devnull: no log file, no UDIDs on disk.
+        private const string Bootstrap = @"import os,sys,ctypes; b=ctypes.create_unicode_buffer(32768); ctypes.windll.kernel32.GetSystemWindowsDirectoryW(b,32768); w=b.value; w or sys.exit(1); k=('USERPROFILE','HOMEDRIVE','HOMEPATH','APPDATA','LOCALAPPDATA','USERNAME','USERDOMAIN','COMPUTERNAME','NUMBER_OF_PROCESSORS','PROCESSOR_ARCHITECTURE','TEMP','TMP'); e={x:os.environ[x] for x in k if x in os.environ}; os.environ.clear(); os.environ.update(e); os.environ.update(SystemRoot=w,windir=w,PATH=os.pathsep.join([os.path.join(w,'System32'),w]),OPENSSL_CONF=os.devnull); import runpy; f=open(os.devnull,'w'); sys.stdout=sys.stderr=f; sys.argv=['pymobiledevice3','--no-color','remote','tunneld','--no-usb','--no-usbmux','--no-mobdev2']; runpy.run_module('pymobiledevice3',run_name='__main__',alter_sys=True)";
 
         /// <summary>
         /// The pythonw.exe argv that runs tunneld for Wi-Fi only (RemotePairing stays on; USB, usbmux and mobdev2 off).
-        /// pythonw has no console, so the bootstrap points stdout/stderr at a file itself.
+        /// pythonw has no console, so the bootstrap points stdout/stderr at os.devnull itself.
         /// </summary>
-        public static IReadOnlyList<string> TunneldBootstrap(bool logToFile) =>
-            new[] { "-I", "-X", "utf8", "-c", BootstrapPrefix + (logToFile ? BootstrapLogTarget : BootstrapNullTarget) + BootstrapSuffix };
+        public static IReadOnlyList<string> TunneldBootstrap() => new[] { "-I", "-X", "utf8", "-c", Bootstrap };
 
         /// <summary>
         /// The inherited environment without any PYMOBILEDEVICE3_* variable (any of them could pick another transport or

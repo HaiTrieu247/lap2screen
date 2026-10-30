@@ -28,11 +28,11 @@ public class CoreDeviceSetupScriptsTests
     public void TheTaskArgumentIsTheLoggingBootstrapAsOneQuotedArgument()
     {
         var script = CoreDeviceSetupScripts.RegisterTask(Pythonw, WorkDir, @"LEGION\thinh");
-        var expected = WindowsCommandLine.Join(CoreDeviceArguments.TunneldBootstrap(true)).Replace("'", "''");
+        var expected = WindowsCommandLine.Join(CoreDeviceArguments.TunneldBootstrap()).Replace("'", "''");
 
         Assert.Contains("-Argument '" + expected + "' ", script);
-        Assert.StartsWith("-I -X utf8 -c \"import sys,os,runpy;", expected);
-        Assert.Contains("tunneld.log", expected);
+        Assert.StartsWith("-I -X utf8 -c \"import os,sys,ctypes;", expected);
+        Assert.DoesNotContain("tunneld.log", expected);
     }
 
     [Fact]
@@ -94,6 +94,16 @@ public class CoreDeviceSetupScriptsTests
         }
         Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(script, "New-NetFirewallRule -Group 'MacExtend CoreDevice'").Count);
         Assert.DoesNotContain("Domain", script);
+    }
+
+    [Theory]
+    [InlineData(@"C:\Program Files\MacExtend\coredevice\python\python.exe")]
+    [InlineData(@"C:\x\PYTHONW.EXE")]
+    public void FirewallRulesRefuseAProgramPathInsteadOfTheFolder(string path)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => CoreDeviceSetupScripts.AddFirewallRules(path));
+
+        Assert.Equal("pythonDirectory", ex.ParamName);
     }
 
     [Fact]

@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Text;
 using System.Linq;
 using MacExtend.Core.CoreDevice;
 
@@ -28,47 +30,79 @@ public class CoreDeviceArgumentsTunneldTests
         Assert.DoesNotContain("PYMOBILEDEVICE3_UDID", CoreDeviceArguments.CommandEnvironment(inherited, null).Keys);
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void BootstrapIsIsolatedUtf8InlineCode(bool logToFile)
-    {
-        var args = CoreDeviceArguments.TunneldBootstrap(logToFile);
+    private const string Golden = @"import os,sys,ctypes; b=ctypes.create_unicode_buffer(32768); ctypes.windll.kernel32.GetSystemWindowsDirectoryW(b,32768); w=b.value; w or sys.exit(1); k=('USERPROFILE','HOMEDRIVE','HOMEPATH','APPDATA','LOCALAPPDATA','USERNAME','USERDOMAIN','COMPUTERNAME','NUMBER_OF_PROCESSORS','PROCESSOR_ARCHITECTURE','TEMP','TMP'); e={x:os.environ[x] for x in k if x in os.environ}; os.environ.clear(); os.environ.update(e); os.environ.update(SystemRoot=w,windir=w,PATH=os.pathsep.join([os.path.join(w,'System32'),w]),OPENSSL_CONF=os.devnull); import runpy; f=open(os.devnull,'w'); sys.stdout=sys.stderr=f; sys.argv=['pymobiledevice3','--no-color','remote','tunneld','--no-usb','--no-usbmux','--no-mobdev2']; runpy.run_module('pymobiledevice3',run_name='__main__',alter_sys=True)";
 
-        Assert.Equal(5, args.Count);
-        Assert.Equal(new[] { "-I", "-X", "utf8", "-c" }, args.Take(4));
-        Assert.Contains("'--no-color','remote','tunneld','--no-usb','--no-usbmux','--no-mobdev2'", args[4]);
+    [Fact]
+    public void BootstrapIsExactlyTheApprovedOneLiner()
+    {
+        Assert.Equal(new[] { "-I", "-X", "utf8", "-c", Golden }, CoreDeviceArguments.TunneldBootstrap());
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void BootstrapHasNoDoubleQuoteOrPercent(bool logToFile)
+    [Fact]
+    public void BootstrapKeepsOnlyRemotePairingAndNeverLogsToDisk()
     {
-        var code = CoreDeviceArguments.TunneldBootstrap(logToFile)[4];
+        var code = CoreDeviceArguments.TunneldBootstrap()[4];
+
+        Assert.Contains("'--no-color','remote','tunneld','--no-usb','--no-usbmux','--no-mobdev2'", code);
+        Assert.Contains("OPENSSL_CONF=os.devnull", code);
+        Assert.DoesNotContain("tunneld.log", code);
+    }
+
+    [Fact]
+    public void BootstrapHasNoDoubleQuotePercentBackslashOrNewline()
+    {
+        var code = CoreDeviceArguments.TunneldBootstrap()[4];
 
         Assert.DoesNotContain("\"", code);
         Assert.DoesNotContain("%", code);
+        Assert.DoesNotContain("\\", code);
         Assert.DoesNotContain("\n", code);
     }
 
     [Fact]
-    public void LoggingBootstrapDerivesTheLogFromTheInterpreter()
+    public void BootstrapSurvivesWindowsArgvParsingAsOneArgument()
     {
-        var code = CoreDeviceArguments.TunneldBootstrap(true)[4];
+        var pythonw = @"C:\Program Files\MacExtend\coredevice\python\pythonw.exe";
+        var line = WindowsCommandLine.Quote(pythonw) + " " + WindowsCommandLine.Join(CoreDeviceArguments.TunneldBootstrap());
 
-        Assert.Contains("os.path.dirname(os.path.dirname(os.path.abspath(sys.executable)))", code);
-        Assert.Contains("os.path.join(d,'tunneld.log'),'w',encoding='utf-8',buffering=1", code);
-        Assert.DoesNotContain(":\\", code);
-        Assert.DoesNotContain("os.devnull", code);
+        Assert.Equal(new[] { pythonw, "-I", "-X", "utf8", "-c", Golden }, ParseArgv(line));
     }
 
-    [Fact]
-    public void PortableBootstrapWritesToDevnullAndNeverToTheLog()
+    // Test-only MSVCRT / CommandLineToArgvW rules: whitespace separates, '"' toggles quoting, 2n backslashes before '"'
+    // give n backslashes and toggle, 2n+1 give n backslashes and a literal '"', other backslashes are literal.
+    private static List<string> ParseArgv(string line)
     {
-        var code = CoreDeviceArguments.TunneldBootstrap(false)[4];
-
-        Assert.Contains("open(os.devnull,'w',encoding='utf-8',buffering=1)", code);
-        Assert.DoesNotContain("tunneld.log", code);
+        var args = new List<string>();
+        var cur = new StringBuilder();
+        var inArg = false;
+        var quoted = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+            if (c == '\\')
+            {
+                var n = 0;
+                while (i < line.Length && line[i] == '\\') { n++; i++; }
+                if (i < line.Length && line[i] == '"')
+                {
+                    cur.Append('\\', n / 2);
+                    if (n % 2 == 1) cur.Append('"'); else quoted = !quoted;
+                }
+                else
+                {
+                    cur.Append('\\', n);
+                    i--;
+                }
+                inArg = true;
+            }
+            else if (c == '"') { quoted = !quoted; inArg = true; }
+            else if ((c == ' ' || c == '\t') && !quoted)
+            {
+                if (inArg) { args.Add(cur.ToString()); cur.Clear(); inArg = false; }
+            }
+            else { cur.Append(c); inArg = true; }
+        }
+        if (inArg) args.Add(cur.ToString());
+        return args;
     }
 }

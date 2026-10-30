@@ -36,7 +36,7 @@ namespace MacExtend.Core.CoreDevice
             RejectPercent(pythonwPath, nameof(pythonwPath));
             RejectPercent(workingDirectory, nameof(workingDirectory));
             RejectPercent(userName, nameof(userName));
-            var argument = WindowsCommandLine.Join(CoreDeviceArguments.TunneldBootstrap(true));
+            var argument = WindowsCommandLine.Join(CoreDeviceArguments.TunneldBootstrap());
             RejectPercent(argument, "argument");
             return string.Join("\n",
                 Stop,
@@ -66,6 +66,9 @@ namespace MacExtend.Core.CoreDevice
         /// </summary>
         public static string AddFirewallRules(string pythonDirectory)
         {
+            if (pythonDirectory == null) throw new System.ArgumentNullException(nameof(pythonDirectory));
+            if (pythonDirectory.TrimEnd('\\').EndsWith(".exe", System.StringComparison.OrdinalIgnoreCase))
+                throw new System.ArgumentException("Pass the python folder, not a program.", nameof(pythonDirectory));
             var group = PowerShellText.Literal(FirewallGroup);
             var lines = new System.Collections.Generic.List<string>
             {
