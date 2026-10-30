@@ -46,13 +46,14 @@ namespace MacExtend.Services.CoreDevice
         }
 
         /// <summary>
-        /// Installed and inside the 64-bit Program Files folder (InstallLayout.AllowsTask), so only administrators can
-        /// change its files: the Scheduled Task may run its pythonw.exe, and the elevated setup may stage the runtime
+        /// Installed and inside Program Files or Program Files (x86) (InstallLayout.AllowsTask), so only administrators
+        /// can change its files: the Scheduled Task may run its pythonw.exe, and the elevated setup may stage the runtime
         /// there. Anywhere else the copy is treated like a portable one. The elevated helper reads this itself; it never
         /// takes the caller's word for it.
         /// </summary>
         public static bool TaskAllowed => InstallLayout.AllowsTask(!IsPortable, Path.GetFullPath(AppPaths.InstallDir),
-                                                                   Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles));
+                                                                   Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                                                                   Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86));
 
         /// <summary>
         /// Wi-Fi starts tunneld with the task: <see cref="TaskAllowed"/> and an account that elevates by itself (a
@@ -107,7 +108,7 @@ namespace MacExtend.Services.CoreDevice
         }
 
         /// <summary>
-        /// The one-time setup. Installed copy inside Program Files (<see cref="TaskAllowed"/>): one UAC for the runtime
+        /// The one-time setup. Installed copy inside a Program Files folder (<see cref="TaskAllowed"/>): one UAC for the runtime
         /// (when <paramref name="zip"/> is given), the firewall rules and, when <see cref="UsesTask"/>, the task. Any other
         /// copy: the runtime is installed here, without UAC and without rules (<see cref="AddFirewallRulesAsync"/> makes
         /// them before its first Wi-Fi session).

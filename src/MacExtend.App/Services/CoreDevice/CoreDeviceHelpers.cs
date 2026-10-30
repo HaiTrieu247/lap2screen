@@ -14,7 +14,8 @@ namespace MacExtend.Services.CoreDevice
     ///   --coredevice-setup ZIP|- RESULT USER TASK(0|1)   elevated, one UAC: this build's runtime (ZIP; "-" keeps the
     ///                                                    installed one), the firewall rules and, for TASK=1, the
     ///                                                    Scheduled Task (only for an installed copy inside Program
-    ///                                                    Files, checked here again; otherwise any old task is removed)
+    ///                                                    Files or Program Files (x86), checked here again; otherwise
+    ///                                                    any old task is removed). A runtime is staged only there too.
     ///   --coredevice-rules RESULT                        elevated, one UAC: only the firewall rules, for a copy without
     ///                                                    the task before its first Wi-Fi session; no runtime, no task;
     ///                                                    running it again gives the same rules
@@ -36,7 +37,7 @@ namespace MacExtend.Services.CoreDevice
         public const int BadArguments = 2;
 
         private const string OnlyProgramFilesMessage =
-            "Chỉ cài thành phần với quyền quản trị cho bản MacExtend cài trong Program Files.";
+            "Chỉ cài thành phần với quyền quản trị cho bản MacExtend cài trong Program Files hoặc Program Files (x86).";
 
         /// <returns>true when <paramref name="args"/> asked for a helper mode; the process exits with <paramref name="exitCode"/>.</returns>
         public static bool TryRun(string[] args, out int exitCode)
@@ -97,7 +98,7 @@ namespace MacExtend.Services.CoreDevice
             }
             else
             {
-                if (withTask) log("no scheduled task: not an installed copy inside Program Files");
+                if (withTask) log("no scheduled task: not an installed copy inside Program Files or Program Files (x86)");
                 // an older task may point at a folder that is no longer protected
                 TryScript(CoreDeviceSetupScripts.RemoveTask(), "remove task", "Không xóa được tác vụ", log);
             }

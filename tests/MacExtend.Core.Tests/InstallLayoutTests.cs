@@ -69,6 +69,42 @@ public class InstallLayoutTests
         Assert.False(InstallLayout.AllowsTask(true, installDir, ProgramFiles));
     }
 
+    private const string ProgramFilesX86 = @"C:\Program Files (x86)";
+
+    [Theory]
+    [InlineData(@"C:\Program Files (x86)\MacExtend\")]
+    [InlineData(@"c:\PROGRAM FILES (X86)\MacExtend")]
+    [InlineData(@"C:\Program Files (x86)\Other\..\MacExtend\")]
+    [InlineData(@"C:\Program Files\MacExtend\")]
+    public void EitherProgramFilesFolderIsAProtectedRoot(string installDir)
+    {
+        Assert.True(InstallLayout.AllowsTask(true, installDir, ProgramFiles, ProgramFilesX86));
+    }
+
+    [Theory]
+    [InlineData(@"C:\Program Files (x86)X\MacExtend\")]
+    [InlineData(@"C:\Program Files (x86\MacExtend\")]
+    [InlineData(@"C:\Program Files (x86)\..\x\")]
+    [InlineData(@"C:\Program Files (x86)\..\Program Files (x86)X\MacExtend\")]
+    [InlineData(@"\\server\share\Program Files (x86)\MacExtend\")]
+    [InlineData(@"\\?\C:\Program Files (x86)\MacExtend\")]
+    [InlineData(@"C:Program Files (x86)\MacExtend\")]
+    [InlineData(@"C:\MacExtend\")]
+    public void TheSecondRootKeepsTheSameProtections(string installDir)
+    {
+        Assert.False(InstallLayout.AllowsTask(true, installDir, ProgramFiles, ProgramFilesX86));
+    }
+
+    [Fact]
+    public void AMissingRootIsIgnoredAndNoRootAllowsNothing()
+    {
+        Assert.True(InstallLayout.AllowsTask(true, @"C:\Program Files\MacExtend\", ProgramFiles, null));
+        Assert.True(InstallLayout.AllowsTask(true, @"C:\Program Files (x86)\MacExtend\", "", ProgramFilesX86));
+        Assert.False(InstallLayout.AllowsTask(true, @"C:\Program Files\MacExtend\"));
+        Assert.False(InstallLayout.AllowsTask(true, @"C:\Program Files\MacExtend\", (string[])null));
+        Assert.False(InstallLayout.AllowsTask(false, @"C:\Program Files (x86)\MacExtend\", ProgramFiles, ProgramFilesX86));
+    }
+
     [Fact]
     public void APortableCopyNeverUsesTheTask()
     {

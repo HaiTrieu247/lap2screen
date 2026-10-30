@@ -18,19 +18,21 @@ namespace MacExtend.Core
                 name.StartsWith("unins", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
-        /// The task runs the runtime's pythonw.exe with highest privileges and no UAC, so only an installed copy inside
-        /// the 64-bit Program Files folder, whose files only administrators can replace, may have one. Any other folder
-        /// (C:\MacExtend picked in the installer is writable by its user, parent included) is treated like a portable
-        /// copy: no task, and Wi-Fi asks UAC per session.
+        /// The task runs the runtime's pythonw.exe with highest privileges and no UAC, and the elevated setup stages the
+        /// runtime in the app folder, so only an installed copy inside a protected root (Program Files or Program Files
+        /// (x86), whose files only administrators can change) qualifies. Any other folder (C:\MacExtend picked in the
+        /// installer is writable by its user, parent included) is treated like a portable copy: no task, and Wi-Fi asks
+        /// UAC per session.
         /// </summary>
         /// <param name="installDir">The folder of MacExtend.exe.</param>
-        /// <param name="programFiles">Environment.SpecialFolder.ProgramFiles of a 64-bit process.</param>
-        public static bool AllowsTask(bool installedCopy, string installDir, string programFiles)
+        /// <param name="protectedRoots">
+        /// Environment.SpecialFolder.ProgramFiles and ProgramFilesX86 of a 64-bit process; null or empty ones are skipped.
+        /// </param>
+        public static bool AllowsTask(bool installedCopy, string installDir, params string[] protectedRoots)
         {
-            if (!installedCopy) return false;
+            if (!installedCopy || protectedRoots == null) return false;
             var dir = Normalize(installDir);
-            var root = Normalize(programFiles);
-            return dir != null && root != null && dir.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+            return dir != null && protectedRoots.Select(Normalize).Any(root => root != null && dir.StartsWith(root, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
