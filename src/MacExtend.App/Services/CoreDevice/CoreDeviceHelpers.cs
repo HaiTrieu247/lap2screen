@@ -11,7 +11,13 @@ namespace MacExtend.Services.CoreDevice
     /// <summary>
     /// MacExtend.exe's helper modes for "Điều khiển trực tiếp", handled before any UI or the single-instance check:
     ///   signal-ctrl-c PID                                one Ctrl+C to serve-web's console
-    ///   --coredevice-setup ZIP|- RESULT USER TASK(0|1)   elevated: runtime, firewall rules, Scheduled Task (one UAC)
+    ///   --coredevice-setup ZIP|- RESULT USER TASK(0|1)   elevated, one UAC: this build's runtime (ZIP; "-" keeps the
+    ///                                                    installed one), the firewall rules and, for TASK=1, the
+    ///                                                    Scheduled Task (only for an installed copy inside Program
+    ///                                                    Files, checked here again; otherwise any old task is removed)
+    ///   --coredevice-rules RESULT                        elevated, one UAC: only the firewall rules, for a copy without
+    ///                                                    the task before its first Wi-Fi session; no runtime, no task;
+    ///                                                    running it again gives the same rules
     ///   --coredevice-remove                              elevated: task and rules (uninstaller, CI)
     /// tunneld is never hosted here: the task starts the runtime's pythonw.exe itself, because an elevated .NET process
     /// would honour COR_PROFILER from the user's own environment. The elevated modes write nothing into the user's
@@ -20,6 +26,7 @@ namespace MacExtend.Services.CoreDevice
     internal static class CoreDeviceHelpers
     {
         public const string SetupArg = "--coredevice-setup";
+        public const string RulesArg = "--coredevice-rules";
         public const string RemoveArg = "--coredevice-remove";
         /// <summary>The ZIP argument when the runtime is already in place: firewall rules and task only.</summary>
         public const string NoZip = "-";
@@ -38,6 +45,11 @@ namespace MacExtend.Services.CoreDevice
                 exitCode = valid ? Setup(args[1] == NoZip ? null : args[1], args[2], args[3], args[4] == "1") : BadArguments;
                 return true;
             }
+            if (args.Length > 0 && args[0] == RulesArg)
+            {
+                exitCode = args.Length == 2 && CoreDeviceOptions.IsWindowsAbsolutePath(args[1]) ? Rules(args[1]) : BadArguments;
+                return true;
+            }
             if (args.Length > 0 && args[0] == RemoveArg)
             {
                 exitCode = args.Length == 1 ? Remove() : BadArguments;
@@ -49,40 +61,69 @@ namespace MacExtend.Services.CoreDevice
 
         /// <param name="zip">The runtime zip to install, or null to keep the installed one.</param>
         /// <param name="userName">The logged-on user (read by the unelevated app): the task's principal.</param>
-        /// <param name="withTask">The account elevates by itself, so a "highest privileges" task gives tunneld its rights.</param>
-        private static int Setup(string zip, string resultFile, string userName, bool withTask)
+        /// <param name="withTask">The caller's account elevates by itself, so a "highest privileges" task gives tunneld its rights.</param>
+        private static int Setup(string zip, string resultFile, string userName, bool withTask) => Steps(resultFile, log =>
+        {
+            RequireElevated();
+            if (zip != null)
+            {
+                // the package this exe was built with; the installer checks the hash on the handle it extracts from
+                var expected = CoreDeviceRuntime.Package ?? throw new InvalidOperationException(CoreDeviceRuntime.NoMetadataMessage);
+                // the task's tunneld (pythonw.exe) holds the runtime's files while it runs
+                TryScript(CoreDeviceSetupScripts.StopTask(), "stop task", "Không dừng được tunneld", log);
+                RuntimeInstaller.Install(zip, expected, AppPaths.CoreDeviceRoot, log);
+            }
+            else
+            {
+                RequireRuntime();
+            }
+
+            AddRules(log);
+            // decided again here, never taken from the unelevated caller: a task with highest privileges only runs a
+            // pythonw.exe that only administrators can replace
+            var task = withTask && CoreDeviceRuntime.TaskAllowed;
+            if (task)
+            {
+                RunScript(CoreDeviceSetupScripts.RegisterTask(AppPaths.CoreDevicePythonw, AppPaths.CoreDevicePythonDir, userName),
+                          "scheduled task", "Không tạo được tác vụ Scheduled Task", log);
+            }
+            else
+            {
+                if (withTask) log("no scheduled task: not an installed copy inside Program Files");
+                // an older task may point at a folder that is no longer protected
+                TryScript(CoreDeviceSetupScripts.RemoveTask(), "remove task", "Không xóa được tác vụ", log);
+            }
+            Verify(task, log);
+        });
+
+        /// <summary>Only the firewall rules (AddFirewallRules removes the group first, so a second run is the same as one).</summary>
+        private static int Rules(string resultFile) => Steps(resultFile, log =>
+        {
+            RequireElevated();
+            RequireRuntime();
+            AddRules(log);
+            Verify(false, log);
+        });
+
+        private static int Remove()
+        {
+            Action<string> quiet = _ => { };
+            // tunneld first: the uninstaller deletes the runtime right after this
+            var ok = TryScript(CoreDeviceSetupScripts.StopTask(), "stop task", "Không dừng được tunneld", quiet);
+            ok &= TryScript(CoreDeviceSetupScripts.RemoveTask(), "remove task", "Không xóa được tác vụ", quiet);
+            ok &= TryScript(CoreDeviceSetupScripts.RemoveFirewallRules(), "remove firewall rules", "Không xóa được luật tường lửa", quiet);
+            return ok ? 0 : 1;
+        }
+
+        /// <summary>Runs the steps of an elevated mode and writes its outcome and step lines to RESULT.</summary>
+        /// <returns>0 when every step succeeded and RESULT was written; 1 otherwise.</returns>
+        private static int Steps(string resultFile, Action<Action<string>> steps)
         {
             var lines = new List<string>();
             string outcome;
             try
             {
-                if (!Elevation.IsElevated) throw new UnauthorizedAccessException("Bước cài đặt không có quyền quản trị.");
-                if (zip != null)
-                {
-                    // the package this exe was built with; the installer checks the hash on the handle it extracts from
-                    var expected = CoreDeviceRuntime.Package ?? throw new InvalidOperationException(CoreDeviceRuntime.NoMetadataMessage);
-                    // the task's tunneld (pythonw.exe) holds the runtime's files while it runs
-                    TryScript(CoreDeviceSetupScripts.StopTask(), "stop task", "Không dừng được tunneld", lines.Add);
-                    RuntimeInstaller.Install(zip, expected, AppPaths.CoreDeviceRoot, lines.Add);
-                }
-                else if (!File.Exists(AppPaths.CoreDevicePython) || !File.Exists(AppPaths.CoreDevicePythonw))
-                {
-                    throw new InvalidOperationException("Chưa có thành phần Điều khiển trực tiếp trong thư mục MacExtend.");
-                }
-
-                RunScript(CoreDeviceSetupScripts.AddFirewallRules(AppPaths.CoreDevicePythonDir), "firewall rules", "Không tạo được luật tường lửa", lines.Add);
-                // a portable copy lives in the user's own folder: a task with highest privileges never runs a program from there
-                var task = withTask && !CoreDeviceRuntime.IsPortable;
-                if (task)
-                {
-                    RunScript(CoreDeviceSetupScripts.RegisterTask(AppPaths.CoreDevicePythonw, AppPaths.CoreDevicePythonDir, userName),
-                              "scheduled task", "Không tạo được tác vụ Scheduled Task", lines.Add);
-                }
-                else if (withTask)
-                {
-                    lines.Add("portable copy: no scheduled task");
-                }
-                Verify(task, lines.Add);
+                steps(lines.Add);
                 outcome = SetupHelperResult.Ok;
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is InvalidOperationException
@@ -95,15 +136,21 @@ namespace MacExtend.Services.CoreDevice
             return written && outcome == SetupHelperResult.Ok ? 0 : 1;
         }
 
-        private static int Remove()
+        private static void RequireElevated()
         {
-            Action<string> quiet = _ => { };
-            // tunneld first: the uninstaller deletes the runtime right after this
-            var ok = TryScript(CoreDeviceSetupScripts.StopTask(), "stop task", "Không dừng được tunneld", quiet);
-            ok &= TryScript(CoreDeviceSetupScripts.RemoveTask(), "remove task", "Không xóa được tác vụ", quiet);
-            ok &= TryScript(CoreDeviceSetupScripts.RemoveFirewallRules(), "remove firewall rules", "Không xóa được luật tường lửa", quiet);
-            return ok ? 0 : 1;
+            if (!Elevation.IsElevated) throw new UnauthorizedAccessException("Bước cài đặt không có quyền quản trị.");
         }
+
+        private static void RequireRuntime()
+        {
+            if (!File.Exists(AppPaths.CoreDevicePython) || !File.Exists(AppPaths.CoreDevicePythonw))
+            {
+                throw new InvalidOperationException("Chưa có thành phần Điều khiển trực tiếp trong thư mục MacExtend.");
+            }
+        }
+
+        private static void AddRules(Action<string> log) =>
+            RunScript(CoreDeviceSetupScripts.AddFirewallRules(AppPaths.CoreDevicePythonDir), "firewall rules", "Không tạo được luật tường lửa", log);
 
         /// <summary>What the scripts made must be visible afterwards: all firewall rules, and the task when one was wanted.</summary>
         private static void Verify(bool needsTask, Action<string> log)

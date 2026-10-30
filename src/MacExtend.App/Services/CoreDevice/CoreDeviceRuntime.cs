@@ -27,7 +27,7 @@ namespace MacExtend.Services.CoreDevice
         /// <summary>
         /// No Inno Setup uninstaller beside MacExtend.exe: a copy the user unpacked somewhere. It installs the runtime in
         /// its own folder without UAC and never gets the Scheduled Task; Wi-Fi asks UAC per session. The same answer in an
-        /// elevated process, which can write Program Files too.
+        /// elevated process, which can write Program Files too. An installed copy elevates once for its setup.
         /// </summary>
         public static bool IsPortable
         {
@@ -44,6 +44,21 @@ namespace MacExtend.Services.CoreDevice
                 }
             }
         }
+
+        /// <summary>
+        /// The Scheduled Task may start tunneld for this copy: installed and inside the 64-bit Program Files folder
+        /// (InstallLayout.AllowsTask). Anywhere else the copy is treated like a portable one. The elevated setup reads
+        /// this itself; it never takes the caller's word for it.
+        /// </summary>
+        public static bool TaskAllowed => InstallLayout.AllowsTask(!IsPortable, Path.GetFullPath(AppPaths.InstallDir),
+                                                                   Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles));
+
+        /// <summary>
+        /// Wi-Fi starts tunneld with the task: <see cref="TaskAllowed"/> and an account that elevates by itself (a
+        /// standard account's "highest privileges" are not an administrator's). Otherwise every Wi-Fi session asks UAC.
+        /// WindowsSetupState.UseTask (E1) is this.
+        /// </summary>
+        public static bool UsesTask => TaskAllowed && Elevation.IsAdminAccount;
 
         public static string InstalledId
         {
@@ -92,7 +107,8 @@ namespace MacExtend.Services.CoreDevice
 
         /// <summary>
         /// The one-time setup. Installed copy: one UAC for the runtime (when <paramref name="zip"/> is given), the firewall
-        /// rules and, on an administrator account, the task. Portable copy: the runtime is installed here, without UAC.
+        /// rules and, when <see cref="UsesTask"/>, the task. Portable copy: the runtime is installed here, without UAC
+        /// and without rules (<see cref="AddFirewallRulesAsync"/> makes them before its first Wi-Fi session).
         /// </summary>
         /// <param name="zip">A zip from <see cref="DownloadAsync"/> or <see cref="CheckZip"/>; null keeps the installed runtime.</param>
         /// <returns>"ok", "cancelled" (UAC declined) or "failed: ...".</returns>
@@ -122,16 +138,34 @@ namespace MacExtend.Services.CoreDevice
             }
         }
 
-        private static string SetupElevated(string zip, RotatingLog log)
+        /// <summary>
+        /// Only the four firewall rules, with one UAC: for a copy without the task whose setup made none (a portable copy),
+        /// before its first Wi-Fi session. No runtime is staged and no task is made; running it again changes nothing.
+        /// </summary>
+        /// <returns>"ok", "cancelled" (UAC declined) or "failed: ...".</returns>
+        public static Task<string> AddFirewallRulesAsync() => Task.Run(() =>
+        {
+            using (var log = new RotatingLog(AppPaths.CoreDeviceLog, 512 * 1024))
+            {
+                var outcome = RunElevated(result => new[] { CoreDeviceHelpers.RulesArg, result }, log);
+                log.WriteLine("[setup] firewall rules outcome: " + outcome);
+                return outcome;
+            }
+        });
+
+        private static string SetupElevated(string zip, RotatingLog log) => RunElevated(result => new[]
+        {
+            CoreDeviceHelpers.SetupArg, zip ?? CoreDeviceHelpers.NoZip, result, Elevation.CurrentUserName(), UsesTask ? "1" : "0",
+        }, log);
+
+        /// <summary>Runs one of this exe's elevated helper modes behind UAC and logs the lines of its result file.</summary>
+        /// <param name="args">The mode's arguments, given the path of a result file that does not exist yet.</param>
+        private static string RunElevated(Func<string, string[]> args, RotatingLog log)
         {
             var result = Path.Combine(Path.GetTempPath(), "MacExtend-coredevice-" + Guid.NewGuid().ToString("N") + ".result");
-            var args = new[]
-            {
-                CoreDeviceHelpers.SetupArg, zip ?? CoreDeviceHelpers.NoZip, result, Elevation.CurrentUserName(), Elevation.IsAdminAccount ? "1" : "0",
-            };
             try
             {
-                using (var p = Process.Start(new ProcessStartInfo(AppPaths.SelfExe, WindowsCommandLine.Join(args))
+                using (var p = Process.Start(new ProcessStartInfo(AppPaths.SelfExe, WindowsCommandLine.Join(args(result)))
                 {
                     UseShellExecute = true,
                     Verb = "runas",
