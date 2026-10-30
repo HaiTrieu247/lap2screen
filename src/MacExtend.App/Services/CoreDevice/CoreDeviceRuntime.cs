@@ -46,9 +46,10 @@ namespace MacExtend.Services.CoreDevice
         }
 
         /// <summary>
-        /// The Scheduled Task may start tunneld for this copy: installed and inside the 64-bit Program Files folder
-        /// (InstallLayout.AllowsTask). Anywhere else the copy is treated like a portable one. The elevated setup reads
-        /// this itself; it never takes the caller's word for it.
+        /// Installed and inside the 64-bit Program Files folder (InstallLayout.AllowsTask), so only administrators can
+        /// change its files: the Scheduled Task may run its pythonw.exe, and the elevated setup may stage the runtime
+        /// there. Anywhere else the copy is treated like a portable one. The elevated helper reads this itself; it never
+        /// takes the caller's word for it.
         /// </summary>
         public static bool TaskAllowed => InstallLayout.AllowsTask(!IsPortable, Path.GetFullPath(AppPaths.InstallDir),
                                                                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles));
@@ -106,9 +107,10 @@ namespace MacExtend.Services.CoreDevice
         }
 
         /// <summary>
-        /// The one-time setup. Installed copy: one UAC for the runtime (when <paramref name="zip"/> is given), the firewall
-        /// rules and, when <see cref="UsesTask"/>, the task. Portable copy: the runtime is installed here, without UAC
-        /// and without rules (<see cref="AddFirewallRulesAsync"/> makes them before its first Wi-Fi session).
+        /// The one-time setup. Installed copy inside Program Files (<see cref="TaskAllowed"/>): one UAC for the runtime
+        /// (when <paramref name="zip"/> is given), the firewall rules and, when <see cref="UsesTask"/>, the task. Any other
+        /// copy: the runtime is installed here, without UAC and without rules (<see cref="AddFirewallRulesAsync"/> makes
+        /// them before its first Wi-Fi session).
         /// </summary>
         /// <param name="zip">A zip from <see cref="DownloadAsync"/> or <see cref="CheckZip"/>; null keeps the installed runtime.</param>
         /// <returns>"ok", "cancelled" (UAC declined) or "failed: ...".</returns>
@@ -116,7 +118,9 @@ namespace MacExtend.Services.CoreDevice
         {
             using (var log = new RotatingLog(AppPaths.CoreDeviceLog, 512 * 1024))
             {
-                var outcome = IsPortable ? InstallHere(zip, log) : SetupElevated(zip, log);
+                // only a copy in a folder that only administrators can change is set up elevated; any other copy, even an
+                // installed one, is treated like a portable copy
+                var outcome = TaskAllowed ? SetupElevated(zip, log) : InstallHere(zip, log);
                 log.WriteLine("[setup] outcome: " + outcome);
                 if (outcome == SetupHelperResult.Ok && zip != null) ForgetDownload(zip);
                 return outcome;
@@ -139,8 +143,8 @@ namespace MacExtend.Services.CoreDevice
         }
 
         /// <summary>
-        /// Only the four firewall rules, with one UAC: for a copy without the task whose setup made none (a portable copy),
-        /// before its first Wi-Fi session. No runtime is staged and no task is made; running it again changes nothing.
+        /// Only the four firewall rules, with one UAC: for a copy whose setup made none (portable, or installed outside
+        /// Program Files), before its first Wi-Fi session. No runtime is staged and no task is made; running it again changes nothing.
         /// </summary>
         /// <returns>"ok", "cancelled" (UAC declined) or "failed: ...".</returns>
         public static Task<string> AddFirewallRulesAsync() => Task.Run(() =>
@@ -153,16 +157,25 @@ namespace MacExtend.Services.CoreDevice
             }
         });
 
-        private static string SetupElevated(string zip, RotatingLog log) => RunElevated(result => new[]
+        private static string SetupElevated(string zip, RotatingLog log)
         {
-            CoreDeviceHelpers.SetupArg, zip ?? CoreDeviceHelpers.NoZip, result, Elevation.CurrentUserName(), UsesTask ? "1" : "0",
-        }, log);
+            // the elevated side refuses (exit 2) a network or device path; say why instead of asking UAC for nothing
+            if (zip != null && !HelperPaths.IsLocalDrivePath(zip))
+            {
+                return "failed: Tệp runtime phải nằm trên ổ đĩa của máy này. Hãy chép tệp về máy rồi chọn lại.";
+            }
+            return RunElevated(result => new[]
+            {
+                CoreDeviceHelpers.SetupArg, zip ?? CoreDeviceHelpers.NoZip, result, Elevation.CurrentUserName(),
+                UsesTask ? "1" : "0",
+            }, log);
+        }
 
         /// <summary>Runs one of this exe's elevated helper modes behind UAC and logs the lines of its result file.</summary>
         /// <param name="args">The mode's arguments, given the path of a result file that does not exist yet.</param>
         private static string RunElevated(Func<string, string[]> args, RotatingLog log)
         {
-            var result = Path.Combine(Path.GetTempPath(), "MacExtend-coredevice-" + Guid.NewGuid().ToString("N") + ".result");
+            var result = Path.Combine(ResultDir(), HelperPaths.ResultFileName(Guid.NewGuid()));
             try
             {
                 using (var p = Process.Start(new ProcessStartInfo(AppPaths.SelfExe, WindowsCommandLine.Join(args(result)))
@@ -192,6 +205,15 @@ namespace MacExtend.Services.CoreDevice
             {
                 TryDelete(result);
             }
+        }
+
+        /// <summary>The user's own temp folder, or the updates folder when TEMP is not a local drive path (the helper refuses those).</summary>
+        private static string ResultDir()
+        {
+            var temp = Path.GetTempPath();
+            if (HelperPaths.IsLocalDrivePath(temp)) return temp;
+            Directory.CreateDirectory(AppPaths.UpdatesDir);
+            return AppPaths.UpdatesDir;
         }
 
         /// <summary>The downloaded zip has done its job once installed; a zip the user picked stays where it is.</summary>

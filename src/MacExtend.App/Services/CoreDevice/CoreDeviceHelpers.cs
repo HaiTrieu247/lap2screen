@@ -21,7 +21,9 @@ namespace MacExtend.Services.CoreDevice
     ///   --coredevice-remove                              elevated: task and rules (uninstaller, CI)
     /// tunneld is never hosted here: the task starts the runtime's pythonw.exe itself, because an elevated .NET process
     /// would honour COR_PROFILER from the user's own environment. The elevated modes write nothing into the user's
-    /// folders except the new RESULT file; the app logs the step lines it carries (SetupHelperResult).
+    /// folders except the new RESULT file; the app logs the step lines it carries (SetupHelperResult). ZIP and RESULT
+    /// come from an unelevated caller, so both must be local drive paths and RESULT must have the app's own name
+    /// (HelperPaths); anything else exits 2 before anything is created.
     /// </summary>
     internal static class CoreDeviceHelpers
     {
@@ -33,6 +35,9 @@ namespace MacExtend.Services.CoreDevice
         /// <summary>Exit code of a helper mode given the wrong arguments; the app itself never starts from them.</summary>
         public const int BadArguments = 2;
 
+        private const string OnlyProgramFilesMessage =
+            "Chỉ cài thành phần với quyền quản trị cho bản MacExtend cài trong Program Files.";
+
         /// <returns>true when <paramref name="args"/> asked for a helper mode; the process exits with <paramref name="exitCode"/>.</returns>
         public static bool TryRun(string[] args, out int exitCode)
         {
@@ -40,14 +45,14 @@ namespace MacExtend.Services.CoreDevice
             if (CtrlCHelper.TryRun(args, out exitCode)) return true;
             if (args.Length > 0 && args[0] == SetupArg)
             {
-                var valid = args.Length == 5 && (args[1] == NoZip || CoreDeviceOptions.IsWindowsAbsolutePath(args[1]))
-                            && CoreDeviceOptions.IsWindowsAbsolutePath(args[2]) && (args[4] == "0" || args[4] == "1");
+                var valid = args.Length == 5 && (args[1] == NoZip || HelperPaths.IsLocalDrivePath(args[1]))
+                            && HelperPaths.IsResultFile(args[2]) && (args[4] == "0" || args[4] == "1");
                 exitCode = valid ? Setup(args[1] == NoZip ? null : args[1], args[2], args[3], args[4] == "1") : BadArguments;
                 return true;
             }
             if (args.Length > 0 && args[0] == RulesArg)
             {
-                exitCode = args.Length == 2 && CoreDeviceOptions.IsWindowsAbsolutePath(args[1]) ? Rules(args[1]) : BadArguments;
+                exitCode = args.Length == 2 && HelperPaths.IsResultFile(args[1]) ? Rules(args[1]) : BadArguments;
                 return true;
             }
             if (args.Length > 0 && args[0] == RemoveArg)
@@ -67,7 +72,10 @@ namespace MacExtend.Services.CoreDevice
             RequireElevated();
             if (zip != null)
             {
-                // the package this exe was built with; the installer checks the hash on the handle it extracts from
+                // the private copy, TARGET.new and TARGET.old are written and deleted with administrator rights: only in a
+                // folder that only administrators can change (any other copy installs its runtime without UAC)
+                if (!CoreDeviceRuntime.TaskAllowed) throw new InvalidOperationException(OnlyProgramFilesMessage);
+                // the package this exe was built with; the installer hashes its private copy and extracts only from it
                 var expected = CoreDeviceRuntime.Package ?? throw new InvalidOperationException(CoreDeviceRuntime.NoMetadataMessage);
                 // the task's tunneld (pythonw.exe) holds the runtime's files while it runs
                 TryScript(CoreDeviceSetupScripts.StopTask(), "stop task", "Không dừng được tunneld", log);
