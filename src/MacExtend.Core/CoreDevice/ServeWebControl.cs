@@ -17,13 +17,25 @@ namespace MacExtend.Core.CoreDevice
         private readonly HttpClient _http;
         private readonly TimeSpan _timeout;
 
-        public ServeWebControl(int port) : this(port, CoreDeviceClient.CreateHandler(), TimeSpan.FromSeconds(5))
+        /// <summary>Each call's limit unless the caller chooses one: enough for a button.</summary>
+        public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
+
+        /// <summary>/clipboard goes to the device and back, which over Wi-Fi can take longer than a button.</summary>
+        public static readonly TimeSpan ClipboardTimeout = TimeSpan.FromSeconds(15);
+
+        public ServeWebControl(int port) : this(port, DefaultTimeout)
+        {
+        }
+
+        /// <param name="timeout">How long each call may take before it fails with <see cref="CoreDeviceClientException"/>.</param>
+        public ServeWebControl(int port, TimeSpan timeout) : this(port, CoreDeviceClient.CreateHandler(), timeout)
         {
         }
 
         internal ServeWebControl(int port, HttpMessageHandler handler, TimeSpan timeout)
         {
             if (port < CoreDeviceOptions.MinHttpPort || port > CoreDeviceOptions.MaxHttpPort) throw new ArgumentOutOfRangeException(nameof(port));
+            if (timeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
             _timeout = timeout;
             _http = new HttpClient(handler, disposeHandler: true)
             {
