@@ -101,7 +101,23 @@ function pmd3 { & $py -I -X utf8 -m pymobiledevice3 @args }
 ### 3. Chọn transport
 
 - **userspace** (mặc định, iOS 17.4+ qua USB, không cần quyền quản trị): tunnel nằm trong tiến trình serve-web. Mất kết nối thì serve-web không tự phục hồi: dừng probe và chạy lại.
-- **tunnel** (iOS 17.0–17.3.1 trên Windows, hoặc khi thử Wi-Fi): mở PowerShell **với quyền quản trị** và chạy `pmd3 remote tunneld` (nghe 127.0.0.1:49151; có `--usb/--wifi/--usbmux/--mobdev2`). Giữ cửa sổ đó mở, rồi chạy probe với `--transport tunnel`. Khi thiết bị rớt, serve-web log *disconnected; waiting for tunneld* rồi *back online via tunneld* và tự nối lại hình; chạm/phím đang dở không được gửi lại. Probe không tự cài, nâng quyền hay quản lý tunneld.
+- **tunnel** (iOS 17.0–17.3.1 trên Windows, hoặc khi thử Wi-Fi): mở PowerShell **với quyền quản trị** và chạy `pmd3 remote tunneld` (nghe 127.0.0.1:49151). Mặc định nó dò cả USB lẫn Wi-Fi; chỉ USB thì thêm `--no-wifi --no-mobdev2`. Kiểm tra tunnel bằng `Invoke-RestMethod http://127.0.0.1:49151/`: qua USB thì `interface` là `usbmux-<UDID>-USB`. Giữ cửa sổ đó mở, sửa firewall như mục dưới, rồi chạy probe với `--transport tunnel`. Khi thiết bị rớt, serve-web log *disconnected; waiting for tunneld* rồi *back online via tunneld* và tự nối lại hình; chạm/phím đang dở không được gửi lại. Probe không tự cài, nâng quyền hay quản lý tunneld.
+
+#### Firewall khi dùng tunnel
+
+Với tunnel, thiết bị gửi hình (RTP qua UDP) tới card mạng ảo `pymobiledevice3-tunnel-<UDID>`, và Windows xếp card này là **Public**. serve-web không gửi gì cho thiết bị trước gói hình đầu tiên, nên firewall coi đó là gói vào không được yêu cầu. Nếu Python có luật Block cho Public (Windows tự tạo khi hộp thoại firewall chỉ tick Private), serve-web vẫn chạy và chạm vẫn tới thiết bị nhưng viewer không có hình. Userspace không bị, vì hình đi trong tiến trình. Đã gặp ở lượt 1.
+
+- Kiểm tra (quản trị): `Set-NetFirewallProfile -All -LogBlocked True`, chạy serve-web và mở viewer, rồi `Select-String "$env:SystemRoot\System32\LogFiles\Firewall\pfirewall.log" -Pattern 'DROP UDP fd'`. Có dòng tức là firewall đang chặn. Xong thì `Set-NetFirewallProfile -All -LogBlocked False`.
+- Sửa (quản trị). `$base` là đúng đường dẫn đã truyền cho `setup.ps1 -Python`: tiến trình nhận UDP là interpreter gốc, không phải `.venv\Scripts\python.exe`. Block luôn thắng Allow, nên tắt luật Block inbound của interpreter đó, rồi chỉ cho UDP từ dải địa chỉ tunnel `fc00::/7`:
+
+  ```powershell
+  $base = '<đường dẫn đã truyền cho setup.ps1 -Python>'
+  Get-NetFirewallApplicationFilter | Where-Object Program -eq $base | Get-NetFirewallRule | Where-Object { $_.Direction -eq 'Inbound' -and $_.Action -eq 'Block' } | Disable-NetFirewallRule
+  New-NetFirewallRule -DisplayName 'CoreDevice probe: Python 3.12 UDP from tunnel' -Direction Inbound -Action Allow -Protocol UDP -RemoteAddress 'fc00::/7' -Program $base -Profile Public
+  ```
+
+  Mặc định Public đã chặn mọi gói vào không được yêu cầu, nên tắt luật Block không mở thêm gì; thứ được mở chỉ là UDP từ `fc00::/7` tới interpreter đó. Một số mạng công cộng cũng dùng địa chỉ `fd..`, nên gỡ luật khi thử xong: `Remove-NetFirewallRule -DisplayName 'CoreDevice probe: Python 3.12 UDP from tunnel'`, rồi bật lại các luật Block bằng lệnh trên với `Enable-NetFirewallRule`.
+- Đổi card tunnel sang Private (`Set-NetConnectionProfile -NetworkCategory Private`) chỉ có tác dụng tới khi tunnel được tạo lại: mỗi tunnel mới là một mạng Public mới.
 
 ### 4. Thứ tự thử
 
@@ -118,9 +134,21 @@ function pmd3 { & $py -I -X utf8 -m pymobiledevice3 @args }
 
 ### 5. Wi-Fi
 
-1. Qua USB, bật kết nối Wi-Fi một lần: `pmd3 lockdown wifi-connections on --udid <UDID>`.
-2. Rút cáp, cùng mạng Wi-Fi. Phát hiện qua Wi-Fi dùng Apple service của iTunes cổ điển; nếu không thấy thiết bị, thử phát hiện qua Bonjour bằng `pmd3 lockdown wifi-connections --mobdev2 --udid <UDID>` (chỉ đọc trạng thái). `--mobdev2` chỉ dùng cho lệnh lockdown có `--help` liệt kê nó; `serve-web` không có tùy chọn này.
-3. Chạy `pmd3 remote tunneld` (quản trị) rồi probe với `--transport tunnel`. Ghi service Apple đang dùng, cách phát hiện và độ trễ.
+Đường chạy được là RemotePairing, cách Xcode dùng cho "Connect via network". Đường lockdown qua Wi-Fi (mobdev2) không dùng được: tunneld tìm và ghép nối được thiết bị, nhưng thiết bị đóng dịch vụ CoreDeviceProxy ngay ở bước bắt tay đầu tiên (`ConnectionTerminatedError`; lượt 1, iOS 27.2).
+
+1. Qua USB, tạo pair record RemotePairing một lần (không hiện hộp thoại Tin cậy): `pmd3 lockdown remotepairing --pair --udid <UDID>`. File `remote_<...>.plist` nằm trong `%USERPROFILE%\.pymobiledevice3`.
+2. Rút cáp, để thiết bị và laptop **cùng một mạng Wi-Fi** (kiểm tra tên mạng ở cả hai bên). Kiểm tra thiết bị có quảng bá không: `pmd3 bonjour remotepairing --timeout 15`. Trên Windows, Bonjour của pymobiledevice3 mặc định chỉ chờ 2 giây.
+3. Tunneld phải chạy bằng **Python 3.13 trở lên**. Từ iOS 18.2, thiết bị bỏ tunnel QUIC (`QuicProtocolNotSupportedError`), còn tunnel TCP trên Python 3.12 cần `sslpsk-pmd3`. Wheel Windows của gói này (1.0.3) link tới `libssl-1_1-x64.dll` trong khi Python 3.12 dùng OpenSSL 3, nên import thất bại (`sslpsk_pmd3 is required for the TCP tunnel on python<3.13`). Từ 3.13, PSK có sẵn trong `ssl` và tunneld mặc định dùng TCP. Lock và `setup.ps1` hiện chỉ có Python 3.12; lượt 1 dùng một venv 3.13 riêng, cài `pymobiledevice3==11.47.0` không qua lock, chỉ để chạy tunneld:
+
+   ```powershell
+   $py13 = 'C:\...\.venv313\Scripts\python.exe'
+   & $py13 -I -X utf8 -m pymobiledevice3 -v remote tunneld --no-usb --no-usbmux --no-mobdev2
+   ```
+
+   Trong tunneld, `--wifi` là phần dò RemotePairing; `--no-usb --no-usbmux --no-mobdev2` chỉ để log gọn. Chờ `Created tunnel --rsd ...` của task `start-tunnel-task-wifi-...`. Khi Windows hỏi quyền mạng cho Python 3.13, cho phép Private.
+4. Probe và serve-web vẫn dùng venv 3.12: `--transport tunnel`. Chúng chỉ hỏi tunneld qua `127.0.0.1:49151` rồi đi qua card tunnel của hệ điều hành, nên vẫn cần sửa firewall như mục *Firewall khi dùng tunnel*.
+
+Đường lockdown cũ, để so sánh: `pmd3 lockdown wifi-connections on --udid <UDID>` qua USB, rồi `pmd3 bonjour mobdev2`. Apple service (`pmd3 usbmux list --network`) không thấy thiết bị qua Wi-Fi ở lượt 1.
 
 ### 6. Sau mỗi lần dừng
 
@@ -144,4 +172,4 @@ Viewer gửi phím vật lý (`e.code`), không gửi văn bản Windows đã gh
 
 ## Âm thanh
 
-`--no-audio` chỉ làm viewer không tự bật tiếng; phiên audio phía thiết bị vẫn mở cùng phiên hình. Viewer giải mã âm thanh bằng codec của macOS, nên trên Windows đừng kỳ vọng nghe được tiếng thiết bị qua viewer. Phải thử loa/tai nghe của thiết bị và âm thanh AirPlay của MacExtend trước, trong và sau phiên.
+`--no-audio` chỉ làm viewer không tự bật tiếng; serve-web vẫn mở phiên audio cùng phiên hình ngay khi khởi động. serve-web tự giải mã âm thanh (AAC-ELD) bằng AudioToolbox của macOS, nên trên Windows mỗi lần chạy đều có dòng `ERROR AudioToolbox AAC-ELD decoder failed to open` kèm traceback `AAC-ELD decode requires macOS`. Dòng này vô hại: hình và chạm không bị ảnh hưởng, chỉ là viewer không có tiếng. Trong phiên, tiếng vẫn ra loa/tai nghe của thiết bị (lượt 1). Phải thử loa/tai nghe của thiết bị và âm thanh AirPlay của MacExtend trước, trong và sau phiên.

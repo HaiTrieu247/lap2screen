@@ -31,7 +31,7 @@ Lệnh probe chạy (tạo ở `CoreDeviceArguments.ServeWeb`):
 - `serve-web` không có `--udid`. Với `--userspace`, thiết bị lấy từ biến môi trường `PYMOBILEDEVICE3_UDID` (`cli_common.py`: `UDID_ENV_VAR`). Với `--tunnel`, UDID là đối số của `--tunnel`.
 - Các biến `PYMOBILEDEVICE3_*` khác (ví dụ biến chọn tunnel, userspace, native, usbmux) cũng là `envvar` của Device Options, nên probe xóa toàn bộ biến có tiền tố này (không phân biệt hoa thường) trước khi đặt `PYMOBILEDEVICE3_UDID`. `FORCE_COLOR` cũng bị xóa và `NO_COLOR=1` để dòng log parse được.
 - `--mobdev2` chỉ có ở các lệnh lockdown/usbmux (ví dụ `lockdown pair`, `lockdown wifi-connections`) và ở `remote tunneld`; không đưa vào `serve-web`.
-- `--userspace`: tunnel iOS 17+ trong tiến trình, không cần quyền quản trị; DDI mount qua đường này chậm hơn. `--tunnel <UDID>`: dùng thiết bị do `remote tunneld` (chạy với quyền quản trị) phát hiện.
+- `--userspace`: tunnel iOS 17+ trong tiến trình, không cần quyền quản trị; DDI mount qua đường này chậm hơn. `--tunnel <UDID>`: dùng thiết bị do `remote tunneld` (chạy với quyền quản trị) phát hiện. Hình nhận khác nhau theo transport (`screen_stream.open_media_receiver`): với userspace, socket UDP nằm trên stack pytcp trong tiến trình; với tunnel, đó là socket UDP của hệ điều hành bind `::`, và địa chỉ báo cho thiết bị là địa chỉ local của kết nối RSD trên card tunnel. RTCP RR chỉ được gửi sau khi đã nhận gói RTP đầu tiên, nên với tunnel trên Windows, RTP từ thiết bị là gói vào không được yêu cầu, đi qua firewall trên card `pymobiledevice3-tunnel-<UDID>` (Public). Cách sửa ở README, *Firewall khi dùng tunnel*. Qua Wi-Fi: đường mobdev2 (lockdown, `CoreDeviceTunnelProxy`) bị thiết bị đóng ở bước bắt tay CDTunnel trên iOS 27.2; đường RemotePairing (`RemotePairingTunnelService`, `_remotepairing._tcp`, pair record tạo qua `lockdown remotepairing --pair`) chạy được với tunnel TCP. iOS 18.2+ bỏ QUIC; tunnel TCP cần TLS-PSK: Python 3.13+ có sẵn (`SSLContext.set_psk_client_callback`), Python 3.12 dùng `sslpsk-pmd3`, mà wheel `sslpsk_pmd3-1.0.3-cp312-cp312-win_amd64` có cả hai extension link tới `libssl-1_1-x64.dll` nên không import được trên Python 3.12 (OpenSSL 3).
 
 Lệnh phụ cho runbook, xác nhận bằng `--help` hoặc mã nguồn 11.47.0:
 
@@ -100,7 +100,7 @@ Dừng: trên Windows `add_signal_handler` không có, nên Ctrl+C đi qua `Keyb
 
 - `--no-audio` chỉ đổi mặc định của viewer (`audio_default_on=False`, người dùng vẫn bấm Enable Sound được). Nó không tắt phiên audio phía thiết bị.
 - `_eager_stream_start` luôn mở audio trước video: docstring ghi phiên audio là tín hiệu còn sống của phiên, giống Xcode Mirror, và chạy dù không có ai nghe `/audio.bin`.
-- Viewer giải mã AAC-ELD bằng codec `aac_at` (AudioToolbox của macOS). Trên Windows trình duyệt nhiều khả năng không phát được; probe vẫn truyền `--no-audio` để viewer không tự yêu cầu `/audio.bin`.
+- serve-web mở phiên audio ngay khi khởi động, kể cả với `--no-audio` (đó là tín hiệu phiên còn sống với media manager của thiết bị). Nó tự giải mã AAC-ELD bằng AudioToolbox qua ctypes (`aac_eld.py`) rồi phát PCM s16le qua `/audio.bin`. Trên Windows bộ giải mã không mở được: `_audio_udp_recv` log `ERROR AudioToolbox AAC-ELD decoder failed to open` lúc khởi động và `/audio.bin` trả lỗi; hình không bị ảnh hưởng. Probe vẫn truyền `--no-audio` để viewer không tự yêu cầu `/audio.bin`.
 - Hệ quả cần thử: khi phiên chạy, âm thanh thiết bị và âm thanh AirPlay của MacExtend có thể bị chuyển hướng hoặc tắt. Chưa sửa audio upstream trong đợt này.
 
 ## 8. Camera và micro
