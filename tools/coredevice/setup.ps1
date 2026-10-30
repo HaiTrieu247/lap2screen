@@ -3,17 +3,17 @@
     Creates or refreshes tools\coredevice\.venv with exactly the locked CoreDevice probe runtime.
 
 .DESCRIPTION
-    Installs requirements-win-x64.lock.txt (pymobiledevice3 11.47.0 and every dependency, each pinned with
+    Installs requirements-win-x64-py313.lock.txt (pymobiledevice3 11.47.0 and every dependency, each pinned with
     hashes, wheels only) into a venv next to this script, then checks it: pip check, the installed version
     and serve-web --help, run the way the probe runs it. Running it again reuses the same venv and installs
     nothing beyond the lock. The Python given is only used to create the venv; it is never modified.
 
 .PARAMETER Python
-    Absolute path to a Python 3.12 x64 interpreter, for example
-    C:\Users\me\AppData\Local\Programs\Python\Python312\python.exe
+    Absolute path to a Python 3.13 x64 interpreter, for example
+    C:\Users\me\AppData\Local\Programs\Python\Python313\python.exe
 
 .EXAMPLE
-    .\tools\coredevice\setup.ps1 -Python "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
+    .\tools\coredevice\setup.ps1 -Python "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe"
 #>
 param(
     [Parameter(Mandatory = $true)]
@@ -24,7 +24,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $RequiredVersion = '11.47.0'
-$Lock = Join-Path $PSScriptRoot 'requirements-win-x64.lock.txt'
+$Lock = Join-Path $PSScriptRoot 'requirements-win-x64-py313.lock.txt'
 $Venv = Join-Path $PSScriptRoot '.venv'
 $VenvPython = Join-Path $Venv 'Scripts\python.exe'
 
@@ -34,13 +34,13 @@ function Invoke-Native {
     if ($LASTEXITCODE -ne 0) { throw "$([IO.Path]::GetFileName($Exe)) $($Arguments -join ' ') failed with exit code $LASTEXITCODE" }
 }
 
-function Assert-Python312x64 {
+function Assert-Python313x64 {
     param([string]$Exe, [string]$What)
     $info = & $Exe -I -c "import sys, struct; print('%d.%d %d %s' % (sys.version_info[0], sys.version_info[1], struct.calcsize('P') * 8, sys.platform))"
     if ($LASTEXITCODE -ne 0) { throw "$What could not be run: $Exe" }
     $parts = "$info".Trim() -split ' '
-    if ($parts[0] -ne '3.12' -or $parts[1] -ne '64' -or $parts[2] -ne 'win32') {
-        throw "$What must be CPython 3.12 x64 on Windows; $Exe reports '$("$info".Trim())'"
+    if ($parts[0] -ne '3.13' -or $parts[1] -ne '64' -or $parts[2] -ne 'win32') {
+        throw "$What must be CPython 3.13 x64 on Windows; $Exe reports '$("$info".Trim())'"
     }
 }
 
@@ -49,7 +49,7 @@ if (-not [IO.Path]::IsPathRooted($Python) -or -not (Test-Path -LiteralPath $Pyth
     throw "-Python must be the absolute path of an existing python.exe (got '$Python')"
 }
 
-Assert-Python312x64 -Exe $Python -What 'the base interpreter'
+Assert-Python313x64 -Exe $Python -What 'the base interpreter'
 
 if (Test-Path -LiteralPath $VenvPython -PathType Leaf) {
     Write-Host "reusing $Venv"
@@ -58,7 +58,7 @@ else {
     Write-Host "creating $Venv"
     Invoke-Native $Python @('-I', '-m', 'venv', $Venv)
 }
-Assert-Python312x64 -Exe $VenvPython -What 'the venv interpreter'
+Assert-Python313x64 -Exe $VenvPython -What 'the venv interpreter'
 
 # --require-hashes: every file must match the lock; --no-deps: nothing is resolved beyond the lock;
 # --only-binary: no package is built from source on this machine

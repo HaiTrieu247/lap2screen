@@ -1,7 +1,9 @@
-# CoreDevice probe runtime (Windows x64, Python 3.12). Not part of the MacExtend product.
+# CoreDevice runtime for MacExtend "Điều khiển trực tiếp" and the developer probe (Windows x64, Python 3.13).
 # The version is fixed: serve-web's HTTP endpoints are reverse-engineered, not a stable API.
 # 11.47.0 = tag v11.47.0, commit f7b034ec49696b1769c80257aadfa5387271dc6b; it contains d700d8e
 # (first Ctrl-C cancels the command so serve-web's cleanup runs). See
 # docs/research/2026-10-29-coredevice-probe.md before changing it.
-# Regenerate requirements-win-x64.lock.txt with compile-lock.ps1 on Windows.
+# Regenerate requirements-win-x64-py313.lock.txt with compile-lock.ps1 on Windows (CPython 3.13 x64).
+# Python 3.13 because iOS 18.2+ refuses QUIC tunnels and the TCP tunnel needs TLS-PSK, which 3.13's ssl has;
+# on 3.12 it needed sslpsk-pmd3, whose 1.0.3 Windows wheel links libssl-1_1-x64.dll and cannot import.
 pymobiledevice3==11.47.0

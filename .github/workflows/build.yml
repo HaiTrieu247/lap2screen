@@ -165,7 +165,7 @@ jobs:
       - uses: actions/setup-python@v5
         id: python
         with:
-          python-version: '3.12'
+          python-version: '3.13'
           architecture: x64
 
       - name: Python runtime from the lock (twice; the second run reuses the venv)
@@ -192,7 +192,7 @@ jobs:
         shell: pwsh
         run: |
           $dir = 'build/coredevice-probe'
-          Copy-Item tools/coredevice/setup.ps1, tools/coredevice/compile-lock.ps1, tools/coredevice/requirements.in, tools/coredevice/requirements-win-x64.lock.txt, tools/coredevice/README.md $dir
+          Copy-Item tools/coredevice/setup.ps1, tools/coredevice/compile-lock.ps1, tools/coredevice/requirements.in, tools/coredevice/requirements-win-x64-py313.lock.txt, tools/coredevice/README.md $dir
           "name=coredevice-probe-$($env:GITHUB_SHA.Substring(0, 7))" >> $env:GITHUB_OUTPUT
 
       # deliberately not MacExtend-*: the release job collects artifacts by that pattern

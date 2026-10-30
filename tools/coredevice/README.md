@@ -11,19 +11,19 @@ Công cụ console riêng để thử điều khiển iPhone/iPad bằng chạm 
 | Đường dẫn | Vai trò |
 |---|---|
 | `requirements.in` | phiên bản duy nhất được hỗ trợ: `pymobiledevice3==11.47.0` |
-| `requirements-win-x64.lock.txt` | toàn bộ dependency cho CPython 3.12 x64 Windows, mỗi gói có hash |
-| `compile-lock.ps1` | tạo lại lock bằng pip-tools 7.6.2 trên Windows Python 3.12 x64 |
+| `requirements-win-x64-py313.lock.txt` | toàn bộ dependency cho CPython 3.13 x64 Windows, mỗi gói có hash |
+| `compile-lock.ps1` | tạo lại lock bằng pip-tools 7.6.2 trên Windows Python 3.13 x64 |
 | `setup.ps1` | tạo `tools\coredevice\.venv` từ lock và kiểm tra nó |
 | `test-probe.ps1`, `tests\` | smoke test probe net48 với serve-web giả, không cần thiết bị |
 | `../MacExtend.CoreDeviceProbe/` | probe: chạy serve-web, quản lý tiến trình, gửi thao tác thử |
 
 ## Cài đặt trên Windows
 
-1. Cài CPython 3.12 x64 từ python.org (không cần thêm vào PATH).
+1. Cài CPython 3.13 x64 từ python.org (không cần thêm vào PATH).
 2. Tạo runtime. Chạy lại lệnh này dùng lại cùng venv và không cài gì ngoài lock; Python hệ thống không bị sửa.
 
    ```powershell
-   .\tools\coredevice\setup.ps1 -Python "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
+   .\tools\coredevice\setup.ps1 -Python "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe"
    ```
 
    Script cài bằng `pip --require-hashes --no-deps --only-binary :all:`, chạy `pip check`, kiểm tra phiên bản 11.47.0 và `serve-web --help` có đủ tùy chọn probe dùng.
@@ -32,10 +32,10 @@ Công cụ console riêng để thử điều khiển iPhone/iPad bằng chạm 
 ### Tạo lại lock
 
 ```powershell
-pwsh tools/coredevice/compile-lock.ps1 -Python "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
+pwsh tools/coredevice/compile-lock.ps1 -Python "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe"
 ```
 
-Chỉ chạy trên Windows: lock tạo trên hệ khác sẽ theo dependency marker của hệ đó. Script cài pip-tools 7.6.2 vào venv tạm rồi chạy `python -m piptools compile --generate-hashes --resolver=backtracking --allow-unsafe --strip-extras --pip-args --only-binary=:all:`. Lock đang commit được tạo bằng `uv pip compile` nhắm Windows x64/Python 3.12 (dòng đầu file ghi uv); nó chỉ được coi là đã xác minh khi job *CoreDevice probe* trên `windows-latest` cài và kiểm tra đạt. Sau khi tạo lại lock, chạy `setup.ps1` và smoke test trước khi commit.
+Chỉ chạy trên Windows: lock tạo trên hệ khác sẽ theo dependency marker của hệ đó. Script cài pip-tools 7.6.2 vào venv tạm rồi chạy `python -m piptools compile --generate-hashes --resolver=backtracking --allow-unsafe --strip-extras --pip-args --only-binary=:all:`. Lock đang commit được tạo bằng `uv pip compile` nhắm Windows x64/Python 3.13 (dòng đầu file ghi uv); nó chỉ được coi là đã xác minh khi job *CoreDevice probe* trên `windows-latest` cài và kiểm tra đạt. Sau khi tạo lại lock, chạy `setup.ps1` và smoke test trước khi commit.
 
 ## Chạy probe
 
