@@ -10,6 +10,7 @@ namespace MacExtend.Core.CoreDevice
         {
             switch (phase)
             {
+                case SessionPhase.Idle: return "Chưa chạy";
                 case SessionPhase.StartingTunnel: return "Đang tìm thiết bị qua Wi-Fi...";
                 case SessionPhase.Preparing: return "Đang chuẩn bị thiết bị...";
                 case SessionPhase.Starting: return "Đang kết nối...";
@@ -19,7 +20,7 @@ namespace MacExtend.Core.CoreDevice
                 case SessionPhase.Stopping: return "Đang dừng...";
                 case SessionPhase.Stopped: return "Đã dừng";
                 case SessionPhase.Failed: return "Không mở được phiên điều khiển";
-                default: return "Chưa chạy";
+                default: return "";
             }
         }
 
