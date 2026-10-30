@@ -50,21 +50,19 @@ namespace MacExtend.Core.CoreDevice
     /// </summary>
     public static class ServeWebLog
     {
-        private const string Stream = @"pymobiledevice3\.remote\.core_device\.screen_stream\[\d+\] ";
-        // run as `python -m pymobiledevice3` the CLI logger is "__main__"; imported it is "pymobiledevice3.__main__"
-        private const string Main = @"(?:pymobiledevice3\.)?__main__\[\d+\] ";
+        private const string StreamLogger = @"pymobiledevice3\.remote\.core_device\.screen_stream";
 
         private static readonly Regex Ansi = new Regex(@"\x1b\[[0-9;]*m", RegexOptions.CultureInvariant);
 
-        private static readonly Regex Listening = Line(Stream + @"INFO Open http://127\.0\.0\.1:(\d{1,5})/ in Safari/Chrome\. Ctrl-C to stop\.\s*\z");
-        private static readonly Regex Codec = Line(Stream + @"INFO WebCodecs codec string: ((?:hvc1|hev1)[A-Za-z0-9.]{0,60})\s*\z");
-        private static readonly Regex HidWorker = Line(Stream + @"INFO hid worker started\s*\z");
-        private static readonly Regex StreamDelayed = Line(Stream + @"WARNING initial stream start timed out");
-        private static readonly Regex Disconnected = Line(Stream + @"WARNING device \S+ disconnected; waiting for tunneld");
-        private static readonly Regex Reconnected = Line(Stream + @"INFO device \S+ back online via tunneld");
-        private static readonly Regex StepFailed = Line(Stream + @"(?:WARNING|ERROR) shutdown: (\S+) (?:timed out after|raised)");
-        private static readonly Regex Complete = Line(Stream + @"INFO shutdown complete\s*\z");
-        private static readonly Regex Fatal = Line(Main + @"ERROR (.*)\z");
+        private static readonly Regex Listening = Line(LogPrefix.Build(StreamLogger, "INFO") + @"Open http://127\.0\.0\.1:(\d{1,5})/ in Safari/Chrome\. Ctrl-C to stop\.\s*\z");
+        private static readonly Regex Codec = Line(LogPrefix.Build(StreamLogger, "INFO") + @"WebCodecs codec string: ((?:hvc1|hev1)[A-Za-z0-9.]{0,60})\s*\z");
+        private static readonly Regex HidWorker = Line(LogPrefix.Build(StreamLogger, "INFO") + @"hid worker started\s*\z");
+        private static readonly Regex StreamDelayed = Line(LogPrefix.Build(StreamLogger, "WARNING") + @"initial stream start timed out");
+        private static readonly Regex Disconnected = Line(LogPrefix.Build(StreamLogger, "WARNING") + @"device \S+ disconnected; waiting for tunneld");
+        private static readonly Regex Reconnected = Line(LogPrefix.Build(StreamLogger, "INFO") + @"device \S+ back online via tunneld");
+        private static readonly Regex StepFailed = Line(LogPrefix.Build(StreamLogger, "(?:WARNING|ERROR)") + @"shutdown: (\S+) (?:timed out after|raised)");
+        private static readonly Regex Complete = Line(LogPrefix.Build(StreamLogger, "INFO") + @"shutdown complete\s*\z");
+        private static readonly Regex Fatal = Line(LogPrefix.Build(LogPrefix.Main, "ERROR") + @"(.*)\z");
 
         // the cleanup steps serve-web's shutdown names (screen_stream.py, ScreenStreamServer.serve)
         private static readonly string[] Steps =
@@ -118,6 +116,6 @@ namespace MacExtend.Core.CoreDevice
             return ServeWebLogKind.Error;
         }
 
-        private static Regex Line(string pattern) => new Regex(@"\A\S+ \S+ \S+ " + pattern, RegexOptions.CultureInvariant);
+        private static Regex Line(string pattern) => new Regex(pattern, RegexOptions.CultureInvariant);
     }
 }
