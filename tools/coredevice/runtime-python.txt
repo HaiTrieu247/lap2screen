@@ -1,0 +1,4 @@
+# Official CPython nuget.org package used as the CoreDevice runtime (tools/ folder, x64).
+# Bump both lines together; build-runtime.ps1 refuses a package whose SHA-256 differs.
+version=3.13.17
+sha256=dce409744b088f94c6e37ba41f8100c384c27e029e843237364c602d30d475e5
