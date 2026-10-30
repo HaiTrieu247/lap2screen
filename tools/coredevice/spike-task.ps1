@@ -45,15 +45,26 @@ elseif ($Run) {
     $before = Get-Date
     & schtasks.exe /Run /TN "$TaskPath$TaskName"
     $run = $LASTEXITCODE
-    # poll for output written after $before, so an old file from an earlier run cannot count
+    # poll for output written after $before, so an old file from an earlier run cannot count;
+    # cmd truncates the file before whoami writes, so wait until the content has settled
     $fresh = $false
+    $text = ''
+    $prevLen = -1
+    $prevTime = [DateTime]::MinValue
     $deadline = (Get-Date).AddSeconds(10)
-    while (-not $fresh -and (Get-Date) -lt $deadline) {
+    while ((Get-Date) -lt $deadline) {
         Start-Sleep -Milliseconds 500
         $item = Get-Item -LiteralPath $Out -ErrorAction SilentlyContinue
-        if ($item -and $item.LastWriteTime -gt $before) { $fresh = $true }
+        if (-not $item -or $item.LastWriteTime -le $before) { continue }
+        $fresh = $true
+        $len = $item.Length
+        $time = $item.LastWriteTime
+        $text = Get-Content -LiteralPath $Out -Raw
+        if ($text -match 'S-1-16-12288') { break }
+        if ($len -gt 0 -and $len -eq $prevLen -and $time -eq $prevTime) { break }
+        $prevLen = $len
+        $prevTime = $time
     }
-    $text = if ($fresh) { Get-Content -LiteralPath $Out -Raw } else { '' }
     $elevated = $text -match 'S-1-16-12288'
     "Get-ScheduledTask sees the task: $seen"
     "schtasks /Query exit code:      $query"
