@@ -37,6 +37,22 @@ public sealed class UpdateApplierTests : IDisposable
     private string Read(string relative) => File.ReadAllText(Path.Combine(Install, relative));
 
     [Fact]
+    public void CoreDeviceRuntimeReplacesItsWholeFolder()
+    {
+        Write(Install, "coredevice/python/python.exe", "old python");
+        Write(Install, "coredevice/RUNTIME_ID", "cd-1");
+        Write(Staging, "coredevice/python/python.exe", "new python");
+        Write(Staging, "coredevice/RUNTIME_ID", "cd-2");
+
+        UpdateApplier.Apply(Staging, Install, _ => { });
+
+        Assert.Equal("new python", Read("coredevice/python/python.exe"));
+        Assert.Equal("cd-2", Read("coredevice/RUNTIME_ID"));
+        Assert.Equal("old uxplay", Read("uxplay/bin/uxplay.exe"));
+        Assert.False(Directory.Exists(Path.Combine(Install, "coredevice.old")));
+    }
+
+    [Fact]
     public void CopiesAppFilesAndKeepsUnrelatedFiles()
     {
         Write(Staging, "app/MacExtend.exe", "new exe");

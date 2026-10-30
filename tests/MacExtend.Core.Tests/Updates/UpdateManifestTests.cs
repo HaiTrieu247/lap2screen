@@ -113,6 +113,35 @@ public class UpdateManifestTests
         Assert.NotNull(m);
         Assert.Null(m.Runtime);
     }
+
+    private static string WithCoreDevice() => Sample() +
+        "coredevice.id=py3.13.9-abc\n" +
+        "coredevice.file=MacExtend-1.0.60-coredevice-runtime.zip\n" +
+        "coredevice.sha256=" + HashA + "\n" +
+        "coredevice.size=95000000\n";
+
+    [Fact]
+    public void ParsesTheCoreDeviceRuntimeAndRoundTripsIt()
+    {
+        var m = UpdateManifest.Parse(WithCoreDevice());
+
+        Assert.Equal("py3.13.9-abc", m.CoreDeviceId);
+        Assert.Equal("MacExtend-1.0.60-coredevice-runtime.zip", m.CoreDevice.File);
+        Assert.Equal(95000000, m.CoreDevice.Size);
+        var again = UpdateManifest.Parse(UpdateManifest.Serialize(m));
+        Assert.Equal(m.CoreDeviceId, again.CoreDeviceId);
+        Assert.Equal(m.CoreDevice.Sha256, again.CoreDevice.Sha256);
+    }
+
+    [Fact]
+    public void AnOldManifestHasNoCoreDeviceRuntime()
+    {
+        var m = UpdateManifest.Parse(Sample());
+
+        Assert.Null(m.CoreDevice);
+        Assert.Null(m.CoreDeviceId);
+        Assert.DoesNotContain("coredevice", UpdateManifest.Serialize(m));
+    }
 }
 
 public class UpdateDecisionTests
@@ -151,6 +180,23 @@ public class UpdateDecisionTests
 
         Assert.True(d.NeedsRuntime);
         Assert.Equal(51000, d.DownloadBytes);
+    }
+
+    private static UpdateManifest WithCoreDevice(string id) => UpdateManifest.Parse(
+        "version=1.0.60\napp.file=a.zip\napp.sha256=" + Hash + "\napp.size=1000\n" +
+        "runtime.id=rt-2\nruntime.file=r.zip\nruntime.sha256=" + Hash + "\nruntime.size=50000\n" +
+        "coredevice.id=" + id + "\ncoredevice.file=c.zip\ncoredevice.sha256=" + Hash + "\ncoredevice.size=90000");
+
+    [Fact]
+    public void TheCoreDeviceRuntimeIsReplacedOnlyWhereItIsInstalledAndDiffers()
+    {
+        var installedOld = UpdateDecision.For(new Version(1, 0, 1), "rt-2", WithCoreDevice("cd-2"), "cd-1");
+        Assert.True(installedOld.NeedsCoreDevice);
+        Assert.Equal(91000, installedOld.DownloadBytes);
+
+        Assert.False(UpdateDecision.For(new Version(1, 0, 1), "rt-2", WithCoreDevice("cd-2"), "cd-2").NeedsCoreDevice);
+        Assert.False(UpdateDecision.For(new Version(1, 0, 1), "rt-2", WithCoreDevice("cd-2"), null).NeedsCoreDevice);
+        Assert.False(UpdateDecision.For(new Version(1, 0, 1), "rt-2", Manifest("1.0.60"), "cd-1").NeedsCoreDevice);
     }
 
     [Fact]

@@ -8,36 +8,38 @@ namespace MacExtend.Core.Updates
 {
     /// <summary>
     /// Puts a staged update into the install folder: staging\app\** over the install folder and,
-    /// when present, staging\runtime\** as the new uxplay folder. Originals are moved aside first,
+    /// when present, staging\runtime\** as the new uxplay folder and staging\coredevice\** as the new coredevice folder. Originals are moved aside first,
     /// so any failure puts every file back; staging is left intact for a retry.
     /// </summary>
     public static class UpdateApplier
     {
         private const string Aside = ".old";
-        private const string RuntimeFolder = "uxplay";
+
+        // staging folder -> installed folder; each is replaced as a whole when staged
+        private static readonly string[][] RuntimeSlots = { new[] { "runtime", "uxplay" }, new[] { "coredevice", "coredevice" } };
 
         internal static TimeSpan RetryDelay = TimeSpan.FromMilliseconds(300);
 
         public static void Apply(string stagingDir, string installDir, Action<string> log)
         {
             var appSource = Path.Combine(stagingDir, "app");
-            var runtimeSource = Path.Combine(stagingDir, "runtime");
-            var runtimeTarget = Path.Combine(installDir, RuntimeFolder);
-            var runtimeAside = runtimeTarget + Aside;
 
             var movedAside = new List<string>();
             var added = new List<string>();
-            var runtimeSwapped = false;
+            var swapped = new List<string>();
 
             CleanupLeftovers(installDir);
             try
             {
-                if (Directory.Exists(runtimeSource))
+                foreach (var slot in RuntimeSlots)
                 {
-                    if (Directory.Exists(runtimeTarget)) Retry(() => Directory.Move(runtimeTarget, runtimeAside));
-                    runtimeSwapped = true;
-                    CopyTree(runtimeSource, runtimeTarget);
-                    log("runtime replaced");
+                    var source = Path.Combine(stagingDir, slot[0]);
+                    if (!Directory.Exists(source)) continue;
+                    var target = Path.Combine(installDir, slot[1]);
+                    if (Directory.Exists(target)) Retry(() => Directory.Move(target, target + Aside));
+                    swapped.Add(target);
+                    CopyTree(source, target);
+                    log(slot[0] == "runtime" ? "runtime replaced" : slot[1] + " runtime replaced");
                 }
 
                 if (Directory.Exists(appSource))
@@ -64,24 +66,23 @@ namespace MacExtend.Core.Updates
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
                 log("update failed, restoring previous files: " + e.Message);
-                Rollback(movedAside, added, runtimeSwapped, runtimeTarget, runtimeAside, log);
+                Rollback(movedAside, added, swapped, log);
                 throw;
             }
 
             foreach (var target in movedAside) TryDeleteFile(target + Aside);
-            TryDeleteDirectory(runtimeAside);
+            foreach (var target in swapped) TryDeleteDirectory(target + Aside);
         }
 
         /// <summary>Removes files moved aside by an update that was interrupted after it succeeded.</summary>
         public static void CleanupLeftovers(string installDir)
         {
             if (!Directory.Exists(installDir)) return;
-            TryDeleteDirectory(Path.Combine(installDir, RuntimeFolder + Aside));
+            foreach (var slot in RuntimeSlots) TryDeleteDirectory(Path.Combine(installDir, slot[1] + Aside));
             foreach (var file in Directory.GetFiles(installDir, "*" + Aside, SearchOption.AllDirectories)) TryDeleteFile(file);
         }
 
-        private static void Rollback(List<string> movedAside, List<string> added, bool runtimeSwapped,
-                                     string runtimeTarget, string runtimeAside, Action<string> log)
+        private static void Rollback(List<string> movedAside, List<string> added, List<string> swapped, Action<string> log)
         {
             foreach (var target in added) TryDeleteFile(target);
             foreach (var target in movedAside)
@@ -89,10 +90,10 @@ namespace MacExtend.Core.Updates
                 TryDeleteFile(target);
                 Try(() => Retry(() => File.Move(target + Aside, target)), log);
             }
-            if (runtimeSwapped)
+            foreach (var target in swapped)
             {
-                TryDeleteDirectory(runtimeTarget);
-                if (Directory.Exists(runtimeAside)) Try(() => Retry(() => Directory.Move(runtimeAside, runtimeTarget)), log);
+                TryDeleteDirectory(target);
+                if (Directory.Exists(target + Aside)) Try(() => Retry(() => Directory.Move(target + Aside, target)), log);
             }
         }
 

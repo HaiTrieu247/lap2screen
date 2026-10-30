@@ -29,12 +29,23 @@ namespace MacExtend.Core.Updates
     public sealed class UpdateManifest
     {
         public UpdateManifest(Version version, UpdatePackage app, UpdatePackage runtime, string runtimeId)
+            : this(version, app, runtime, runtimeId, null, null)
+        {
+        }
+
+        public UpdateManifest(Version version, UpdatePackage app, UpdatePackage runtime, string runtimeId, UpdatePackage coreDevice, string coreDeviceId)
         {
             Version = AppVersion.Normalize(version);
             App = app;
             Runtime = runtime;
             RuntimeId = runtime == null ? null : runtimeId;
+            CoreDevice = string.IsNullOrEmpty(coreDeviceId) ? null : coreDevice;
+            CoreDeviceId = CoreDevice == null ? null : coreDeviceId;
         }
+
+        /// <summary>Python + pymobiledevice3 for "Điều khiển trực tiếp"; optional, only replaced where installed.</summary>
+        public UpdatePackage CoreDevice { get; }
+        public string CoreDeviceId { get; }
 
         public Version Version { get; }
         public UpdatePackage App { get; }
@@ -60,7 +71,9 @@ namespace MacExtend.Core.Updates
             var runtime = Package(values, "runtime");
             values.TryGetValue("runtime.id", out var runtimeId);
             if (string.IsNullOrEmpty(runtimeId)) runtime = null;
-            return new UpdateManifest(version, app, runtime, runtimeId);
+            var coreDevice = Package(values, "coredevice");
+            values.TryGetValue("coredevice.id", out var coreDeviceId);
+            return new UpdateManifest(version, app, runtime, runtimeId, coreDevice, coreDeviceId);
         }
 
         public static string Serialize(UpdateManifest m)
@@ -72,6 +85,11 @@ namespace MacExtend.Core.Updates
             {
                 sb.Append("runtime.id=").Append(m.RuntimeId).Append('\n');
                 Write(sb, "runtime", m.Runtime);
+            }
+            if (m.CoreDevice != null)
+            {
+                sb.Append("coredevice.id=").Append(m.CoreDeviceId).Append('\n');
+                Write(sb, "coredevice", m.CoreDevice);
             }
             return sb.ToString();
         }
@@ -93,10 +111,10 @@ namespace MacExtend.Core.Updates
         }
 
         // asset names become part of a URL and a local path: no folders, no parent references
-        private static bool IsPlainFileName(string name) =>
+        internal static bool IsPlainFileName(string name) =>
             name.Length > 0 && name.IndexOfAny(new[] { '/', '\\', ':' }) < 0 && name != "." && !name.Contains("..");
 
-        private static bool IsSha256(string hash)
+        internal static bool IsSha256(string hash)
         {
             if (hash.Length != 64) return false;
             foreach (var c in hash)

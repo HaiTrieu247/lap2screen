@@ -12,8 +12,14 @@ namespace MacExtend.Core.Updates
         /// </summary>
         public static void Extract(string zipPath, string targetDir)
         {
+            using (var stream = File.OpenRead(zipPath)) Extract(stream, targetDir);
+        }
+
+        /// <summary>Same checks as <see cref="Extract(string, string)"/>, from an open stream (the caller may have hashed it first).</summary>
+        public static void Extract(Stream zipStream, string targetDir)
+        {
             var root = Path.GetFullPath(targetDir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            using (var zip = ZipFile.OpenRead(zipPath))
+            using (var zip = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true))
             {
                 foreach (var entry in zip.Entries)
                 {
