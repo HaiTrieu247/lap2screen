@@ -32,4 +32,22 @@ public class TunneldListingTests
     {
         Assert.False(TunneldListing.HasTunnel(json, Udid));
     }
+
+    [Fact]
+    public void SummaryNamesOnlyTheKindsOfTunnelNeverTheUdid()
+    {
+        var json = "{\"" + Udid + "\": [{\"tunnel-address\": \"fd::1\", \"tunnel-port\": 5, \"interface\": \"usbmux-" + Udid + "-USB\"},"
+                   + "{\"tunnel-address\": \"fd::2\", \"tunnel-port\": 6, \"interface\": \"192.168.1.20\"}]}";
+
+        var text = TunneldListing.Summary(json);
+
+        Assert.Equal("1 device(s), 2 tunnel(s): usbmux, wifi", text);
+        Assert.DoesNotContain(Udid, text);
+        Assert.DoesNotContain("192.168", text);
+    }
+
+    [Theory]
+    [InlineData("{}", "no tunnels")]
+    [InlineData(null, "tunneld does not answer")]
+    public void SummaryOfNothing(string json, string expected) => Assert.Equal(expected, TunneldListing.Summary(json));
 }

@@ -47,6 +47,23 @@ namespace MacExtend.Core.CoreDevice
 
         public static bool HasTunnel(string json, string udid) => udid != null && Parse(json).ContainsKey(udid);
 
+        /// <summary>
+        /// One log line for what GET / returned: counts and the kinds of tunnel (usbmux, mobdev2, wifi), never a UDID or
+        /// an address. Null json means tunneld did not answer.
+        /// </summary>
+        public static string Summary(string json)
+        {
+            if (json == null) return "tunneld does not answer";
+            var map = Parse(json);
+            if (map.Count == 0) return "no tunnels";
+            var all = map.Values.SelectMany(v => v).ToList();
+            var kinds = all.Select(e => KindOf(e.Interface)).Distinct();
+            return map.Count + " device(s), " + all.Count + " tunnel(s): " + string.Join(", ", kinds);
+        }
+
+        private static string KindOf(string iface) =>
+            iface.StartsWith("usbmux-", StringComparison.Ordinal) ? "usbmux" : iface.StartsWith("mobdev2-", StringComparison.Ordinal) ? "mobdev2" : "wifi";
+
         private static object Get(Dictionary<string, object> map, string key) => map.TryGetValue(key, out var v) ? v : null;
     }
 }
