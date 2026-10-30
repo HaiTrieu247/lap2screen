@@ -58,9 +58,38 @@ jobs:
           path: dist/uxplay
           if-no-files-found: error
 
+  # Python 3.13 + the locked pymobiledevice3 for "Điều khiển trực tiếp", downloaded by the app on first use
+  # (never in the installer or the portable zip). Built and checked on a relocated copy.
+  coredevice-runtime:
+    name: CoreDevice runtime (Python 3.13 + pymobiledevice3)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: '3.13'
+          architecture: x64
+
+      - name: Build runtime
+        shell: pwsh
+        run: ./tools/coredevice/build-runtime.ps1 -Python '${{ steps.python.outputs.python-path }}' -Out build/coredevice-runtime
+
+      - name: Verify runtime (relocated copy)
+        shell: pwsh
+        run: ./tools/coredevice/verify-runtime.ps1 -Runtime build/coredevice-runtime
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coredevice-runtime
+          path: build/coredevice-runtime
+          if-no-files-found: error
+
   app:
     name: MacExtend app, tests and packages
-    needs: runtime
+    needs: [runtime, coredevice-runtime]
     runs-on: windows-latest
     outputs:
       version: ${{ steps.version.outputs.value }}
@@ -87,11 +116,30 @@ jobs:
           "number=$number" >> $env:GITHUB_OUTPUT
           "prerelease=$(if ($v -ne $number) { 'true' } else { 'false' })" >> $env:GITHUB_OUTPUT
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: coredevice-runtime
+          path: build/coredevice-runtime
+
+      - name: CoreDevice runtime zip
+        id: coredevice
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $zip = "dist/MacExtend-${{ steps.version.outputs.value }}-coredevice-runtime.zip"
+          7z a -tzip $zip ./build/coredevice-runtime/* | Out-Null
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $item = Get-Item $zip
+          "file=$($item.Name)" >> $env:GITHUB_OUTPUT
+          "sha256=$((Get-FileHash $item -Algorithm SHA256).Hash.ToLower())" >> $env:GITHUB_OUTPUT
+          "size=$($item.Length)" >> $env:GITHUB_OUTPUT
+          "id=$((Get-Content build/coredevice-runtime/RUNTIME_ID -Raw).Trim())" >> $env:GITHUB_OUTPUT
+
       - name: Unit tests
         run: dotnet test tests/MacExtend.Core.Tests -c Release
 
       - name: Build app
-        run: dotnet build src/MacExtend.App -c Release -o build/MacExtend -p:Version=${{ steps.version.outputs.number }} -p:InformationalVersion=${{ steps.version.outputs.value }} -p:UpdateRepository=${{ github.repository }} -p:DebugType=none
+        run: dotnet build src/MacExtend.App -c Release -o build/MacExtend -p:Version=${{ steps.version.outputs.number }} -p:InformationalVersion=${{ steps.version.outputs.value }} -p:UpdateRepository=${{ github.repository }} -p:DebugType=none -p:CoreDeviceRuntimeId=${{ steps.coredevice.outputs.id }} -p:CoreDeviceRuntimeFile=${{ steps.coredevice.outputs.file }} -p:CoreDeviceRuntimeSha256=${{ steps.coredevice.outputs.sha256 }} -p:CoreDeviceRuntimeSize=${{ steps.coredevice.outputs.size }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -130,6 +178,10 @@ jobs:
             "runtime.file=$($runtime.Name)"
             "runtime.sha256=$((Get-FileHash $runtime -Algorithm SHA256).Hash.ToLower())"
             "runtime.size=$($runtime.Length)"
+            "coredevice.id=${{ steps.coredevice.outputs.id }}"
+            "coredevice.file=${{ steps.coredevice.outputs.file }}"
+            "coredevice.sha256=${{ steps.coredevice.outputs.sha256 }}"
+            "coredevice.size=${{ steps.coredevice.outputs.size }}"
           )
           [IO.File]::WriteAllText("$PWD/dist/update.ini", ($lines -join "`n") + "`n")
           Get-Content dist/update.ini
@@ -150,9 +202,10 @@ jobs:
 
   # Experimental CoreDevice probe (tools/coredevice/README.md): a separate console tool, never part of the app,
   # its packages or the release. Needs neither the uxplay runtime nor a device: the smoke tests use a fake
-  # serve-web on the real locked Python runtime.
+  # serve-web on the packaged CoreDevice runtime.
   coredevice-probe:
     name: CoreDevice probe (experimental, not shipped)
+    needs: coredevice-runtime
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -162,17 +215,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - uses: actions/setup-python@v5
-        id: python
+      - uses: actions/download-artifact@v4
         with:
-          python-version: '3.13'
-          architecture: x64
-
-      - name: Python runtime from the lock (twice; the second run reuses the venv)
-        shell: pwsh
-        run: |
-          ./tools/coredevice/setup.ps1 -Python '${{ steps.python.outputs.python-path }}'
-          ./tools/coredevice/setup.ps1 -Python '${{ steps.python.outputs.python-path }}'
+          name: coredevice-runtime
+          path: build/coredevice-runtime
 
       - name: Unit tests
         run: dotnet test tests/MacExtend.Core.Tests -c Release
@@ -183,9 +229,9 @@ jobs:
       - name: Build probe
         run: dotnet build tools/MacExtend.CoreDeviceProbe -c Release -o build/coredevice-probe/bin -p:DebugType=none
 
-      - name: Smoke tests (net48 probe, real venv, fake serve-web)
+      - name: Smoke tests (net48 probe, relocated runtime, fake serve-web)
         shell: pwsh
-        run: ./tools/coredevice/test-probe.ps1 -Probe build/coredevice-probe/bin/MacExtend.CoreDeviceProbe.exe
+        run: ./tools/coredevice/verify-runtime.ps1 -Runtime build/coredevice-runtime -Probe build/coredevice-probe/bin/MacExtend.CoreDeviceProbe.exe
 
       - name: Package
         id: package
