@@ -42,16 +42,25 @@ elseif ($Run) {
     & schtasks.exe /Query /TN "$TaskPath$TaskName" | Out-Null
     $query = $LASTEXITCODE
     $rules = @(Get-NetFirewallRule -Group $Group -ErrorAction SilentlyContinue).Count
+    $before = Get-Date
     & schtasks.exe /Run /TN "$TaskPath$TaskName"
     $run = $LASTEXITCODE
-    Start-Sleep -Seconds 3
-    $text = if (Test-Path -LiteralPath $Out) { Get-Content -LiteralPath $Out -Raw } else { '' }
+    # poll for output written after $before, so an old file from an earlier run cannot count
+    $fresh = $false
+    $deadline = (Get-Date).AddSeconds(10)
+    while (-not $fresh -and (Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 500
+        $item = Get-Item -LiteralPath $Out -ErrorAction SilentlyContinue
+        if ($item -and $item.LastWriteTime -gt $before) { $fresh = $true }
+    }
+    $text = if ($fresh) { Get-Content -LiteralPath $Out -Raw } else { '' }
     $elevated = $text -match 'S-1-16-12288'
     "Get-ScheduledTask sees the task: $seen"
     "schtasks /Query exit code:      $query"
     "firewall rules visible:         $rules"
     "schtasks /Run exit code:        $run"
     "task ran elevated:              $elevated"
+    if (-not $fresh) { 'task wrote no fresh output' }
     if ($run -eq 0 -and $elevated) { 'PASS' } else { 'FAIL' }
 }
 elseif ($Remove) {
