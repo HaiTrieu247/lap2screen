@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using MacExtend.Core.CoreDevice;
 
 namespace MacExtend.Core.Tests.CoreDevice;
@@ -156,11 +157,13 @@ public class SessionMachineTests
 
         for (var i = 0; i < SessionMachine.MaxRestarts; i++)
         {
+            m.ServeWebExited(ServeWebLogKind.Other);
             Assert.Equal(SessionAction.MountImage, m.UsbDeviceBack());
             m.ImageMounted(true, CliError.None);
             m.UsbDeviceGone();
         }
 
+        m.ServeWebExited(ServeWebLogKind.Other);
         Assert.Equal(SessionAction.None, m.UsbDeviceBack());
         Assert.Equal(SessionFailure.KeepsExiting, m.Failure);
     }
@@ -172,6 +175,7 @@ public class SessionMachineTests
         for (var i = 0; i < SessionMachine.MaxRestarts + 2; i++)
         {
             m.UsbDeviceGone();
+            m.ServeWebExited(ServeWebLogKind.Other);
             Assert.Equal(SessionAction.MountImage, m.UsbDeviceBack());
             m.ImageMounted(true, CliError.None);
             m.ServeWebReady();
@@ -213,5 +217,72 @@ public class SessionMachineTests
         Assert.Equal(SessionAction.None, m.ServeWebReady());
         Assert.Equal(SessionAction.None, m.Stop());
         Assert.Equal(SessionPhase.Failed, m.Phase);
+    }
+
+    [Fact]
+    public void UsbBackBeforeTheOldServeWebExitsWaitsForIt()
+    {
+        var m = ReadyUsb();
+        m.UsbDeviceGone();
+
+        Assert.Equal(SessionAction.None, m.UsbDeviceBack());
+        Assert.Equal(SessionPhase.WaitingForDevice, m.Phase);
+
+        Assert.Equal(SessionAction.MountImage, m.ServeWebExited(ServeWebLogKind.Other));
+        Assert.Equal(SessionPhase.Preparing, m.Phase);
+    }
+
+    [Fact]
+    public void ServeWebExitingBeforeTheDeviceIsBackRestartsWhenItReturns()
+    {
+        var m = ReadyUsb();
+        m.UsbDeviceGone();
+
+        Assert.Equal(SessionAction.WatchUsb, m.ServeWebExited(ServeWebLogKind.Other));
+        Assert.Equal(SessionPhase.WaitingForDevice, m.Phase);
+
+        Assert.Equal(SessionAction.MountImage, m.UsbDeviceBack());
+        Assert.Equal(SessionPhase.Preparing, m.Phase);
+    }
+
+    [Fact]
+    public void StopThenADisconnectLogLineLeavesTheSessionStopping()
+    {
+        var m = new SessionMachine(CoreDeviceRoute.Wifi);
+        m.Start();
+        m.TunnelReady(TunnelOutcome.Ready);
+        m.ImageMounted(true, CliError.None);
+        m.ServeWebReady();
+
+        m.Stop();
+        m.Log(ServeWebLogKind.DeviceDisconnected);
+        Assert.Equal(SessionPhase.Stopping, m.Phase);
+
+        m.StopFinished();
+        Assert.Equal(SessionPhase.Stopped, m.Phase);
+    }
+
+    [Fact]
+    public async Task StopRacingWithReconnectLogLinesStillReachesStopped()
+    {
+        var m = new SessionMachine(CoreDeviceRoute.Wifi);
+        m.Start();
+        m.TunnelReady(TunnelOutcome.Ready);
+        m.ImageMounted(true, CliError.None);
+        m.ServeWebReady();
+
+        var logs = Task.Run(() =>
+        {
+            for (var i = 0; i < 1000; i++)
+            {
+                m.Log(ServeWebLogKind.DeviceDisconnected);
+                m.Log(ServeWebLogKind.DeviceReconnected);
+            }
+        });
+        var stop = Task.Run(() => m.Stop());
+        await Task.WhenAll(logs, stop);
+
+        m.StopFinished();
+        Assert.Equal(SessionPhase.Stopped, m.Phase);
     }
 }
