@@ -105,6 +105,12 @@ namespace MacExtend.Services.CoreDevice
                 ? Run(udid, MountTimeout, "mounter", "auto-mount", "--tunnel", udid)
                 : Run(udid, MountTimeout, "mounter", "auto-mount", "--userspace"));
 
+        /// <summary>
+        /// `mounter list`: the images mounted now, as the JSON list DeviceQueries.ParseDeveloperImageMounted reads. Over
+        /// lockdown on the cable (pymobiledevice3 retries over a tunnel by itself where lockdown cannot serve it).
+        /// </summary>
+        public static Task<CommandResult> MountedImagesAsync(string udid) => Task.Run(() => Run(udid, ShortTimeout, "mounter", "list"));
+
         /// <summary>RemotePairing pair-setup over the trusted cable: no dialog on the device; writes remote_&lt;UDID&gt;.plist.</summary>
         public static Task<CommandResult> RemotePairAsync(string udid) => Task.Run(() => Run(udid, ShortTimeout, "lockdown", "remotepairing", "--pair"));
 

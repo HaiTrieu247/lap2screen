@@ -95,8 +95,8 @@ namespace MacExtend.Services.CoreDevice
             var zip = Path.Combine(DownloadDir, package.File);
             await UpdateService.DownloadVerifiedAsync(UpdateService.ReleaseAssetUrl(UpdateService.CurrentLabel, package.File), zip, package.Sha256,
                                                       new Fraction(progress, package.Size), cancel,
-                                                      "Bản phát hành này không có gói runtime trên GitHub. Nếu đây là bản beta từ CI, chọn tệp "
-                                                      + package.File + " trong artifact.");
+                                                      "Bản phát hành này không có gói runtime trên GitHub. Nếu đây là bản beta từ CI, tải artifact của bản build, rồi bấm "
+                                                      + SetupActions.PickZip + " và chọn tệp " + package.File + ".");
             return zip;
         }
 

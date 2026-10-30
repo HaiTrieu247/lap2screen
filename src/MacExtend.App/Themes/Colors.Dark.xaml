@@ -27,6 +27,11 @@
     <SolidColorBrush x:Key="Accent.Soft" Color="{StaticResource Accent.Soft.Color}" />
     <Color x:Key="Accent.SoftText.Color">#A9C6FF</Color>
     <SolidColorBrush x:Key="Accent.SoftText" Color="{StaticResource Accent.SoftText.Color}" />
+    <!-- a finished step: tinted surface and its text (the setup window's chips and markers) -->
+    <Color x:Key="Success.Soft.Color">#173426</Color>
+    <SolidColorBrush x:Key="Success.Soft" Color="{StaticResource Success.Soft.Color}" />
+    <Color x:Key="Success.SoftText.Color">#7FD6A6</Color>
+    <SolidColorBrush x:Key="Success.SoftText" Color="{StaticResource Success.SoftText.Color}" />
     <Color x:Key="Control.Background.Color">#2A2D32</Color>
     <SolidColorBrush x:Key="Control.Background" Color="{StaticResource Control.Background.Color}" />
     <Color x:Key="Control.Border.Color">#3A3F46</Color>
