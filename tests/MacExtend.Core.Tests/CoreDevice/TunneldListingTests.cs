@@ -33,6 +33,15 @@ public class TunneldListingTests
         Assert.False(TunneldListing.HasTunnel(json, Udid));
     }
 
+    [Theory]
+    [InlineData("{}", true)]
+    [InlineData("{\"00008030-001E185E343B802E\": []}", true)]
+    [InlineData("[]", false)]
+    [InlineData("<html>", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void OnlyAJsonObjectIsATunneldListing(string json, bool expected) => Assert.Equal(expected, TunneldListing.IsListing(json));
+
     [Fact]
     public void SummaryNamesOnlyTheKindsOfTunnelNeverTheUdid()
     {

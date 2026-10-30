@@ -30,6 +30,8 @@ namespace MacExtend.Core.CoreDevice
         TunnelTimeout,
         WindowsSetupMissing,
         AdminDeclined,
+        PortInUse,
+        NeedsAdminAccount,
         KeepsExiting,
         Exited,
         Other,
@@ -51,6 +53,10 @@ namespace MacExtend.Core.CoreDevice
         Timeout,
         SetupMissing,
         AdminDeclined,
+        /// <summary>127.0.0.1:49151 is taken by something that is not a tunneld listing.</summary>
+        PortInUse,
+        /// <summary>Wi-Fi control needs an administrator account.</summary>
+        NeedsAdminAccount,
     }
 
     /// <summary>
@@ -136,6 +142,10 @@ namespace MacExtend.Core.CoreDevice
                         return Fail(SessionFailure.WindowsSetupMissing);
                     case TunnelOutcome.AdminDeclined:
                         return Fail(SessionFailure.AdminDeclined);
+                    case TunnelOutcome.PortInUse:
+                        return Fail(SessionFailure.PortInUse);
+                    case TunnelOutcome.NeedsAdminAccount:
+                        return Fail(SessionFailure.NeedsAdminAccount);
                     default:
                         return Fail(SessionFailure.TunnelTimeout);
                 }

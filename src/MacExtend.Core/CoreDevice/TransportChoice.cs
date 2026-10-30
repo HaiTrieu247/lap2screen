@@ -51,6 +51,8 @@ namespace MacExtend.Core.CoreDevice
         UseExisting,
         WaitForExisting,
         StartTunneld,
+        /// <summary>The port listens but is not a tunneld listing: another program owns it.</summary>
+        PortBusy,
     }
 
     /// <summary>
@@ -61,6 +63,15 @@ namespace MacExtend.Core.CoreDevice
     {
         public static TunnelStep First(bool tunneldAnswers, bool hasTunnelForDevice) =>
             hasTunnelForDevice ? TunnelStep.UseExisting : tunneldAnswers ? TunnelStep.WaitForExisting : TunnelStep.StartTunneld;
+
+        public static TunnelStep First(bool tunneldAnswers, bool hasTunnelForDevice, bool portListens)
+        {
+            var step = First(tunneldAnswers, hasTunnelForDevice);
+            return step == TunnelStep.StartTunneld && portListens ? TunnelStep.PortBusy : step;
+        }
+
+        /// <summary>Rules a copy without the task added itself are re-added only when its own start timed out.</summary>
+        public static bool ReaddRulesAfter(TunnelOutcome outcome, bool startedByUs) => startedByUs && outcome == TunnelOutcome.Timeout;
 
         public static bool ShutdownAfter(TunnelStep first) => first == TunnelStep.StartTunneld;
     }

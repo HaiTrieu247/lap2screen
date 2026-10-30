@@ -17,6 +17,14 @@ public class CoreDeviceMessagesTests
     }
 
     [Fact]
+    public void WifiProblemsOfThePortAndTheAccountSaySoInVietnamese()
+    {
+        Assert.Contains("49151", CoreDeviceMessages.Failure(SessionFailure.PortInUse));
+        Assert.Equal("Điều khiển qua Wi-Fi cần tài khoản Windows có quyền quản trị; tài khoản này chỉ dùng được qua cáp.",
+                     CoreDeviceMessages.Failure(SessionFailure.NeedsAdminAccount));
+    }
+
+    [Fact]
     public void TheCameraMessageSaysWhatToClose()
     {
         Assert.Contains("Camera", CoreDeviceMessages.Failure(SessionFailure.MediaInUse));

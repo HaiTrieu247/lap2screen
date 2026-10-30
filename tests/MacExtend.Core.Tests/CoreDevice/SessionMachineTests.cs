@@ -45,6 +45,8 @@ public class SessionMachineTests
     [InlineData(TunnelOutcome.Timeout, SessionFailure.TunnelTimeout)]
     [InlineData(TunnelOutcome.SetupMissing, SessionFailure.WindowsSetupMissing)]
     [InlineData(TunnelOutcome.AdminDeclined, SessionFailure.AdminDeclined)]
+    [InlineData(TunnelOutcome.PortInUse, SessionFailure.PortInUse)]
+    [InlineData(TunnelOutcome.NeedsAdminAccount, SessionFailure.NeedsAdminAccount)]
     public void TunnelProblemsFailTheSession(TunnelOutcome outcome, SessionFailure expected)
     {
         var m = new SessionMachine(CoreDeviceRoute.Wifi);

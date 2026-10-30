@@ -39,6 +39,8 @@ namespace MacExtend.Core.CoreDevice
                 case SessionFailure.TunnelTimeout: return "Không tìm thấy thiết bị qua Wi-Fi trong 30 giây. Kiểm tra: cùng mạng Wi-Fi, mạng là loại Riêng tư, màn hình thiết bị đang mở.";
                 case SessionFailure.WindowsSetupMissing: return "Thiếu phần thiết lập Windows cho Wi-Fi. Mở Thiết lập và cài lại thành phần.";
                 case SessionFailure.AdminDeclined: return "Cần quyền quản trị để điều khiển qua Wi-Fi. Thử lại và chọn Có khi Windows hỏi, hoặc cắm cáp.";
+                case SessionFailure.PortInUse: return "Cổng 49151 đang được một chương trình khác dùng nên không bật được kênh Wi-Fi. Đóng chương trình đó hoặc dùng cáp.";
+                case SessionFailure.NeedsAdminAccount: return "Điều khiển qua Wi-Fi cần tài khoản Windows có quyền quản trị; tài khoản này chỉ dùng được qua cáp.";
                 case SessionFailure.KeepsExiting: return "Phiên điều khiển dừng liên tục. Rút cáp, mở khóa thiết bị, cắm lại rồi thử lại.";
                 case SessionFailure.Exited: return "Phiên điều khiển dừng bất ngờ. Thử lại.";
                 case SessionFailure.Other: return "Không mở được phiên điều khiển. Chi tiết ở nhật ký coredevice.log.";

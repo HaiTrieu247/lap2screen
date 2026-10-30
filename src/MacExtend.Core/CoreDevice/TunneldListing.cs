@@ -45,6 +45,9 @@ namespace MacExtend.Core.CoreDevice
             return result;
         }
 
+        /// <summary>The answer is a JSON object, which is what tunneld's GET / returns (an empty one when no device is connected).</summary>
+        public static bool IsListing(string json) => MiniJson.TryParse(json, out var value) && value is Dictionary<string, object>;
+
         public static bool HasTunnel(string json, string udid) => udid != null && Parse(json).ContainsKey(udid);
 
         /// <summary>
