@@ -5,71 +5,94 @@ namespace MacExtend.Core.Tests.CoreDevice;
 
 public class CoreDeviceSetupScriptsTests
 {
+    private const string Pythonw = @"C:\Program Files\MacExtend\coredevice\python\pythonw.exe";
+    private const string WorkDir = @"C:\Program Files\MacExtend\coredevice\python";
+
     [Fact]
-    public void RegistersAnOnDemandTaskForTheUserWithHighestPrivileges()
+    public void RegistersAnOnDemandTaskThatRunsPythonwWithTheBootstrap()
     {
-        var script = CoreDeviceSetupScripts.RegisterTask(@"C:\Program Files\MacExtend\MacExtend.exe", @"LEGION\thinh", @"C:\Users\thinh");
+        var script = CoreDeviceSetupScripts.RegisterTask(Pythonw, WorkDir, @"LEGION\thinh");
 
         Assert.StartsWith("$ErrorActionPreference = 'Stop'", script);
-        Assert.Contains("-Execute '\"C:\\Program Files\\MacExtend\\MacExtend.exe\"'", script);
-        Assert.Contains("-Argument '--coredevice-tunneld C:\\Users\\thinh'", script);
+        Assert.Contains("-Execute '\"C:\\Program Files\\MacExtend\\coredevice\\python\\pythonw.exe\"'", script);
+        Assert.Contains("-WorkingDirectory 'C:\\Program Files\\MacExtend\\coredevice\\python'", script);
         Assert.Contains("-UserId 'LEGION\\thinh' -LogonType Interactive -RunLevel Highest", script);
         Assert.Contains("-TaskPath '\\MacExtend\\' -TaskName 'MacExtend CoreDevice tunnel'", script);
+        Assert.Contains("-Force | Out-Null", script);
         Assert.DoesNotContain("-Trigger", script);
+        Assert.DoesNotContain("MacExtend.exe", script);
+        Assert.DoesNotContain("coredevice-tunneld", script);
     }
 
     [Fact]
-    public void KeepsUnicodeAndQuotesInTheTaskArgument()
+    public void TheTaskArgumentIsTheLoggingBootstrapAsOneQuotedArgument()
     {
-        var script = CoreDeviceSetupScripts.RegisterTask(@"C:\Program Files\MacExtend\MacExtend.exe", @"LEGION\Thịnh O'Hải", @"C:\Users\Thịnh O'Hải");
+        var script = CoreDeviceSetupScripts.RegisterTask(Pythonw, WorkDir, @"LEGION\thinh");
+        var expected = WindowsCommandLine.Join(CoreDeviceArguments.TunneldBootstrap(true)).Replace("'", "''");
 
-        Assert.Contains("-Argument '--coredevice-tunneld \"C:\\Users\\Thịnh O''Hải\"'", script);
+        Assert.Contains("-Argument '" + expected + "' ", script);
+        Assert.StartsWith("-I -X utf8 -c \"import sys,os,runpy;", expected);
+        Assert.Contains("tunneld.log", expected);
+    }
+
+    [Fact]
+    public void KeepsUnicodeAndQuotesInTheLiterals()
+    {
+        var script = CoreDeviceSetupScripts.RegisterTask(@"C:\Thịnh O'Hải\python\pythonw.exe", @"C:\Thịnh O'Hải\python", @"LEGION\Thịnh O'Hải");
+
+        Assert.Contains("-Execute '\"C:\\Thịnh O''Hải\\python\\pythonw.exe\"'", script);
+        Assert.Contains("-WorkingDirectory 'C:\\Thịnh O''Hải\\python'", script);
         Assert.Contains("-UserId 'LEGION\\Thịnh O''Hải'", script);
     }
 
     [Fact]
-    public void KeepsSpacesAndTypographicQuotesInsideTheLiterals()
+    public void KeepsTypographicQuotesInsideTheLiterals()
     {
-        var script = CoreDeviceSetupScripts.RegisterTask(@"C:\Program Files\MacExtend\MacExtend.exe", "LEGION\\Thịnh\u2019s", "C:\\Users\\Thịnh Hải\u2018x");
+        var script = CoreDeviceSetupScripts.RegisterTask(@"C:\Thịnh\python\pythonw.exe", "C:\\Hải\u2018x\\python", "LEGION\\Thịnh\u2019s");
 
         Assert.Contains("-UserId 'LEGION\\Thịnh\u2019\u2019s'", script);
-        Assert.Contains("-Argument '--coredevice-tunneld \"C:\\Users\\Thịnh Hải\u2018\u2018x\"'", script);
+        Assert.Contains("-WorkingDirectory 'C:\\Hải\u2018\u2018x\\python'", script);
     }
 
     [Fact]
     public void QuotesTheExecutablePathInsideTheLiteralSoASpaceIsNotASplit()
     {
-        var script = CoreDeviceSetupScripts.RegisterTask(@"C:\Program Files\MacExtend\MacExtend.exe", @"LEGION\thinh", @"C:\Users\thinh");
+        var script = CoreDeviceSetupScripts.RegisterTask(Pythonw, WorkDir, @"LEGION\thinh");
 
-        Assert.Contains("-Execute '\"C:\\Program Files\\MacExtend\\MacExtend.exe\"' -Argument", script);
+        Assert.Contains("-Execute '\"C:\\Program Files\\MacExtend\\coredevice\\python\\pythonw.exe\"' -Argument", script);
     }
 
     [Theory]
-    [InlineData("exePath")]
+    [InlineData("pythonwPath")]
+    [InlineData("workingDirectory")]
     [InlineData("userName")]
-    [InlineData("userProfile")]
     public void RefusesAPercentSignBecauseTaskSchedulerExpandsEnvironmentVariables(string parameter)
     {
-        var exe = @"C:\Program Files\MacExtend\MacExtend.exe";
+        var exe = Pythonw;
+        var dir = WorkDir;
         var user = @"LEGION\thinh";
-        var profile = @"C:\Users\thinh";
-        if (parameter == "exePath") exe = @"C:\%TEMP%\MacExtend.exe";
+        if (parameter == "pythonwPath") exe = @"C:\%TEMP%\pythonw.exe";
+        if (parameter == "workingDirectory") dir = @"C:\%TEMP%\python";
         if (parameter == "userName") user = @"LEGION\th%inh";
-        if (parameter == "userProfile") profile = @"C:\Users\%USERNAME%";
 
-        var ex = Assert.Throws<ArgumentException>(() => CoreDeviceSetupScripts.RegisterTask(exe, user, profile));
+        var ex = Assert.Throws<ArgumentException>(() => CoreDeviceSetupScripts.RegisterTask(exe, dir, user));
 
         Assert.Equal(parameter, ex.ParamName);
     }
 
     [Fact]
-    public void FirewallRulesAreScopedToTheRuntimePython()
+    public void FirewallRulesCoverBothPythonAndPythonw()
     {
-        var script = CoreDeviceSetupScripts.AddFirewallRules(@"C:\Program Files\MacExtend\coredevice\python\python.exe");
+        var script = CoreDeviceSetupScripts.AddFirewallRules(@"C:\Program Files\MacExtend\coredevice\python");
 
         Assert.Contains("Get-NetFirewallRule -Group 'MacExtend CoreDevice' -ErrorAction SilentlyContinue | Remove-NetFirewallRule", script);
-        Assert.Contains("-Protocol UDP -RemoteAddress 'fc00::/7' -Program 'C:\\Program Files\\MacExtend\\coredevice\\python\\python.exe' -Profile Any", script);
-        Assert.Contains("-Protocol UDP -LocalPort 5353 -Program 'C:\\Program Files\\MacExtend\\coredevice\\python\\python.exe' -Profile Private |", script);
+        foreach (var exe in new[] { "python.exe", "pythonw.exe" })
+        {
+            var program = "'C:\\Program Files\\MacExtend\\coredevice\\python\\" + exe + "'";
+            Assert.Contains("-Protocol UDP -RemoteAddress 'fc00::/7' -Program " + program + " -Profile Any", script);
+            Assert.Contains("-Protocol UDP -LocalPort 5353 -Program " + program + " -Profile Private |", script);
+        }
+        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(script, "New-NetFirewallRule -Group 'MacExtend CoreDevice'").Count);
         Assert.DoesNotContain("Domain", script);
     }
 

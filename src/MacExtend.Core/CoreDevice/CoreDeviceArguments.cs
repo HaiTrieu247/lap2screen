@@ -60,6 +60,51 @@ namespace MacExtend.Core.CoreDevice
         public static IDictionary<string, string> Environment(IDictionary inherited, CoreDeviceOptions options)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
+            var env = Scrub(inherited);
+            env[UdidVariable] = options.Udid;
+            return env;
+        }
+
+        /// <summary>A short pymobiledevice3 command with the same interpreter flags as serve-web.</summary>
+        public static IReadOnlyList<string> Command(params string[] words)
+        {
+            var args = new List<string>(InterpreterFlags) { "-m", "pymobiledevice3" };
+            args.AddRange(words ?? new string[0]);
+            return args;
+        }
+
+        /// <summary>Environment for a short command; <paramref name="udid"/> null leaves PYMOBILEDEVICE3_UDID unset.</summary>
+        public static IDictionary<string, string> CommandEnvironment(IDictionary inherited, string udid)
+        {
+            var env = Scrub(inherited);
+            if (udid != null) env[UdidVariable] = udid;
+            return env;
+        }
+
+        // Single quotes only and no '%' or newline, so it survives Windows argv quoting and Task Scheduler's %VAR% expansion.
+        // With logToFile the log is {runtime}\tunneld.log, derived from sys.executable (the runtime folder is admin-only
+        // when installed); without it, output goes to os.devnull (the portable folder is user-writable, so an elevated
+        // truncating write there would be a junction attack).
+        private const string BootstrapPrefix = "import sys,os,runpy; d=os.path.dirname(os.path.dirname(os.path.abspath(sys.executable))); f=open(";
+        private const string BootstrapLogTarget = "os.path.join(d,'tunneld.log')";
+        private const string BootstrapNullTarget = "os.devnull";
+        private const string BootstrapSuffix = ",'w',encoding='utf-8',buffering=1); sys.stdout=sys.stderr=f; "
+            + "sys.argv=['pymobiledevice3','--no-color','remote','tunneld','--no-usb','--no-usbmux','--no-mobdev2']; "
+            + "runpy.run_module('pymobiledevice3',run_name='__main__',alter_sys=True)";
+
+        /// <summary>
+        /// The pythonw.exe argv that runs tunneld for Wi-Fi only (RemotePairing stays on; USB, usbmux and mobdev2 off).
+        /// pythonw has no console, so the bootstrap points stdout/stderr at a file itself.
+        /// </summary>
+        public static IReadOnlyList<string> TunneldBootstrap(bool logToFile) =>
+            new[] { "-I", "-X", "utf8", "-c", BootstrapPrefix + (logToFile ? BootstrapLogTarget : BootstrapNullTarget) + BootstrapSuffix };
+
+        /// <summary>
+        /// The inherited environment without any PYMOBILEDEVICE3_* variable (any of them could pick another transport or
+        /// device) or FORCE_COLOR, with NO_COLOR=1 so status lines and JSON parse.
+        /// </summary>
+        private static Dictionary<string, string> Scrub(IDictionary inherited)
+        {
             var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (inherited != null)
             {
@@ -73,7 +118,6 @@ namespace MacExtend.Core.CoreDevice
                     env[name] = value;
                 }
             }
-            env[UdidVariable] = options.Udid;
             env["NO_COLOR"] = "1";
             return env;
         }
