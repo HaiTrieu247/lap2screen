@@ -94,10 +94,11 @@ namespace MacExtend.ViewModels
 
     /// <summary>
     /// "Thiết lập điều khiển trực tiếp": the one-time steps of <see cref="SetupSteps"/>, each read again on every refresh
-    /// (the Developer Disk Image too, N21), with one action at a time. Everything here runs on the UI thread; the checks
-    /// and commands run on the thread pool and are awaited. Device commands come back as classified results only, and
-    /// the elevated setup as its fixed outcome: the window shows Core's Vietnamese sentences (SetupMessages), never an
-    /// exception's or a command's own text.
+    /// (the Developer Disk Image too, N21). One action at a time in the whole app (<see cref="Gate"/>): a window opened
+    /// while a closed one's action still runs shows that step busy with its message, and checks again once it is over.
+    /// Everything here runs on the UI thread; the checks and commands run on the thread pool and are awaited. Device
+    /// commands come back as classified results only, and the elevated setup as its fixed outcome: the window shows
+    /// Core's Vietnamese sentences (SetupMessages), never an exception's or a command's own text.
     /// </summary>
     internal sealed class CoreDeviceSetupViewModel : ObservableObject
     {
@@ -106,16 +107,23 @@ namespace MacExtend.ViewModels
         // a session's stop: 2 s release, 40 s cleanup, then a tunneld this session started (TunnelController bounds itself)
         private static readonly TimeSpan SessionStopBound = TimeSpan.FromSeconds(120);
 
+        /// <summary>
+        /// Shared by every setup window of this process (all on the UI thread): install, rules, pairing, mount and the
+        /// checks never overlap, even when a window was closed while its action still runs.
+        /// </summary>
+        private static readonly SetupGate Gate = new SetupGate();
+
         private readonly SettingsService _settings;
         private readonly CoreDeviceService _service;
         // cancelled when the window closes: a download in progress stops, and no UAC prompt follows for a closed window
         private readonly CancellationTokenSource _closed = new CancellationTokenSource();
         private SetupFacts _facts = new SetupFacts();
         private bool _checked;
-        private SetupStepId? _running;
         // the device the switch was turned on for in this window, while it is not paired yet
         private string _wifiOptIn;
-        private bool _busy;
+        // another window's action holds the gate: check again once it is over, and keep its last message
+        private bool _waitingForOther;
+        private string _otherMessage = "";
         private double _progress;
         private bool _showProgress;
         private string _message = "";
@@ -128,6 +136,13 @@ namespace MacExtend.ViewModels
             PickZipCommand = new RelayCommand(() => _ = PickZipAsync(), () => !Busy);
             var number = 0;
             foreach (var step in SetupSteps.Evaluate(_facts)) Steps.Add(new SetupStepItem(++number, step.Id, ActionFor(step.Id)));
+            Gate.Changed += OnGateChanged;
+            if (Gate.IsHeld)
+            {
+                // a window closed meanwhile still runs its action: show it, and check once it is over
+                _waitingForOther = true;
+                _otherMessage = Gate.Message;
+            }
             Rebuild();
         }
 
@@ -135,16 +150,8 @@ namespace MacExtend.ViewModels
         public ICommand RefreshCommand { get; }
         public ICommand PickZipCommand { get; }
 
-        public bool Busy
-        {
-            get => _busy;
-            private set
-            {
-                if (!Set(ref _busy, value)) return;
-                Raise(nameof(ShowSpinner), nameof(ShowReady), nameof(WifiSwitchEnabled));
-                CommandManager.InvalidateRequerySuggested();
-            }
-        }
+        /// <summary>A setup action runs, in this window or in another (one closed meanwhile).</summary>
+        public bool Busy => Gate.IsHeld;
 
         /// <summary>Fraction 0..1 of the runtime download.</summary>
         public double Progress { get => _progress; private set => Set(ref _progress, value); }
@@ -160,16 +167,28 @@ namespace MacExtend.ViewModels
 
         public bool ShowSpinner => Busy && !ShowProgress;
 
+        /// <summary>The status line: this window's, or the message of another window's action while that one runs.</summary>
         public string Message
         {
-            get => _message;
+            get => IsOtherRunning ? Gate.Message : _message;
             private set
             {
-                if (Set(ref _message, value ?? "")) Raise(nameof(HasMessage));
+                _message = value ?? "";
+                Gate.SetMessage(this, _message);
+                Raise(nameof(Message), nameof(HasMessage));
             }
         }
 
-        public bool HasMessage => _message.Length > 0;
+        public bool HasMessage => Message.Length > 0;
+
+        private bool IsOtherRunning
+        {
+            get
+            {
+                var owner = Gate.Owner;
+                return owner != null && !ReferenceEquals(owner, this);
+            }
+        }
 
         public bool Ready => SetupSteps.Ready(SetupSteps.Evaluate(_facts));
         public bool ShowReady => _checked && !Busy && Ready;
@@ -206,8 +225,46 @@ namespace MacExtend.ViewModels
         /// <summary>Reads every step again. Ignored while an action runs.</summary>
         public Task RefreshAsync() => Run(null, SetupMessages.Checking, async () => Message = await CheckAsync());
 
-        /// <summary>The window closed: a download in progress stops. A command or the elevated setup already started finishes on its own.</summary>
-        public void CancelWork() => _closed.Cancel();
+        /// <summary>
+        /// The window closed: a download in progress stops, and no UAC prompt follows. A command or the elevated setup
+        /// already started finishes on its own and holds the gate until then.
+        /// </summary>
+        public void CancelWork()
+        {
+            _closed.Cancel();
+            Gate.Changed -= OnGateChanged;
+        }
+
+        /// <summary>Another window's action started, said something or ended. Its own changes this window makes itself.</summary>
+        private void OnGateChanged()
+        {
+            var owner = Gate.Owner;
+            if (ReferenceEquals(owner, this)) return;
+            if (owner != null)
+            {
+                _waitingForOther = true;
+                _otherMessage = Gate.Message;
+            }
+            RaiseBusy();
+            Rebuild();
+            if (owner == null && _waitingForOther && !_closed.IsCancellationRequested)
+            {
+                _waitingForOther = false;
+                _ = CheckAfterOtherAsync(_otherMessage);
+            }
+        }
+
+        /// <summary>The other window's action is over: read every step again; with nothing new to say, keep its last message.</summary>
+        private async Task CheckAfterOtherAsync(string otherMessage)
+        {
+            // out of the gate's Changed call: the gate was let go inside the other window's own clean-up
+            await Task.Yield();
+            await Run(null, SetupMessages.Checking, async () =>
+            {
+                var hint = await CheckAsync();
+                Message = hint.Length > 0 ? hint : otherMessage;
+            });
+        }
 
         private ICommand ActionFor(SetupStepId id)
         {
@@ -278,14 +335,27 @@ namespace MacExtend.ViewModels
                 _facts = next;
                 _checked = true;
                 // developer-mode-status pairs first: the Trust dialog may be on the device now, waited for up to 120 s
-                if (next.Trusted != true) _running = SetupStepId.Trust;
+                if (next.Trusted != true) Gate.SetStep(this, SetupStepId.Trust);
                 Message = SetupMessages.ReadingDevice;
                 Rebuild();
 
+                // found or mounted earlier in this window, for this device
+                var imageSeen = next.DiskImageMounted;
                 var status = await RunCommandAsync(() => CoreDeviceCommands.DeveloperModeAsync(udid));
                 next.Trusted = DeviceQueries.Trusted(status);
                 next.DeveloperMode = status.Succeeded ? DeviceQueries.ParseBool(status.Stdout) : null;
-                next.DiskImageMounted = next.Trusted == true && next.DeveloperMode == true && await DetectImageAsync(udid) == true;
+                if (next.Trusted == true && next.DeveloperMode == true)
+                {
+                    // the list may only turn the step done: from iOS 27 the image mounter may not list the cryptex DDI,
+                    // so a list without it never undoes a mount that worked in this window
+                    var listed = await DetectImageAsync(udid);
+                    if (imageSeen && listed == false) Log("image list does not show the image this window saw or mounted; the step stays done");
+                    next.DiskImageMounted = listed == true || imageSeen;
+                }
+                else
+                {
+                    next.DiskImageMounted = false;
+                }
                 next.WifiPaired = CoreDeviceCommands.RemotePaired(udid);
                 Log("developer mode status: " + Describe(status));
                 if (hint.Length == 0) hint = SetupMessages.Trust(status) ?? "";
@@ -376,21 +446,24 @@ namespace MacExtend.ViewModels
                 Progress = 0;
                 ShowProgress = true;
                 Message = SetupMessages.Downloading(0);
+                // made here, so its reports come back to this (UI) thread; a late report after the download must not
+                // overwrite the next message
+                var progress = new Progress<double>(p =>
+                {
+                    if (!ShowProgress) return;
+                    Progress = p;
+                    Message = SetupMessages.Downloading(p);
+                });
                 try
                 {
-                    // Progress<T> reports on this (UI) thread; a late report after the download must not overwrite the next message
-                    zip = await CoreDeviceRuntime.DownloadAsync(new Progress<double>(p =>
-                    {
-                        if (!ShowProgress) return;
-                        Progress = p;
-                        Message = SetupMessages.Downloading(p);
-                    }), _closed.Token);
+                    // off the UI thread: the download first hashes a zip already there (about 100 MB), before its first await
+                    zip = await Task.Run(() => CoreDeviceRuntime.DownloadAsync(progress, _closed.Token));
                 }
                 catch (Exception e) when (e is HttpRequestException || e is IOException || e is InvalidDataException || e is UnauthorizedAccessException
                                           || e is OperationCanceledException || e is InvalidOperationException)
                 {
                     Log("download failed: " + e.GetType().Name);
-                    Message = SetupMessages.DownloadFailed(e);
+                    Message = SetupMessages.DownloadFailed(e, CoreDeviceRuntime.Package?.File);
                     return;
                 }
                 finally
@@ -455,6 +528,8 @@ namespace MacExtend.ViewModels
                 await Task.WhenAny(_service.StopAsync(), Task.Delay(SessionStopBound));
             }
             var elevated = await Task.Run(() => CoreDeviceRuntime.TaskAllowed);
+            // closed during the session's stop: no UAC for a window that is gone
+            if (_closed.IsCancellationRequested) return;
             Message = SetupMessages.Installing(elevated);
             // its outcome is logged by SetupAsync itself
             var outcome = await CoreDeviceRuntime.SetupAsync(zip);
@@ -473,7 +548,10 @@ namespace MacExtend.ViewModels
             Message = SetupMessages.Reveal(r);
         });
 
-        /// <summary>auto-mount over the cable's userspace tunnel, then N21: the device's own list says whether the image is there.</summary>
+        /// <summary>
+        /// auto-mount over the cable's userspace tunnel, then N21: the device's list is read again. Either one is enough,
+        /// since auto-mount succeeds for an image already there and from iOS 27 the list may not show the cryptex DDI.
+        /// </summary>
         private Task MountAsync() => Run(SetupStepId.DiskImage, SetupMessages.Mounting, async () =>
         {
             var udid = _facts.UsbUdid;
@@ -481,7 +559,9 @@ namespace MacExtend.ViewModels
             var r = await RunCommandAsync(() => CoreDeviceCommands.MountAsync(udid, CoreDeviceRoute.Usb));
             Log("mount: " + Describe(r));
             var detected = await DetectImageAsync(udid);
-            _facts.DiskImageMounted = detected ?? r.Succeeded;
+            if (r.Succeeded && detected == false) Log("mount ok, but the image list does not show the image");
+            if (!r.Succeeded && detected == true) Log("mount failed, but the image list shows the image");
+            _facts.DiskImageMounted = detected == true || r.Succeeded;
             Message = SetupMessages.Mount(r, detected);
         });
 
@@ -514,13 +594,15 @@ namespace MacExtend.ViewModels
 
         // ---- plumbing --------------------------------------------------------------------
 
-        /// <summary>One action at a time: the others are disabled until it is over, and its row shows "Đang làm".</summary>
+        /// <summary>
+        /// One action at a time in the whole app (<see cref="Gate"/>): the buttons of every setup window are disabled until
+        /// it is over, and its row shows "Đang làm". Ignored while another action runs.
+        /// </summary>
         private async Task Run(SetupStepId? step, string message, Func<Task> work)
         {
-            if (Busy) return;
-            Busy = true;
-            _running = step;
+            if (!Gate.TryEnter(this, step, message)) return;
             Message = message;
+            RaiseBusy();
             Rebuild();
             try
             {
@@ -528,18 +610,26 @@ namespace MacExtend.ViewModels
             }
             finally
             {
-                _running = null;
                 ShowProgress = false;
-                Busy = false;
+                Gate.Exit(this);
+                RaiseBusy();
                 Rebuild();
             }
+        }
+
+        private void RaiseBusy()
+        {
+            Raise(nameof(Busy), nameof(ShowSpinner), nameof(ShowReady), nameof(WifiSwitchEnabled), nameof(Message), nameof(HasMessage));
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private void Rebuild()
         {
             var steps = SetupSteps.Evaluate(_facts);
             var next = steps.FirstOrDefault(s => s.ActionText != null)?.Id;
-            foreach (var item in Steps) item.Update(steps.Single(s => s.Id == item.Id), _running == item.Id, next == item.Id, _checked);
+            // the running step is the gate's, whichever window runs it
+            var running = Gate.Step;
+            foreach (var item in Steps) item.Update(steps.Single(s => s.Id == item.Id), running == item.Id, next == item.Id, _checked);
             Raise(nameof(Ready), nameof(ShowReady), nameof(WifiWanted), nameof(WifiSwitchEnabled), nameof(WifiHint));
         }
 

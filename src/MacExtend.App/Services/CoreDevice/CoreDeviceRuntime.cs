@@ -142,11 +142,17 @@ namespace MacExtend.Services.CoreDevice
             {
                 return "failed: " + HelperOutcomes.Message((int)HelperOutcomes.For(e.Problem));
             }
-            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is InvalidDataException || e is ArgumentException
-                                      || e is NotSupportedException)
+            catch (UnauthorizedAccessException)
             {
-                // unelevated, in the user's own folder: the system's message is only shown to that user
-                return "failed: " + e.Message;
+                // an installed copy in a folder only administrators may change, outside Program Files
+                log.WriteLine("[setup] install here failed: UnauthorizedAccessException");
+                return "failed: " + SetupMessages.InstallFolderNotWritable;
+            }
+            catch (Exception e) when (e is IOException || e is InvalidDataException || e is ArgumentException || e is NotSupportedException)
+            {
+                // only the kind goes to the log, and a fixed sentence to the window: never the system's own (English) text
+                log.WriteLine("[setup] install here failed: " + e.GetType().Name);
+                return "failed: " + HelperOutcomes.Message((int)HelperOutcome.InstallFailed);
             }
         }
 
@@ -170,7 +176,7 @@ namespace MacExtend.Services.CoreDevice
             // the elevated side refuses (exit 2) a network or device path; say why instead of asking UAC for nothing
             if (zip != null && !HelperPaths.IsLocalDrivePath(zip))
             {
-                return "failed: Tệp runtime phải nằm trên ổ đĩa của máy này. Hãy chép tệp về máy rồi chọn lại.";
+                return "failed: " + SetupMessages.ZipNotLocal;
             }
             return RunElevated(new[] { CoreDeviceHelpers.SetupArg, zip ?? CoreDeviceHelpers.NoZip, Elevation.CurrentUserName(), UsesTask ? "1" : "0" });
         }

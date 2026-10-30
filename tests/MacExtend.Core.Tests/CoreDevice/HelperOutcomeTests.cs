@@ -43,6 +43,20 @@ public class HelperOutcomeTests
     }
 
     [Fact]
+    public void ItsOwnSentencesAreRecognisedAndNothingElse()
+    {
+        Assert.All(All(), o => Assert.True(HelperOutcomes.IsMessage(HelperOutcomes.Message((int)o))));
+        Assert.True(HelperOutcomes.IsMessage(HelperOutcomes.Message(17)));
+        Assert.True(HelperOutcomes.IsMessage(HelperOutcomes.Message(-532462766)));
+
+        Assert.False(HelperOutcomes.IsMessage("Access to the path 'C:\\Program Files\\MacExtend\\coredevice' is denied."));
+        Assert.False(HelperOutcomes.IsMessage("Bước cài đặt có quyền quản trị không thành công (mã abc)."));
+        Assert.False(HelperOutcomes.IsMessage("Bước cài đặt có quyền quản trị không thành công (mã 5). Thêm chữ."));
+        Assert.False(HelperOutcomes.IsMessage(""));
+        Assert.False(HelperOutcomes.IsMessage(null));
+    }
+
+    [Fact]
     public void TheCodesTheUninstallerAndCiReadStayFixed()
     {
         Assert.Equal(0, (int)HelperOutcome.Ok);

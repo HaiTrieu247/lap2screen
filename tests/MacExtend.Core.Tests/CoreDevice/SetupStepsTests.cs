@@ -67,6 +67,22 @@ public class SetupStepsTests
     }
 
     [Fact]
+    public void TheImageDoesNotHoldBackReadinessOnceDeveloperModeIsOn()
+    {
+        // every session runs auto-mount before serve-web, and from iOS 27 the image mounter may not list the cryptex DDI
+        var f = AllDone();
+        f.DiskImageMounted = false;
+
+        var image = Step(f, SetupStepId.DiskImage);
+        Assert.Equal(SetupStatus.Todo, image.Status);
+        Assert.Contains("trước mỗi phiên", image.Detail);
+        Assert.True(SetupSteps.Ready(SetupSteps.Evaluate(f)));
+
+        f.DeveloperMode = false;
+        Assert.False(SetupSteps.Ready(SetupSteps.Evaluate(f)));
+    }
+
+    [Fact]
     public void WifiWantedNeedsPairing()
     {
         var f = AllDone();

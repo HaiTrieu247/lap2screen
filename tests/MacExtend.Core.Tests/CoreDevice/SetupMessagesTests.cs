@@ -12,6 +12,9 @@ namespace MacExtend.Core.Tests.CoreDevice;
 public class SetupMessagesTests
 {
     private const string Udid = "00008030-001E185E343B802E";
+    private const string PackageFile = "MacExtend-1.4.0-coredevice-runtime.zip";
+    // text that only a system exception, a command or an outcome string could carry
+    private const string Foreign = "ZZ foreign text C:\\Users\\x";
 
     private static CommandResult Ok(string stdout = "") => new CommandResult(0, stdout, CliError.None, false);
 
@@ -34,6 +37,50 @@ public class SetupMessagesTests
         Assert.DoesNotContain("something else", SetupMessages.Installed("something else"));
     }
 
+    [Fact]
+    public void TheFixedReasonsOfTheAppsOwnInstallAreShown()
+    {
+        Assert.Contains(SetupMessages.InstallFolderNotWritable, SetupMessages.Installed("failed: " + SetupMessages.InstallFolderNotWritable));
+        Assert.Contains("Program Files", SetupMessages.InstallFolderNotWritable);
+        Assert.Contains(SetupMessages.ZipNotLocal, SetupMessages.Installed("failed: " + SetupMessages.ZipNotLocal));
+        var generic = HelperOutcomes.Message(-532462766);
+        Assert.Contains(generic, SetupMessages.Installed("failed: " + generic));
+    }
+
+    [Fact]
+    public void NoSentenceCarriesTextSetupMessagesDidNotProduce()
+    {
+        var shown = new List<string>
+        {
+            SetupMessages.Installed("failed: " + Foreign),
+            SetupMessages.Installed(Foreign),
+            SetupMessages.Pair(Ok(), true, "failed: " + Foreign),
+            SetupMessages.Pair(Ok(), true, Foreign),
+            SetupMessages.PickedZipFailed(new InvalidDataException(Foreign)),
+            SetupMessages.PickedZipFailed(new IOException(Foreign)),
+            SetupMessages.PickedZipFailed(new Exception(Foreign)),
+        };
+        foreach (var e in new Exception[]
+                 {
+                     new FileNotFoundException(Foreign), new InvalidDataException(Foreign), new HttpRequestException(Foreign),
+                     new TaskCanceledException(Foreign), new IOException(Foreign), new UnauthorizedAccessException(Foreign),
+                     new InvalidOperationException(Foreign), new Exception(Foreign),
+                 })
+        {
+            shown.Add(SetupMessages.DownloadFailed(e, PackageFile));
+        }
+        var output = new CommandResult(1, Foreign, CliError.Other, false);
+        var outputOk = new CommandResult(0, Foreign, CliError.None, false);
+        shown.Add(SetupMessages.Trust(output));
+        shown.Add(SetupMessages.Reveal(output));
+        shown.Add(SetupMessages.Reveal(outputOk));
+        shown.Add(SetupMessages.Mount(output, null));
+        shown.Add(SetupMessages.Mount(outputOk, false));
+        shown.Add(SetupMessages.Pair(output, false, null));
+
+        Assert.All(shown, m => Assert.DoesNotContain("ZZ", m));
+    }
+
     [Theory]
     [InlineData("ok", true)]
     [InlineData("cancelled", false)]
@@ -47,34 +94,36 @@ public class SetupMessagesTests
     [Fact]
     public void ADownloadProblemNeverShowsTheSystemsOwnText()
     {
-        var network = SetupMessages.DownloadFailed(new HttpRequestException("No such host is known."));
+        var network = SetupMessages.DownloadFailed(new HttpRequestException("No such host is known."), PackageFile);
         Assert.DoesNotContain("No such host", network);
         Assert.Contains("Internet", network);
-        Assert.Equal(network, SetupMessages.DownloadFailed(new TaskCanceledException("A task was canceled.")));
+        Assert.Equal(network, SetupMessages.DownloadFailed(new TaskCanceledException("A task was canceled."), PackageFile));
 
-        var disk = SetupMessages.DownloadFailed(new IOException("There is not enough space on the disk."));
+        var disk = SetupMessages.DownloadFailed(new IOException("There is not enough space on the disk."), PackageFile);
         Assert.DoesNotContain("space", disk);
         Assert.Contains("ổ đĩa", disk);
-        Assert.Equal(disk, SetupMessages.DownloadFailed(new UnauthorizedAccessException("Access to the path is denied.")));
+        Assert.Equal(disk, SetupMessages.DownloadFailed(new UnauthorizedAccessException("Access to the path is denied."), PackageFile));
 
-        Assert.DoesNotContain("boom", SetupMessages.DownloadFailed(new InvalidOperationException("boom")));
+        Assert.DoesNotContain("boom", SetupMessages.DownloadFailed(new InvalidOperationException("boom"), PackageFile));
     }
 
     [Fact]
-    public void TheDownloadsOwnVietnameseReasonsAreKept()
+    public void TheDownloadSaysInItsOwnWordsThatTheReleaseHasNoRuntimeOrTheFileIsCorrupt()
     {
-        const string notOnRelease = "Bản phát hành này không có gói runtime trên GitHub.";
-        const string corrupt = "Tệp MacExtend-1.0.0-coredevice-runtime.zip tải về bị hỏng (sai mã SHA-256).";
+        // the download raises these two for a release without the runtime and for a wrong SHA-256
+        var notOnRelease = SetupMessages.DownloadFailed(new FileNotFoundException("whatever it says"), PackageFile);
+        Assert.Contains("bấm " + SetupActions.PickZip, notOnRelease);
+        Assert.Contains(PackageFile, notOnRelease);
 
-        Assert.Equal(notOnRelease, SetupMessages.DownloadFailed(new FileNotFoundException(notOnRelease)));
-        Assert.Equal(corrupt, SetupMessages.DownloadFailed(new InvalidDataException(corrupt)));
+        var corrupt = SetupMessages.DownloadFailed(new InvalidDataException("whatever it says"), PackageFile);
+        Assert.Contains("SHA-256", corrupt);
+        Assert.Contains(SetupActions.Install, corrupt);
     }
 
     [Fact]
     public void APickedFileIsEitherNotThePackageOrCouldNotBeRead()
     {
-        const string notThePackage = "Tệp này không phải gói runtime của bản MacExtend đang chạy.";
-        Assert.Equal(notThePackage, SetupMessages.PickedZipFailed(new InvalidDataException(notThePackage)));
+        Assert.Equal("Tệp này không phải gói runtime của bản MacExtend đang chạy.", SetupMessages.PickedZipFailed(new InvalidDataException("x")));
 
         var unreadable = SetupMessages.PickedZipFailed(new IOException("The process cannot access the file because it is being used by another process."));
         Assert.DoesNotContain("process", unreadable);
@@ -114,11 +163,13 @@ public class SetupMessagesTests
     }
 
     [Fact]
-    public void AMountIsDoneWhenTheDeviceListsTheImageOrCannotSay()
+    public void AMountThatWorkedOrAnImageListedIsDone()
     {
         Assert.Equal("Đã gắn ảnh DDI.", SetupMessages.Mount(Ok(), true));
         Assert.Equal("Đã gắn ảnh DDI.", SetupMessages.Mount(Ok(), null));
-        Assert.Contains(SetupActions.Mount, SetupMessages.Mount(Ok(), false));
+        // from iOS 27 the DDI is a cryptex the image mounter may not list: auto-mount's success stands
+        Assert.Equal("Đã gắn ảnh DDI.", SetupMessages.Mount(Ok(), false));
+        Assert.Equal("Đã gắn ảnh DDI.", SetupMessages.Mount(Failed(CliError.Other), true));
     }
 
     [Fact]
@@ -183,10 +234,15 @@ public class SetupMessagesTests
             }
         }
         foreach (var outcome in new[] { "ok", "cancelled", "failed: x", "?" }) yield return SetupMessages.Installed(outcome);
-        yield return SetupMessages.DownloadFailed(new HttpRequestException("x"));
-        yield return SetupMessages.DownloadFailed(new IOException("x"));
-        yield return SetupMessages.DownloadFailed(new InvalidOperationException("x"));
+        foreach (var e in new Exception[] { new HttpRequestException("x"), new IOException("x"), new InvalidOperationException("x"),
+                                            new FileNotFoundException("x"), new InvalidDataException("x") })
+        {
+            yield return SetupMessages.DownloadFailed(e, PackageFile);
+        }
         yield return SetupMessages.PickedZipFailed(new IOException("x"));
+        yield return SetupMessages.PickedZipFailed(new InvalidDataException("x"));
+        yield return SetupMessages.InstallFolderNotWritable;
+        yield return SetupMessages.ZipNotLocal;
         yield return SetupMessages.WifiSwitchHint(true, Udid);
         yield return SetupMessages.WifiSwitchHint(false, null);
         yield return SetupMessages.WifiSwitchHint(false, Udid);

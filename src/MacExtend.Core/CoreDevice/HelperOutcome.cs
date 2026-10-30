@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 
 namespace MacExtend.Core.CoreDevice
@@ -36,6 +37,9 @@ namespace MacExtend.Core.CoreDevice
 
     public static class HelperOutcomes
     {
+        private const string GenericPrefix = "Bước cài đặt có quyền quản trị không thành công (mã ";
+        private const string GenericSuffix = ").";
+
         /// <summary>
         /// A fixed Vietnamese sentence for an exit code: no exception text, no paths. Any other number (a crash, an exit
         /// code from Windows) gets the generic sentence with the number.
@@ -64,8 +68,24 @@ namespace MacExtend.Core.CoreDevice
                 case HelperOutcome.VerifyFailed: return "Windows chưa có đủ luật tường lửa hoặc tác vụ sau khi thiết lập.";
                 case HelperOutcome.RemoveFailed: return "Không xóa hết được tác vụ và luật tường lửa.";
                 default:
-                    return "Bước cài đặt có quyền quản trị không thành công (mã " + exitCode.ToString(CultureInfo.InvariantCulture) + ").";
+                    return GenericPrefix + exitCode.ToString(CultureInfo.InvariantCulture) + GenericSuffix;
             }
+        }
+
+        /// <summary>
+        /// Whether <paramref name="text"/> is one of these fixed sentences (for any code), so a caller can pass it on and
+        /// drop anything else.
+        /// </summary>
+        public static bool IsMessage(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            foreach (HelperOutcome outcome in Enum.GetValues(typeof(HelperOutcome)))
+            {
+                if (text == Message((int)outcome)) return true;
+            }
+            if (!text.StartsWith(GenericPrefix, StringComparison.Ordinal) || !text.EndsWith(GenericSuffix, StringComparison.Ordinal)) return false;
+            var code = text.Substring(GenericPrefix.Length, text.Length - GenericPrefix.Length - GenericSuffix.Length);
+            return int.TryParse(code, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var number) && Message(number) == text;
         }
 
         public static HelperOutcome For(RuntimeProblem problem)

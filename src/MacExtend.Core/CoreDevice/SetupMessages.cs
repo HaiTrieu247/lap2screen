@@ -6,10 +6,10 @@ using System.Net.Http;
 namespace MacExtend.Core.CoreDevice
 {
     /// <summary>
-    /// The setup window's Vietnamese status line: what it is doing, and what each outcome means for the user. Neither a
-    /// system exception's own text nor a command's output is ever shown; only the fixed Vietnamese reasons the app's own
-    /// code gives (a release without the runtime, a zip with the wrong SHA-256, an elevated helper's exit code) are
-    /// passed on as they are. Every "bấm X" names one of <see cref="SetupActions"/>.
+    /// The setup window's Vietnamese status line: what it is doing, and what each outcome means for the user. Every
+    /// sentence is made here: neither a system exception's text nor a command's output is ever shown, and of an outcome's
+    /// "failed: reason" only the app's own fixed reasons (HelperOutcomes, <see cref="InstallFolderNotWritable"/>,
+    /// <see cref="ZipNotLocal"/>) are passed on. Every "bấm X" names one of <see cref="SetupActions"/>.
     /// </summary>
     public static class SetupMessages
     {
@@ -29,6 +29,12 @@ namespace MacExtend.Core.CoreDevice
         public const string AddingRules = "Windows sẽ hỏi quyền quản trị để mở tường lửa cho Wi-Fi.";
         public const string WindowsCheckTimedOut = "Windows không trả lời khi kiểm tra tường lửa và tác vụ. Bấm " + SetupActions.Refresh + ".";
         public const string Ready = "Đã thiết lập xong. Mở Điều khiển trực tiếp từ cửa sổ chính hoặc menu khay.";
+
+        /// <summary>The runtime could not be written into the copy's own folder (an unelevated install).</summary>
+        public const string InstallFolderNotWritable =
+            "Không ghi được vào thư mục của MacExtend. Hãy cài MacExtend bằng bộ cài vào Program Files, hoặc giải nén bản portable vào một thư mục bạn có quyền ghi.";
+        /// <summary>The elevated setup only takes a zip on a local drive.</summary>
+        public const string ZipNotLocal = "Tệp runtime phải nằm trên ổ đĩa của máy này. Hãy chép tệp về máy, rồi bấm " + SetupActions.PickZip + " để chọn lại.";
 
         /// <summary>While the runtime is installed: behind UAC for a copy with the task, in its own folder otherwise.</summary>
         public static string Installing(bool elevated) => elevated ? "Windows sẽ hỏi quyền quản trị một lần." : "Đang cài thành phần...";
@@ -53,11 +59,16 @@ namespace MacExtend.Core.CoreDevice
             return "Cài thành phần không thành công." + (reason == null ? "" : " " + reason);
         }
 
-        /// <summary>Getting this build's runtime zip from its release failed.</summary>
-        public static string DownloadFailed(Exception e)
+        /// <summary>Getting this build's runtime zip (<paramref name="packageFile"/>) from its release failed.</summary>
+        public static string DownloadFailed(Exception e, string packageFile)
         {
-            // the two reasons the download gives itself, already in Vietnamese: no runtime on the release, a corrupt file
-            if (e is FileNotFoundException || e is InvalidDataException) return e.Message;
+            // the download's two own reasons: a release without the runtime (a beta build from CI), a wrong SHA-256
+            if (e is FileNotFoundException)
+            {
+                return "Bản phát hành này không có gói runtime trên GitHub. Nếu đây là bản beta từ CI, tải artifact của bản build, rồi bấm "
+                       + SetupActions.PickZip + " và chọn tệp " + (string.IsNullOrEmpty(packageFile) ? "gói runtime" : packageFile) + ".";
+            }
+            if (e is InvalidDataException) return "Tệp tải về bị hỏng (sai mã SHA-256). Bấm " + SetupActions.Install + " để tải lại.";
             // HttpClient's own timeout ends as a cancellation
             if (e is HttpRequestException || e is OperationCanceledException)
                 return "Không tải được thành phần. Kiểm tra Internet rồi bấm " + SetupActions.Install + ".";
@@ -66,10 +77,10 @@ namespace MacExtend.Core.CoreDevice
             return "Không tải được thành phần. Bấm " + SetupActions.Install + " để thử lại.";
         }
 
-        /// <summary>A zip the user picked could not be used: not this build's package (CheckZip's fixed reason), or unreadable.</summary>
+        /// <summary>A zip the user picked could not be used: not this build's package (CheckZip), or unreadable.</summary>
         public static string PickedZipFailed(Exception e) =>
             e is InvalidDataException
-                ? e.Message
+                ? "Tệp này không phải gói runtime của bản MacExtend đang chạy."
                 : "Không đọc được tệp đã chọn. Chép tệp về ổ đĩa của máy này, rồi bấm " + SetupActions.PickZip + " để chọn lại.";
 
         /// <summary>What to do after `amfi developer-mode-status` failed; null when it answered (the device trusts the laptop).</summary>
@@ -96,14 +107,13 @@ namespace MacExtend.Core.CoreDevice
                 : DeviceProblem(r, SetupActions.Reveal);
 
         /// <summary>
-        /// After `mounter auto-mount`, with what `mounter list` then said (<paramref name="detected"/>, null when it could
-        /// not say). The device's own list wins over the command's exit code.
+        /// After `mounter auto-mount` (idempotent: an image already there is a success), with what `mounter list` then said
+        /// (<paramref name="detected"/>). Either one is enough: from iOS 27 the DDI is a cryptex that the image mounter may
+        /// not list, so a list without it never overrules a mount that worked.
         /// </summary>
         public static string Mount(CommandResult r, bool? detected)
         {
-            var ran = r != null && r.Succeeded;
-            if (detected == true || (ran && detected == null)) return "Đã gắn ảnh DDI.";
-            if (ran) return "Thiết bị chưa báo có ảnh DDI. Mở khóa thiết bị, rồi bấm " + SetupActions.Mount + ".";
+            if (detected == true || (r != null && r.Succeeded)) return "Đã gắn ảnh DDI.";
             if (r != null && r.TimedOut) return "Gắn ảnh quá 3 phút. Kiểm tra Internet, mở khóa thiết bị, rồi bấm " + SetupActions.Mount + ".";
             return DeviceProblem(r, SetupActions.Mount);
         }
@@ -159,12 +169,12 @@ namespace MacExtend.Core.CoreDevice
             }
         }
 
-        /// <summary>The fixed reason after "failed: "; null when there is none.</summary>
+        /// <summary>The reason after "failed: " when it is one of the app's own fixed sentences; null for none or for anything else.</summary>
         private static string Reason(string outcome)
         {
             if (outcome == null || !outcome.StartsWith(FailedPrefix, StringComparison.Ordinal)) return null;
             var reason = outcome.Substring(FailedPrefix.Length).Trim();
-            return reason.Length == 0 ? null : reason;
+            return HelperOutcomes.IsMessage(reason) || reason == InstallFolderNotWritable || reason == ZipNotLocal ? reason : null;
         }
     }
 }

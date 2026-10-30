@@ -122,7 +122,8 @@ namespace MacExtend.Core.CoreDevice
                     developer ? "Đã bật." : "Bấm " + SetupActions.Reveal + ", rồi vào Cài đặt > Quyền riêng tư & Bảo mật > Chế độ nhà phát triển và bật lên. Thiết bị khởi động lại và hỏi xác nhận. Apple cảnh báo khi bật vì chế độ này nới một số lớp bảo vệ.",
                     SetupActions.Reveal),
                 Make(SetupStepId.DiskImage, !developer ? SetupStatus.Waiting : f.DiskImageMounted ? SetupStatus.Done : SetupStatus.Todo, "Ảnh DDI",
-                    f.DiskImageMounted ? "Đã gắn. App tự gắn lại trước mỗi phiên." : "Bấm " + SetupActions.Mount + ". Lần đầu cần Internet.",
+                    f.DiskImageMounted ? "Đã gắn. App tự gắn lại trước mỗi phiên."
+                        : "Bấm " + SetupActions.Mount + " để gắn ngay. App cũng tự gắn trước mỗi phiên; lần đầu cần Internet.",
                     SetupActions.Mount),
                 Make(SetupStepId.Wifi,
                     !wifiWanted ? SetupStatus.Optional : !trusted ? SetupStatus.Waiting : f.WifiPaired ? SetupStatus.Done : SetupStatus.Todo,
@@ -136,7 +137,14 @@ namespace MacExtend.Core.CoreDevice
             };
         }
 
-        public static bool Ready(IEnumerable<SetupStep> steps) => steps.All(s => s.Status == SetupStatus.Done || s.Status == SetupStatus.Optional);
+        /// <summary>
+        /// Every step done or optional. The DDI step does not hold readiness back once Developer Mode is on (it is to do
+        /// only then): every session runs auto-mount before serve-web, and from iOS 27 the image mounter may not list the
+        /// cryptex DDI at all.
+        /// </summary>
+        public static bool Ready(IEnumerable<SetupStep> steps) =>
+            steps.All(s => s.Status == SetupStatus.Done || s.Status == SetupStatus.Optional
+                           || (s.Id == SetupStepId.DiskImage && s.Status == SetupStatus.Todo));
 
         /// <summary>The chip beside a step's title; a step whose action runs now is "Đang làm" whatever its status.</summary>
         public static string StatusText(SetupStatus status, bool running)
