@@ -65,7 +65,7 @@ Thiết lập:
 | D5 | Trust và iOS 27 | Thiết bị chạy iOS 27: sau *Gắn ảnh* bước ảnh thành *Đã xong* và vẫn *Đã xong* sau *Kiểm tra lại* hoặc mở cửa sổ thiết lập mới (`coredevice.log` có dòng `[setup] image list: ok, mounted yes`). Bước ảnh chưa xong không chặn mở điều khiển. Hộp thoại Tin cậy có thể được chờ tới 120 giây; trong lúc đó hàng Tin cậy hiện *Đang làm* |
 | D6 | Dịch vụ Apple | Khi chưa có Apple Mobile Device Service (chưa cài iTunes hay Apple Devices): bước dịch vụ Apple là *Cần làm* và các bước sau không chạy; cài xong, *Kiểm tra lại* chuyển sang *Đã xong* |
 | D7 | Trang cài đặt và menu khay | Dòng trạng thái dưới *Điều khiển trực tiếp*: "Chưa thiết lập" trước khi thiết lập, đổi ngay khi đóng cửa sổ thiết lập, "Đang tìm thiết bị..." và nút *Mở điều khiển* bị tắt trong lúc tìm. Menu khay: *Điều khiển trực tiếp...* / *Dừng điều khiển trực tiếp* / *Đang dừng điều khiển trực tiếp...* (tắt); các mục Bluetooth không đổi. Giao diện đúng ở nền Sáng và Tối, scale 100/125/150% |
-| D8 | Đóng cửa sổ thiết lập giữa chừng | Đóng cửa sổ thiết lập khi đang có hộp thoại UAC hoặc đang gắn ảnh, rồi mở lại: đúng bước đó hiện *Đang làm* kèm thông báo, không có UAC thứ hai. Đóng cửa sổ khi đang hiện "Đang dừng phiên..." thì không có UAC nào theo sau. Khi cửa sổ thiết lập đang chạy một bước mà bấm *Mở điều khiển* hoặc *Thiết lập lại*: báo "Một bước thiết lập khác đang chạy..." |
+| D8 | Đóng cửa sổ thiết lập giữa chừng | Đóng cửa sổ thiết lập khi đang có hộp thoại UAC hoặc đang gắn ảnh, rồi mở lại: đúng bước đó hiện *Đang làm* kèm thông báo, không có UAC thứ hai. Đóng cửa sổ khi đang hiện "Đang dừng phiên...", rồi mở lại: bước đó hiện *Đang làm* cho tới khi việc dừng xong, và không có UAC nào theo sau. Khi cửa sổ thiết lập đang chạy một bước mà bấm *Mở điều khiển* hoặc *Thiết lập lại*: báo "Một bước thiết lập khác đang chạy..." |
 
 Phiên qua cáp:
 
@@ -116,6 +116,7 @@ Cập nhật, gỡ cài đặt và bản đặc biệt:
 | D31 | Không có WebView2 Runtime | Trên máy chưa có runtime (hiếm trên Windows 11): cửa sổ báo cần WebView2 Runtime và đưa link tải, thông báo giữ nguyên, phiên không chạy ngầm (Camera trên thiết bị dùng được). Với Evergreen Runtime đã cài, `%LOCALAPPDATA%\MacExtend\WebView2` được tạo |
 | D32 | Cùng AirPlay và Bluetooth | Phản chiếu AirPlay và điều khiển Bluetooth vẫn chạy như trước khi có và không có phiên điều khiển trực tiếp; âm thanh AirPlay không đổi |
 | D33 | Nhật ký sạch | `coredevice.log` sau các hàng trên: không có UDID đầy đủ (dòng `[direct] open` chỉ có bốn ký tự cuối), phím, văn bản clipboard hay dòng output thô của Python. Kiểm bằng `Select-String` các mẫu đó |
+| D34 | Dừng phiên Wi-Fi khi UAC đang hiện | Bản portable (hoặc bản cài ngoài Program Files): bấm *Mở điều khiển* qua Wi-Fi để hộp UAC của tunneld hiện ra, rồi đóng cửa sổ điều khiển hoặc chọn *Dừng điều khiển trực tiếp* ở menu khay **trước** khi trả lời UAC. Phiên dừng; trả lời Có sau đó không để lại tunneld: `Get-NetTCPConnection -LocalPort 49151 -State Listen` trống sau tối đa 40 giây, và không có UAC thứ hai |
 
 Kiểm thử gồm hai phần tách biệt:
 
