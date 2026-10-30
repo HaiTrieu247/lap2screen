@@ -90,14 +90,14 @@ Con trỏ chạy theo kiểu chuột thật: bấm vào một điểm trên hìn
 Một cách điều khiển iPhone, iPad khác Bluetooth, trong cửa sổ riêng, không cần AirPlay: bấm đúng điểm, giữ, kéo và gõ phím, kể cả tiếng Việt. Dùng dịch vụ CoreDevice dành cho lập trình viên của Apple (cộng đồng dịch ngược), qua [pymobiledevice3](https://github.com/doronz88/pymobiledevice3). Tính năng còn mới: chưa được thử trên máy thật, xem bảng D trong [docs/TESTING.md](docs/TESTING.md).
 
 Cần:
-- Developer Mode trên thiết bị (bật một lần, thiết bị khởi động lại).
-- iTunes (tải từ apple.com) hoặc Apple Devices (Microsoft Store) trên Windows.
-- Một lần tải thành phần khoảng 100 MB (Python và pymobiledevice3). Bản beta không có release thì chọn tệp `MacExtend-<bản>-coredevice-runtime.zip` từ artifact CI bằng nút *Chọn tệp runtime...*.
+- Developer Mode trên thiết bị, bật một lần. Tùy chọn này nằm ở **Cài đặt > Quyền riêng tư & Bảo mật > Chế độ nhà phát triển** và chỉ hiện sau khi cửa sổ thiết lập chạy bước *Hiện tùy chọn*. Bật nó thì thiết bị khởi động lại và hỏi xác nhận; cửa sổ thiết lập hướng dẫn từng bước này.
+- iTunes (tải từ apple.com) hoặc Apple Devices (Microsoft Store) trên Windows. iTunes từ apple.com là lựa chọn đã dùng để thử; Apple Devices chưa được xác nhận chạy được, nhất là khi điều khiển qua Wi-Fi (hàng D30 trong [docs/TESTING.md](docs/TESTING.md)).
+- Một gói runtime (Python và pymobiledevice3) tải về lần đầu thiết lập. Bản beta không có release thì chọn tệp `MacExtend-<bản>-coredevice-runtime.zip` từ artifact CI bằng nút *Chọn tệp runtime...*.
 - Qua Wi-Fi: thiết bị và laptop cùng mạng loại Riêng tư, và tài khoản Windows có quyền quản trị. Tài khoản thường chỉ dùng được qua cáp.
 
 Cách dùng:
 
-1. Mục *Điều khiển* > *Điều khiển trực tiếp* > *Thiết lập...*, làm các bước theo thứ tự. Với bản cài vào Program Files, Windows hỏi quyền quản trị đúng một lần để cài thành phần, mở tường lửa và tạo một tác vụ để sau này bật kết nối Wi-Fi mà không hỏi lại. Bản portable và bản cài vào thư mục khác cài thành phần không cần quyền quản trị, nhưng hỏi quyền một lần để mở tường lửa và một lần mỗi phiên Wi-Fi.
+1. Mục *Điều khiển* > *Điều khiển trực tiếp* > *Thiết lập...*, làm các bước theo thứ tự. Với bản cài vào Program Files, Windows hiện hộp thoại hỏi quyền quản trị một lần (bấm Có): lần đó cài thành phần, mở tường lửa và tạo một tác vụ để sau này bật kết nối Wi-Fi mà không hỏi lại. Bản portable và bản cài vào thư mục khác cài thành phần không cần quyền quản trị, nhưng hỏi quyền một lần để mở tường lửa và một lần mỗi phiên Wi-Fi.
 2. Muốn dùng Wi-Fi, cắm cáp rồi bật *Cho phép điều khiển qua Wi-Fi* cho thiết bị đó (ghép nối một lần qua cáp).
 3. Bấm *Mở điều khiển*, hoặc menu khay > *Điều khiển trực tiếp...*. Đang cắm cáp thì app dùng cáp; không thì dùng Wi-Fi nếu đã bật cho thiết bị đó.
 

@@ -163,7 +163,7 @@ Với tunnel, thiết bị gửi hình (RTP qua UDP) tới card mạng ảo `pym
 
 1. Qua USB, tạo pair record RemotePairing một lần (không hiện hộp thoại Tin cậy): `pmd3 lockdown remotepairing --pair --udid <UDID>`. File `remote_<...>.plist` nằm trong `%USERPROFILE%\.pymobiledevice3`.
 2. Rút cáp, để thiết bị và laptop **cùng một mạng Wi-Fi** (kiểm tra tên mạng ở cả hai bên). Kiểm tra thiết bị có quảng bá không: `pmd3 bonjour remotepairing --timeout 15`. Trên Windows, Bonjour của pymobiledevice3 mặc định chỉ chờ 2 giây.
-3. Tunneld phải chạy bằng **Python 3.13 trở lên**. Từ iOS 18.2, thiết bị bỏ tunnel QUIC (`QuicProtocolNotSupportedError`) và dùng tunnel TCP với TLS-PSK, có sẵn trong `ssl` của Python 3.13 (Python 3.12 không có). Runtime 3.13 dùng chung cho serve-web và tunneld; không cần venv riêng. Mở PowerShell **với quyền quản trị** rồi chạy tunneld bằng interpreter của venv do `setup.ps1` tạo:
+3. Tunneld phải chạy bằng **Python 3.13 trở lên**. Từ iOS 18.2, thiết bị bỏ tunnel QUIC (`QuicProtocolNotSupportedError`) và dùng tunnel TCP với TLS-PSK, có sẵn trong `ssl` của Python 3.13 (Python 3.12 không có). Với probe, tunneld chạy bằng cùng interpreter 3.13 của venv do `setup.ps1` tạo (serve-web và tunneld dùng chung một venv, không cần venv thứ hai). Mở PowerShell **với quyền quản trị** rồi chạy:
 
    ```powershell
    & $py -I -X utf8 -m pymobiledevice3 -v remote tunneld --no-usb --no-usbmux --no-mobdev2

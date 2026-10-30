@@ -52,7 +52,7 @@ Tính năng nằm trong app (mục *Điều khiển* > *Điều khiển trực t
 
 Mọi hàng dưới đây **chưa kiểm chứng**: trên Mac chỉ chạy được unit test của Core và biên dịch app. Gửi kèm `%LOCALAPPDATA%\MacExtend\logs\coredevice.log` khi có lỗi (log chỉ ghi trạng thái, không ghi phím, văn bản clipboard, UDID đầy đủ hay output thô của Python).
 
-Quy ước: **bản cài** là bản cài bằng bộ cài vào `C:\Program Files\MacExtend` (hoặc `Program Files (x86)`), chạy bằng tài khoản Windows có quyền quản trị. Chỉ bản cài như vậy có tác vụ định kỳ (Scheduled Task); bản portable và bản cài vào thư mục khác dùng chung đường không có tác vụ (D21, D22). Làm D1 trước, rồi D2 đến D6, rồi các nhóm còn lại.
+Quy ước: **bản cài** là bản cài bằng bộ cài vào `C:\Program Files\MacExtend` (hoặc `Program Files (x86)`), chạy bằng tài khoản Windows có quyền quản trị. Chỉ bản cài như vậy có tác vụ định kỳ (Scheduled Task); bản portable và bản cài vào thư mục khác dùng chung đường không có tác vụ (D26, D28). Làm D1 trước, rồi D2 đến D7, rồi các nhóm còn lại.
 
 Thiết lập:
 
@@ -62,53 +62,60 @@ Thiết lập:
 | D2 | Thiết lập lần đầu (bản cài) | Cửa sổ thiết lập hiện chip và nút sau *Đang kiểm tra...*. *Tải và cài* (hoặc *Chọn tệp runtime...* với bản beta): thanh tiến trình và phần trăm chạy; đúng **một** hộp thoại UAC; sau đó có `{app}\coredevice\python\python.exe`, `pythonw.exe` và `RUNTIME_ID` (không có `coredevice.new`, `coredevice.old`), tác vụ `\MacExtend\MacExtend CoreDevice tunnel` (chạy `pythonw.exe` của runtime, quyền cao nhất, không có trigger), và đúng 4 luật tường lửa nhóm `MacExtend CoreDevice` (python.exe và pythonw.exe, mỗi cái một luật UDP vào từ `fc00::/7` và một luật UDP 5353 chỉ mạng Riêng tư). Không có hộp thoại firewall nào hiện ra về sau |
 | D3 | Chọn tệp runtime, hủy và thiếu | Bản beta: chọn tệp zip sai thì báo "Tệp này không phải gói runtime..." trước khi hỏi UAC; chọn Không ở UAC thì báo "Đã hủy..."; mất mạng khi tải thì báo kiểm tra Internet. Xóa một luật tường lửa hoặc tác vụ nhưng giữ runtime: hiện nút *Cài lại*, bấm thì chỉ một UAC và mọi thứ về đủ |
 | D4 | Các bước thiết bị | *Kết nối* (thiết bị khóa rồi mở khóa, hộp thoại Tin cậy hiện trên thiết bị), *Hiện tùy chọn* rồi bật Developer Mode (thiết bị khởi động lại), *Gắn ảnh* (lần đầu có thể mất vài phút): mỗi bước đổi sang *Đã xong*. *Kiểm tra lại* và mở cửa sổ thiết lập lần nữa không làm hỏng bước đã xong; sau khi khởi động lại thiết bị, bước ảnh hiện *Cần làm* lại. Bước ảnh chưa xong không chặn việc mở điều khiển (mỗi phiên tự gắn ảnh trước khi chạy) |
-| D5 | Dịch vụ Apple | Khi chưa có Apple Mobile Device Service (chưa cài iTunes hay Apple Devices): bước dịch vụ Apple là *Cần làm* và các bước sau không chạy; cài xong, *Kiểm tra lại* chuyển sang *Đã xong* |
-| D6 | Trang cài đặt và menu khay | Dòng trạng thái dưới *Điều khiển trực tiếp*: "Chưa thiết lập" trước khi thiết lập, đổi ngay khi đóng cửa sổ thiết lập, "Đang tìm thiết bị..." và nút *Mở điều khiển* bị tắt trong lúc tìm. Menu khay: *Điều khiển trực tiếp...* / *Dừng điều khiển trực tiếp* / *Đang dừng điều khiển trực tiếp...* (tắt); các mục Bluetooth không đổi. Giao diện đúng ở nền Sáng và Tối, scale 100/125/150% |
+| D5 | Trust và iOS 27 | Thiết bị chạy iOS 27: sau *Gắn ảnh* bước ảnh thành *Đã xong* và vẫn *Đã xong* sau *Kiểm tra lại* hoặc mở cửa sổ thiết lập mới (`coredevice.log` có dòng `[setup] image list: ok, mounted yes`). Bước ảnh chưa xong không chặn mở điều khiển. Hộp thoại Tin cậy có thể được chờ tới 120 giây; trong lúc đó hàng Tin cậy hiện *Đang làm* |
+| D6 | Dịch vụ Apple | Khi chưa có Apple Mobile Device Service (chưa cài iTunes hay Apple Devices): bước dịch vụ Apple là *Cần làm* và các bước sau không chạy; cài xong, *Kiểm tra lại* chuyển sang *Đã xong* |
+| D7 | Trang cài đặt và menu khay | Dòng trạng thái dưới *Điều khiển trực tiếp*: "Chưa thiết lập" trước khi thiết lập, đổi ngay khi đóng cửa sổ thiết lập, "Đang tìm thiết bị..." và nút *Mở điều khiển* bị tắt trong lúc tìm. Menu khay: *Điều khiển trực tiếp...* / *Dừng điều khiển trực tiếp* / *Đang dừng điều khiển trực tiếp...* (tắt); các mục Bluetooth không đổi. Giao diện đúng ở nền Sáng và Tối, scale 100/125/150% |
+| D8 | Đóng cửa sổ thiết lập giữa chừng | Đóng cửa sổ thiết lập khi đang có hộp thoại UAC hoặc đang gắn ảnh, rồi mở lại: đúng bước đó hiện *Đang làm* kèm thông báo, không có UAC thứ hai. Đóng cửa sổ khi đang hiện "Đang dừng phiên..." thì không có UAC nào theo sau. Khi cửa sổ thiết lập đang chạy một bước mà bấm *Mở điều khiển* hoặc *Thiết lập lại*: báo "Một bước thiết lập khác đang chạy..." |
 
 Phiên qua cáp:
 
 | # | Phép thử | Tiêu chí |
 |---|---|---|
-| D7 | Phiên qua cáp | Mở điều khiển khi đang cắm cáp: nhãn *Qua cáp*, có hình, chạm/giữ/kéo/phím đúng điểm, nút Home và chuột phải là Home, xoay trái/phải, gửi và lấy văn bản tiếng Việt (Telex bằng UniKey/EVKey trong ô văn bản), F11 toàn màn hình. Hình không phóng to được bằng Ctrl+lăn chuột hay chụm hai ngón, F5/Ctrl+R/F12 không có tác dụng, thu nhỏ rồi bấm *Mở điều khiển* hoặc mục khay thì cửa sổ hiện lại |
-| D8 | Chọn thiết bị | Một thiết bị: mở thẳng. Hai thiết bị (iPhone và iPad, hoặc cáp và Wi-Fi): hộp chọn hiện ra, cáp xếp trước, chọn bằng mũi tên/Enter/Esc/nhấp đúp; lần sau mở thẳng thiết bị đã dùng. Không có thiết bị: hộp báo "Không thấy thiết bị" chỉ có nút *Đóng* |
+| D9 | Phiên qua cáp | Mở điều khiển khi đang cắm cáp: nhãn *Qua cáp*, có hình, chạm/giữ/kéo/phím đúng điểm, nút Home và chuột phải là Home, xoay trái/phải, gửi và lấy văn bản tiếng Việt (Telex bằng UniKey/EVKey trong ô văn bản), F11 toàn màn hình. Hình không phóng to được bằng Ctrl+lăn chuột hay chụm hai ngón, F5/Ctrl+R/F12 không có tác dụng, thu nhỏ rồi bấm *Mở điều khiển* hoặc mục khay thì cửa sổ hiện lại |
+| D10 | Phím đặc biệt và nút chuột | Gõ `?` thì thiết bị nhận `?` và các phím sau vẫn chạy; Ctrl+P không tải gì; nút Back của chuột trên hình không làm gì (kể cả sau khi phiên cáp tự khởi động lại, không có cửa sổ đen); phím gõ đúng ngay sau khi mở cửa sổ và sau khi bấm từng nút thanh công cụ, không phải bấm vào hình |
+| D11 | Chọn thiết bị | Một thiết bị: mở thẳng. Hai thiết bị (iPhone và iPad, hoặc cáp và Wi-Fi): hộp chọn hiện ra, cáp xếp trước, chọn bằng mũi tên/Enter/Esc/nhấp đúp; lần sau mở thẳng thiết bị đã dùng. Không có thiết bị: hộp báo "Không thấy thiết bị" chỉ có nút *Đóng* |
 
 Phiên qua Wi-Fi:
 
 | # | Phép thử | Tiêu chí |
 |---|---|---|
-| D9 | Bật Wi-Fi cho thiết bị | Công tắc *Cho phép điều khiển qua Wi-Fi* tắt và có gợi ý "Cắm iPhone..." khi chưa cắm thiết bị. Cắm cáp, bật: *Ghép nối* (RemotePairing qua cáp, không hiện hộp thoại Tin cậy), thiết bị vào danh sách Wi-Fi; tắt thì thiết bị rời danh sách |
-| D10 | Phiên Wi-Fi (bản cài, tài khoản admin) | Rút cáp, thiết bị và laptop cùng mạng Riêng tư: nhãn *Qua Wi-Fi*, có hình trong khoảng 30 giây, không có UAC. Lúc chạy có tiến trình `pythonw.exe` của tunneld (khởi động qua tác vụ) và card `pymobiledevice3-tunnel-*` trong `Get-NetAdapter`. Nếu đang cắm cáp thì phiên dùng cáp |
-| D11 | Wi-Fi bị thiếu phần Windows | Bản cài, thiết bị đã ghép, rút cáp, xóa một luật tường lửa của nhóm hoặc tác vụ: *Mở điều khiển* báo "Wi-Fi chưa sẵn sàng trên Windows" kèm *Thiết lập lại*; bấm thì đúng một UAC rồi phiên Wi-Fi mở được; chọn Không thì báo "Đã hủy..." và giữ nguyên hộp. Cổng 127.0.0.1:49151 đang do chương trình khác dùng: báo cổng bị dùng, không có tiến trình nào của chương trình khác bị tắt |
+| D12 | Bật Wi-Fi cho thiết bị | Công tắc *Cho phép điều khiển qua Wi-Fi* tắt và có gợi ý "Cắm iPhone..." khi chưa cắm thiết bị. Cắm cáp, bật: *Ghép nối* (RemotePairing qua cáp, không hiện hộp thoại Tin cậy), thiết bị vào danh sách Wi-Fi; tắt thì thiết bị rời danh sách |
+| D13 | Phiên Wi-Fi (bản cài, tài khoản admin) | Rút cáp, thiết bị và laptop cùng mạng Riêng tư: nhãn *Qua Wi-Fi*, có hình trong khoảng 30 giây, không có UAC. Lúc chạy có tiến trình `pythonw.exe` của tunneld (khởi động qua tác vụ) và card `pymobiledevice3-tunnel-*` trong `Get-NetAdapter`. Nếu đang cắm cáp thì phiên dùng cáp |
+| D14 | Wi-Fi bị thiếu phần Windows | Bản cài, thiết bị đã ghép, rút cáp, xóa một luật tường lửa của nhóm hoặc tác vụ: *Mở điều khiển* báo "Wi-Fi chưa sẵn sàng trên Windows" kèm *Thiết lập lại*; bấm thì đúng một UAC rồi phiên Wi-Fi mở được; chọn Không thì báo "Đã hủy..." và giữ nguyên hộp. Cổng 127.0.0.1:49151 đang do chương trình khác dùng: báo cổng bị dùng, không có tiến trình nào của chương trình khác bị tắt |
+| D15 | Tunneld có sẵn và tunneld không tắt | Tunneld chạy tay từ trước (`pmd3 remote tunneld`, quyền quản trị): phiên Wi-Fi dùng lại nó và khi dừng app **không** tắt nó. Bản cài: tác vụ không tắt khi nhận `/shutdown` (ví dụ giả bằng cách chặn lệnh) thì sau khoảng 10 giây app chạy `schtasks /End` và cổng 49151 đóng; app chỉ tắt tunneld do chính nó bật |
+| D16 | Dừng khi UAC đang hiện | Bản portable: bấm *Mở điều khiển* qua Wi-Fi rồi đóng cửa sổ khi hộp UAC còn mở. Chọn Có sau đó: tunneld không bị bỏ sót (không còn `pythonw.exe` sau khi dừng, hoặc app tắt nó); chọn Không: báo bị từ chối, không có phiên nào mở |
 
 Dừng và trả camera, micro:
 
 | # | Phép thử | Tiêu chí |
 |---|---|---|
-| D12 | Đóng cửa sổ | Cửa sổ biến mất ngay; khay hiện "Đang dừng..." rồi về bình thường; Camera và Ghi âm trên thiết bị hoạt động ngay, chỉ báo chia sẻ màn hình tắt. Với Wi-Fi: không còn `pythonw.exe` của tunneld, cổng 49151 đã đóng và card `pymobiledevice3-tunnel-*` không còn. Đóng rồi mở lại ngay: hiện "Đang dừng phiên trước..." rồi phiên mới chạy |
-| D13 | Camera đang mở | Mở Camera trên thiết bị rồi bấm *Mở điều khiển*: thông báo "Đóng Camera, Ghi âm hoặc cuộc gọi rồi thử lại" và nút *Thử lại*. Mở Camera giữa phiên cũng cho thông báo đó |
-| D14 | Thoát app giữa phiên | Menu khay > Thoát MacExtend: khay hiện "Đang dừng..." và menu trống; qua cáp app thoát trong tối đa khoảng 45 giây, qua Wi-Fi trong khoảng 70 giây; không còn python; Camera và Ghi âm trở lại. Không có phiên: thoát nhanh như trước. Đăng xuất hoặc tắt Windows khi đang có phiên: không treo. Phiên không dừng sạch trong 40 giây: một thông báo "Điều khiển trực tiếp đã dừng" |
+| D17 | Đóng cửa sổ | Cửa sổ biến mất ngay; khay hiện "Đang dừng..." rồi về bình thường; Camera và Ghi âm trên thiết bị hoạt động ngay, chỉ báo chia sẻ màn hình tắt. Với Wi-Fi: không còn `pythonw.exe` của tunneld, cổng 49151 đã đóng và card `pymobiledevice3-tunnel-*` không còn. Đóng rồi mở lại ngay: hiện "Đang dừng phiên trước..." rồi phiên mới chạy |
+| D18 | Camera đang mở | Mở Camera trên thiết bị rồi bấm *Mở điều khiển*: thông báo "Đóng Camera, Ghi âm hoặc cuộc gọi rồi thử lại" và nút *Thử lại*. Mở Camera giữa phiên cũng cho thông báo đó |
+| D19 | Thoát app giữa phiên | Menu khay > Thoát MacExtend: khay hiện "Đang dừng..." và menu trống; qua cáp app thoát trong tối đa khoảng 45 giây, qua Wi-Fi trong khoảng 70 giây; không còn python; Camera và Ghi âm trở lại. Không có phiên: thoát nhanh như trước. Đăng xuất hoặc tắt Windows khi đang có phiên: không treo. Phiên không dừng sạch trong 40 giây: một thông báo "Điều khiển trực tiếp đã dừng" |
 
 Mất kết nối:
 
 | # | Phép thử | Tiêu chí |
 |---|---|---|
-| D15 | Rút cáp giữa phiên | "Mất kết nối. Cắm lại cáp để tiếp tục." trong khoảng 6 đến 9 giây (không có dòng "cable presence check: no answer" trong `coredevice.log`); cắm lại thì tự có hình trong tối đa khoảng 45 giây, không phải bấm gì. Rút cáp, đóng cửa sổ, cắm lại: không có phiên nào tự mở. Trong lúc phiên cáp chạy, không có `python.exe` mới được bật mỗi vài giây |
-| D16 | Wi-Fi rớt | Tắt Wi-Fi trên thiết bị: dải thông báo "Mất kết nối Wi-Fi, đang kết nối lại..." trên hình; bật lại: hình tự quay lại, không có thao tác bị gửi lại |
-| D17 | Màn hình thiết bị tắt | Khóa thiết bị: lớp chờ hình có chữ tiếng Việt; mở khóa thì có hình lại |
-| D18 | WebView2 hỏng giữa phiên | Kết thúc tiến trình `msedgewebview2.exe` của cửa sổ điều khiển: hình trở lại sau ít giây và `coredevice.log` có dòng "viewer: WebView2 BrowserProcessExited" |
+| D20 | Rút cáp giữa phiên | "Mất kết nối. Cắm lại cáp để tiếp tục." trong khoảng 6 đến 9 giây (không có dòng "cable presence check: no answer" trong `coredevice.log`); cắm lại thì tự có hình trong tối đa khoảng 45 giây, không phải bấm gì. Rút cáp, đóng cửa sổ, cắm lại: không có phiên nào tự mở. Trong lúc phiên cáp chạy, không có `python.exe` mới được bật mỗi vài giây |
+| D21 | Wi-Fi rớt | Tắt Wi-Fi trên thiết bị: dải thông báo "Mất kết nối Wi-Fi, đang kết nối lại..." trên hình; bật lại: hình tự quay lại, không có thao tác bị gửi lại |
+| D22 | Màn hình thiết bị tắt | Khóa thiết bị: lớp chờ hình có chữ tiếng Việt; mở khóa thì có hình lại |
+| D23 | WebView2 hỏng giữa phiên | Kết thúc tiến trình `msedgewebview2.exe` của cửa sổ điều khiển: hình trở lại sau ít giây và `coredevice.log` có dòng "viewer: WebView2 BrowserProcessExited" |
 
 Cập nhật, gỡ cài đặt và bản đặc biệt:
 
 | # | Phép thử | Tiêu chí |
 |---|---|---|
-| D19 | Cập nhật có runtime mới | Bản đã thiết lập, bản mới đổi `coredevice.id`: dung lượng tải gồm cả gói runtime, thanh tiến trình chạy đến hết, chỉ một UAC. Khi bấm Cập nhật lúc có phiên, phiên dừng trước rồi bộ cập nhật mới chạy; tunneld của tác vụ cũng được dừng; app mở lại bản mới và phiên chạy được. Gói sai SHA-256 thì cập nhật bị từ chối. Cùng `coredevice.id` hoặc chưa cài runtime: không tải thêm gì |
-| D20 | Gỡ cài đặt | Chạy trình gỡ: không còn `{app}\coredevice`, tác vụ và luật nhóm `MacExtend CoreDevice` |
-| D21 | Bản portable | Thiết lập: cài runtime vào `coredevice` cạnh `MacExtend.exe` không có UAC; không tạo tác vụ; ghép nối Wi-Fi hoặc phiên Wi-Fi đầu tiên hỏi UAC một lần để mở tường lửa; mỗi phiên Wi-Fi hỏi UAC một lần để chạy tunneld (chọn Không thì báo bị từ chối); phiên cáp không hỏi. Cập nhật runtime không cần UAC |
-| D22 | Bản cài ngoài Program Files | Cài bằng bộ cài vào thư mục khác (ví dụ `C:\MacExtend`): *Tải và cài* không tạo tác vụ, runtime cài không cần UAC; hành xử Wi-Fi như D21. Bản cài vào `Program Files (x86)` thì cũng có tác vụ như D2 |
-| D23 | Tài khoản không phải admin | Đăng nhập tài khoản Windows thường: chỉ chạy qua cáp. Công tắc Wi-Fi tắt, bước Wi-Fi và gợi ý ghi "Điều khiển qua Wi-Fi cần tài khoản Windows có quyền quản trị; tài khoản này chỉ dùng được qua cáp."; không UAC cho Wi-Fi. Thiết lập lần đầu hỏi mật khẩu quản trị một lần; phiên cáp không hỏi |
-| D24 | Apple Devices thay iTunes | Gỡ iTunes, cài Apple Devices (Microsoft Store): bước dịch vụ Apple và phiên qua cáp vẫn chạy; ghi phiên Wi-Fi có chạy không |
-| D25 | Không có WebView2 Runtime | Trên máy chưa có runtime (hiếm trên Windows 11): cửa sổ báo cần WebView2 Runtime và đưa link tải, thông báo giữ nguyên, phiên không chạy ngầm (Camera trên thiết bị dùng được). Với Evergreen Runtime đã cài, `%LOCALAPPDATA%\MacExtend\WebView2` được tạo |
-| D26 | Cùng AirPlay và Bluetooth | Phản chiếu AirPlay và điều khiển Bluetooth vẫn chạy như trước khi có và không có phiên điều khiển trực tiếp; âm thanh AirPlay không đổi |
+| D24 | Cập nhật có runtime mới | Bản đã thiết lập, bản mới đổi `coredevice.id`: dung lượng tải gồm cả gói runtime, thanh tiến trình chạy đến hết, chỉ một UAC. Khi bấm Cập nhật lúc có phiên, phiên dừng trước rồi bộ cập nhật mới chạy; tunneld của tác vụ cũng được dừng; app mở lại bản mới và phiên chạy được. Gói sai SHA-256 thì cập nhật bị từ chối. Cùng `coredevice.id` hoặc chưa cài runtime: không tải thêm gì |
+| D25 | Gỡ cài đặt | Chạy trình gỡ: không còn `{app}\coredevice`, tác vụ và luật nhóm `MacExtend CoreDevice` |
+| D26 | Bản portable | Thiết lập: cài runtime vào `coredevice` cạnh `MacExtend.exe` không có UAC; không tạo tác vụ; ghép nối Wi-Fi hoặc phiên Wi-Fi đầu tiên hỏi UAC một lần để mở tường lửa; mỗi phiên Wi-Fi hỏi UAC một lần để chạy tunneld (chọn Không thì báo bị từ chối); phiên cáp không hỏi. Cập nhật runtime không cần UAC |
+| D27 | Bản portable thất bại hoặc ở thư mục chỉ đọc | Bản portable: phiên Wi-Fi không lên thì mở tường lửa lại bằng đúng một UAC bổ sung, không lặp lại. Portable đặt trong thư mục chỉ đọc: *Tải và cài* báo bằng tiếng Việt rằng cần cài MacExtend bằng bộ cài vào Program Files hoặc giải nén vào thư mục có quyền ghi, không hiện chữ tiếng Anh của hệ thống |
+| D28 | Bản cài ngoài Program Files | Cài bằng bộ cài vào thư mục khác (ví dụ `C:\MacExtend`): *Tải và cài* không tạo tác vụ, runtime cài không cần UAC; hành xử Wi-Fi như D21. Bản cài vào `Program Files (x86)` thì cũng có tác vụ như D2 |
+| D29 | Tài khoản không phải admin | Đăng nhập tài khoản Windows thường: chỉ chạy qua cáp. Công tắc Wi-Fi tắt, bước Wi-Fi và gợi ý ghi "Điều khiển qua Wi-Fi cần tài khoản Windows có quyền quản trị; tài khoản này chỉ dùng được qua cáp."; không UAC cho Wi-Fi. Thiết lập lần đầu hỏi mật khẩu quản trị một lần; phiên cáp không hỏi |
+| D30 | Apple Devices thay iTunes | Gỡ iTunes, cài Apple Devices (Microsoft Store): bước dịch vụ Apple và phiên qua cáp vẫn chạy; ghi phiên Wi-Fi có chạy không |
+| D31 | Không có WebView2 Runtime | Trên máy chưa có runtime (hiếm trên Windows 11): cửa sổ báo cần WebView2 Runtime và đưa link tải, thông báo giữ nguyên, phiên không chạy ngầm (Camera trên thiết bị dùng được). Với Evergreen Runtime đã cài, `%LOCALAPPDATA%\MacExtend\WebView2` được tạo |
+| D32 | Cùng AirPlay và Bluetooth | Phản chiếu AirPlay và điều khiển Bluetooth vẫn chạy như trước khi có và không có phiên điều khiển trực tiếp; âm thanh AirPlay không đổi |
+| D33 | Nhật ký sạch | `coredevice.log` sau các hàng trên: không có UDID đầy đủ (dòng `[direct] open` chỉ có bốn ký tự cuối), phím, văn bản clipboard hay dòng output thô của Python. Kiểm bằng `Select-String` các mẫu đó |
 
 Kiểm thử gồm hai phần tách biệt:
 
