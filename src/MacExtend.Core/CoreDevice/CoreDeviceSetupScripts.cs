@@ -7,6 +7,12 @@ namespace MacExtend.Core.CoreDevice
     {
         public int Rules;
         public bool Task;
+
+        /// <summary>
+        /// Every rule AddFirewallRules makes (python.exe and pythonw.exe), and the task when this machine starts tunneld
+        /// with it. Two rules are an older setup without pythonw.exe's.
+        /// </summary>
+        public bool IsComplete(bool needsTask) => Rules >= CoreDeviceSetupScripts.FirewallRuleCount && (Task || !needsTask);
     }
 
     /// <summary>
@@ -19,6 +25,8 @@ namespace MacExtend.Core.CoreDevice
         public const string TaskName = "MacExtend CoreDevice tunnel";
         public const string TaskFullName = TaskPath + TaskName;
         public const string FirewallGroup = "MacExtend CoreDevice";
+        /// <summary>The rules AddFirewallRules creates: tunnel video and Wi-Fi discovery, for python.exe and pythonw.exe.</summary>
+        public const int FirewallRuleCount = 4;
 
         private const string Stop = "$ErrorActionPreference = 'Stop'";
 
@@ -54,6 +62,14 @@ namespace MacExtend.Core.CoreDevice
             if (value != null && value.IndexOf('%') >= 0)
                 throw new System.ArgumentException("The value goes into a scheduled task, where '%' is expanded as an environment variable.", parameter);
         }
+
+        /// <summary>
+        /// Ends tunneld if the task is running it (its pythonw.exe holds the runtime's files); does nothing when the task
+        /// is missing or idle. Run before the runtime folder is replaced or removed.
+        /// </summary>
+        public static string StopTask() =>
+            "Get-ScheduledTask -TaskPath " + PowerShellText.Literal(TaskPath) + " -TaskName " + PowerShellText.Literal(TaskName)
+            + " -ErrorAction SilentlyContinue | Stop-ScheduledTask";
 
         public static string RemoveTask() =>
             "Get-ScheduledTask -TaskPath " + PowerShellText.Literal(TaskPath) + " -TaskName " + PowerShellText.Literal(TaskName)

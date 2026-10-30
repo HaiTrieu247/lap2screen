@@ -36,6 +36,25 @@ public class AppVersionTests
     {
         Assert.False(AppVersion.TryParse(text, out _));
     }
+
+    [Theory]
+    [InlineData("1.0.8-beta.1+0123abcd", "1.0.8-beta.1")]
+    [InlineData("1.0.70+0123abcd", "1.0.70")]
+    [InlineData(" 1.0.71 ", "1.0.71")]
+    [InlineData("1.0.72", "1.0.72")]
+    public void ReleaseLabelIsTheInformationalVersionWithoutTheCommit(string informational, string label)
+    {
+        Assert.Equal(label, AppVersion.ReleaseLabel(informational, new Version(9, 9, 9)));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("+0123abcd")]
+    public void ReleaseLabelFallsBackToTheThreePartVersion(string informational)
+    {
+        Assert.Equal("1.2.3", AppVersion.ReleaseLabel(informational, new Version(1, 2, 3, 4)));
+    }
 }
 
 public class UpdateManifestTests

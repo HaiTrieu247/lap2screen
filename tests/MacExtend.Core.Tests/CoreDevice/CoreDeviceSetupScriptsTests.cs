@@ -114,6 +114,36 @@ public class CoreDeviceSetupScriptsTests
         Assert.Contains("\"rules=$rules task=$task\"", CoreDeviceSetupScripts.Query());
     }
 
+    [Fact]
+    public void EndsARunningTunneldOfTheTaskAndNothingElse()
+    {
+        Assert.Equal("Get-ScheduledTask -TaskPath '\\MacExtend\\' -TaskName 'MacExtend CoreDevice tunnel' -ErrorAction SilentlyContinue | Stop-ScheduledTask",
+                     CoreDeviceSetupScripts.StopTask());
+    }
+
+    [Fact]
+    public void TheRuleCountMatchesTheRulesTheScriptCreates()
+    {
+        var script = CoreDeviceSetupScripts.AddFirewallRules(@"C:\Program Files\MacExtend\coredevice\python");
+
+        Assert.Equal(CoreDeviceSetupScripts.FirewallRuleCount,
+                     System.Text.RegularExpressions.Regex.Matches(script, "New-NetFirewallRule ").Count);
+    }
+
+    [Theory]
+    [InlineData(4, true, true, true)]
+    [InlineData(4, false, true, false)]
+    [InlineData(4, false, false, true)]
+    [InlineData(5, true, true, true)]
+    // the two rules of an older setup (python.exe only) leave pythonw.exe's tunneld without discovery
+    [InlineData(2, true, true, false)]
+    [InlineData(2, false, false, false)]
+    [InlineData(0, true, false, false)]
+    public void TheWindowsPartIsCompleteWithAllRulesAndTheTaskWhenOneIsUsed(int rules, bool task, bool needsTask, bool complete)
+    {
+        Assert.Equal(complete, new SetupQuery { Rules = rules, Task = task }.IsComplete(needsTask));
+    }
+
     [Theory]
     [InlineData("rules=2 task=1\r\n", 2, true)]
     [InlineData("rules=0 task=0", 0, false)]

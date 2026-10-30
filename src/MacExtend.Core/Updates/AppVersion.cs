@@ -16,5 +16,15 @@ namespace MacExtend.Core.Updates
             version = Normalize(parsed);
             return true;
         }
+
+        /// <summary>
+        /// The label a release is tagged with ("v" + label): the informational version without the "+commit" the SDK
+        /// appends, so "1.0.8-beta.1" for a pre-release; the 3-part version when there is none.
+        /// </summary>
+        public static string ReleaseLabel(string informationalVersion, Version fallback)
+        {
+            var label = (informationalVersion ?? "").Split('+')[0].Trim();
+            return label.Length > 0 ? label : Normalize(fallback).ToString(3);
+        }
     }
 }
