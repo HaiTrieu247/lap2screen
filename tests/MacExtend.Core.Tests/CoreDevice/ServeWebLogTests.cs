@@ -106,6 +106,15 @@ public class ServeWebLogTests
         Assert.Null(line.Detail);
     }
 
+    // `python -m pymobiledevice3` names the CLI's logger "__main__" (seen on the device, run 1 of 2026-10-29)
+    [Fact]
+    public void ReadsTheCliLoggerNamedMain()
+    {
+        var line = ServeWebLog.Parse("2026-10-29 21:47:49 LEGION __main__[23084] ERROR The device's camera or microphone is in use by another app (e.g. Camera or Voice Memos). Quit that app on the device, then retry");
+
+        Assert.Equal(ServeWebLogKind.MediaInUse, line.Kind);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

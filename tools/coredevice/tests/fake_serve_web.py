@@ -154,7 +154,7 @@ def main():
     event("descendant", pid=descendant.pid)
 
     if SCENARIO == "early_exit_media":
-        log("pymobiledevice3.__main__", "ERROR",
+        log("__main__", "ERROR",
             "The device's camera or microphone is in use by another app (e.g. Camera or Voice Memos). "
             "Quit that app on the device, then retry")
         descendant.kill()

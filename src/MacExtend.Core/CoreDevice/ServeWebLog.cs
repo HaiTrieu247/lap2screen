@@ -51,7 +51,8 @@ namespace MacExtend.Core.CoreDevice
     public static class ServeWebLog
     {
         private const string Stream = @"pymobiledevice3\.remote\.core_device\.screen_stream\[\d+\] ";
-        private const string Main = @"pymobiledevice3\.__main__\[\d+\] ";
+        // run as `python -m pymobiledevice3` the CLI logger is "__main__"; imported it is "pymobiledevice3.__main__"
+        private const string Main = @"(?:pymobiledevice3\.)?__main__\[\d+\] ";
 
         private static readonly Regex Ansi = new Regex(@"\x1b\[[0-9;]*m", RegexOptions.CultureInvariant);
 
