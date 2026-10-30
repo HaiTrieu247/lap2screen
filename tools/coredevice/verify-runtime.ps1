@@ -27,6 +27,8 @@ $copy = Join-Path ([IO.Path]::GetTempPath()) ('MacExtend runtime ' + [guid]::New
 Copy-Item -LiteralPath (Resolve-Path -LiteralPath $Runtime).Path -Destination $copy -Recurse
 try {
     $py = Join-Path $copy 'python\python.exe'
+    # the Scheduled Task starts tunneld with pythonw.exe
+    if (-not (Test-Path -LiteralPath (Join-Path $copy 'python\pythonw.exe'))) { throw 'python\pythonw.exe is missing' }
     if (-not (Test-Path -LiteralPath (Join-Path $copy 'RUNTIME_ID'))) { throw 'RUNTIME_ID is missing' }
     Invoke-Native $py @('-I', (Join-Path $PSScriptRoot 'check_runtime.py'))
 

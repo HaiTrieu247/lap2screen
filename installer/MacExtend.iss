@@ -63,6 +63,8 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 Filename: "{app}\MacExtend.exe"; Description: "{cm:LaunchProgram,MacExtend}"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallRun]
+; first: ends tunneld and removes the Scheduled Task and the "MacExtend CoreDevice" firewall rules, while the files below still exist
+Filename: "{app}\MacExtend.exe"; Parameters: "--coredevice-remove"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveCoreDevice"
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-NetFirewallRule -DisplayName '{#FirewallRule}' -ErrorAction SilentlyContinue | Remove-NetFirewallRule"""; \
   Flags: runhidden waituntilterminated; RunOnceId: "RemoveFirewallRule"
@@ -71,6 +73,10 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 ; files the in-app updater added after installation are not in the installer's own list
 Type: filesandordirs; Name: "{app}\uxplay"
 Type: filesandordirs; Name: "{app}\uxplay.old"
+; the CoreDevice runtime (downloaded by the app, never part of the installer) and what an interrupted update leaves
+Type: filesandordirs; Name: "{app}\coredevice"
+Type: filesandordirs; Name: "{app}\coredevice.old"
+Type: filesandordirs; Name: "{app}\coredevice.new"
 Type: files; Name: "{app}\*.old"
 
 [Registry]

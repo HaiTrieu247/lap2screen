@@ -146,6 +146,14 @@ jobs:
           name: uxplay-runtime
           path: build/MacExtend/uxplay
 
+      # Elevated pieces for real on the admin runner: the helper modes, the firewall rules, the Scheduled Task and the
+      # task's own tunneld command line (no iPhone needed). It works on temporary copies of build/MacExtend, so the
+      # portable zip below is not affected.
+      - name: CoreDevice setup, task and tunneld (elevated runner)
+        shell: pwsh
+        timeout-minutes: 20
+        run: ./tools/coredevice/test-setup.ps1 -App build/MacExtend -Zip "dist/${{ steps.coredevice.outputs.file }}" -RuntimeId "${{ steps.coredevice.outputs.id }}"
+
       - name: Portable zip
         shell: pwsh
         run: |
@@ -193,6 +201,11 @@ jobs:
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
           & $iscc "/DAppVersion=${{ steps.version.outputs.number }}" "/DAppLabel=${{ steps.version.outputs.value }}" "/DSourceDir=$PWD\build\MacExtend" "/O$PWD\dist" installer\MacExtend.iss
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Installer and uninstaller (elevated runner)
+        shell: pwsh
+        timeout-minutes: 20
+        run: ./tools/coredevice/test-uninstall.ps1 -Setup "dist/MacExtend-${{ steps.version.outputs.value }}-setup.exe" -Zip "dist/${{ steps.coredevice.outputs.file }}"
 
       - uses: actions/upload-artifact@v4
         with:
