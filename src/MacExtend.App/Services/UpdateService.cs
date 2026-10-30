@@ -34,6 +34,17 @@ namespace MacExtend.Services
 
         public static Version CurrentVersion => AppVersion.Normalize(typeof(UpdateService).Assembly.GetName().Version);
 
+        /// <summary>
+        /// The release label this build came from: "1.0.8-beta.1" for a pre-release tag, else the 3-part version.
+        /// Release tags are "v" + this.
+        /// </summary>
+        public static string CurrentLabel => AppVersion.ReleaseLabel(
+            typeof(UpdateService).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, CurrentVersion);
+
+        /// <summary>A file attached to the release tagged "v" + <paramref name="label"/>.</summary>
+        public static string ReleaseAssetUrl(string label, string file) =>
+            "https://github.com/" + Repository + "/releases/download/v" + label + "/" + file;
+
         public static async Task<UpdateCheck> CheckAsync(CancellationToken cancel)
         {
             // releases/latest/download/<asset> redirects to the newest release; no API call, no rate limit
@@ -104,36 +115,46 @@ namespace MacExtend.Services
                                              IProgress<long> progress, CancellationToken cancel)
         {
             var zip = Path.Combine(staging, package.File);
-            if (!File.Exists(zip) || FileHash.Sha256(zip) != package.Sha256)
+            await DownloadVerifiedAsync(ReleaseAssetUrl(manifest.Version.ToString(3), package.File), zip, package.Sha256, progress, cancel);
+            UpdateStager.Extract(zip, Path.Combine(staging, folder));
+        }
+
+        /// <summary>
+        /// Downloads <paramref name="url"/> to <paramref name="zip"/> unless that file already has <paramref name="sha256"/>:
+        /// into a .part file, checked, then renamed. The updater's packages and the first CoreDevice runtime both come this way.
+        /// </summary>
+        /// <param name="progress">Bytes received so far.</param>
+        /// <param name="notFoundMessage">When given, a 404 throws <see cref="FileNotFoundException"/> with it instead of an HTTP error.</param>
+        public static async Task DownloadVerifiedAsync(string url, string zip, string sha256, IProgress<long> progress, CancellationToken cancel,
+                                                       string notFoundMessage = null)
+        {
+            if (File.Exists(zip) && FileHash.Sha256(zip) == sha256) return;
+            var part = zip + ".part";
+            using (var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancel))
             {
-                var part = zip + ".part";
-                var url = "https://github.com/" + Repository + "/releases/download/v" + manifest.Version.ToString(3) + "/" + package.File;
-                using (var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancel))
+                if (notFoundMessage != null && response.StatusCode == HttpStatusCode.NotFound) throw new FileNotFoundException(notFoundMessage);
+                response.EnsureSuccessStatusCode();
+                using (var input = await response.Content.ReadAsStreamAsync())
+                using (var output = File.Create(part))
                 {
-                    response.EnsureSuccessStatusCode();
-                    using (var input = await response.Content.ReadAsStreamAsync())
-                    using (var output = File.Create(part))
+                    var buffer = new byte[81920];
+                    long received = 0;
+                    int read;
+                    while ((read = await input.ReadAsync(buffer, 0, buffer.Length, cancel)) > 0)
                     {
-                        var buffer = new byte[81920];
-                        long received = 0;
-                        int read;
-                        while ((read = await input.ReadAsync(buffer, 0, buffer.Length, cancel)) > 0)
-                        {
-                            await output.WriteAsync(buffer, 0, read, cancel);
-                            received += read;
-                            progress.Report(received);
-                        }
+                        await output.WriteAsync(buffer, 0, read, cancel);
+                        received += read;
+                        progress?.Report(received);
                     }
                 }
-                if (FileHash.Sha256(part) != package.Sha256)
-                {
-                    File.Delete(part);
-                    throw new InvalidDataException("Tệp " + package.File + " tải về bị hỏng (sai mã SHA-256).");
-                }
-                if (File.Exists(zip)) File.Delete(zip);
-                File.Move(part, zip);
             }
-            UpdateStager.Extract(zip, Path.Combine(staging, folder));
+            if (FileHash.Sha256(part) != sha256)
+            {
+                File.Delete(part);
+                throw new InvalidDataException("Tệp " + Path.GetFileName(zip) + " tải về bị hỏng (sai mã SHA-256).");
+            }
+            if (File.Exists(zip)) File.Delete(zip);
+            File.Move(part, zip);
         }
 
         private static void RemoveOtherStagingFolders(string keep)
