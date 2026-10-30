@@ -17,12 +17,20 @@ public class ViewerBridgeTests
         Assert.True(ViewerBridge.IsAllowedNavigation(uri, 52000));
     }
 
+    [Fact]
+    public void TheBlankPageMayLoadOnlyBetweenSessions()
+    {
+        // the window clears its viewer port before it shows the blank page
+        Assert.True(ViewerBridge.IsAllowedNavigation("about:blank", 0));
+    }
+
     [Theory]
     [InlineData(52000)]
-    [InlineData(0)]
-    public void TheBlankPageBetweenSessionsMayLoad(int port)
+    [InlineData(1024)]
+    public void TheBlankPageIsRefusedWhileAViewerIsLoaded(int port)
     {
-        Assert.True(ViewerBridge.IsAllowedNavigation("about:blank", port));
+        // after a cable restart the history is viewer, blank, viewer: Back would leave a black window with no message
+        Assert.False(ViewerBridge.IsAllowedNavigation("about:blank", port));
     }
 
     [Theory]

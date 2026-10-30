@@ -81,13 +81,14 @@ namespace MacExtend.Core.CoreDevice
         }
 
         /// <summary>
-        /// The only pages the window shows: the session's viewer at http://127.0.0.1:<paramref name="viewerPort"/>/ and
-        /// the blank page between sessions. Any other address, path, query or scheme is blocked.
+        /// The only pages the window shows: the session's viewer at http://127.0.0.1:<paramref name="viewerPort"/>/ while
+        /// one is loaded, and the blank page only between sessions (<paramref name="viewerPort"/> 0), so history cannot
+        /// lead from a viewer back to a black page. Any other address, path, query or scheme is blocked.
         /// </summary>
         /// <param name="viewerPort">serve-web's port, 0 while no viewer is loaded.</param>
         public static bool IsAllowedNavigation(string uri, int viewerPort)
         {
-            if (uri == "about:blank") return true;
+            if (uri == "about:blank") return viewerPort == 0;
             if (viewerPort < CoreDeviceOptions.MinHttpPort || viewerPort > CoreDeviceOptions.MaxHttpPort) return false;
             if (!Uri.TryCreate(uri, UriKind.Absolute, out var u)) return false;
             return u.Scheme == Uri.UriSchemeHttp
