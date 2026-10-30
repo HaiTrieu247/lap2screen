@@ -113,6 +113,12 @@ namespace MacExtend.Core.CoreDevice
             get { lock (_gate) return ServeWebMayRunLocked(); }
         }
 
+        /// <summary>Failed, Stopping or Stopped: nothing in this session starts again, so the service tears it down.</summary>
+        public bool IsOver
+        {
+            get { lock (_gate) return _phase == SessionPhase.Failed || _phase == SessionPhase.Stopping || _phase == SessionPhase.Stopped; }
+        }
+
         public SessionAction Start()
         {
             lock (_gate)
@@ -249,6 +255,16 @@ namespace MacExtend.Core.CoreDevice
                 _stopRequested = true;
                 _phase = SessionPhase.Stopping;
                 return serveWeb ? SessionAction.StopServeWeb : SessionAction.None;
+            }
+        }
+
+        /// <summary>The service hit an error it has no other input for: fail with Other; serve-web, if it may run, still has to be stopped.</summary>
+        public SessionAction Fault()
+        {
+            lock (_gate)
+            {
+                if (!IsActiveLocked() || _stopRequested) return SessionAction.None;
+                return Fail(SessionFailure.Other, ServeWebMayRunLocked() ? SessionAction.StopServeWeb : SessionAction.None);
             }
         }
 

@@ -265,6 +265,69 @@ public class SessionMachineTests
     }
 
     [Fact]
+    public void ASessionIsOverOnceNothingInItStartsAgain()
+    {
+        var m = new SessionMachine(CoreDeviceRoute.Usb);
+        Assert.False(m.IsOver);
+        m.Start();
+        Assert.False(m.IsOver);
+        m.ImageMounted(true, CliError.None);
+        m.ServeWebReady();
+        Assert.False(m.IsOver);
+        m.UsbDeviceGone();
+        Assert.False(m.IsOver);
+
+        m.Stop();
+        Assert.True(m.IsOver);
+        m.StopFinished();
+        Assert.True(m.IsOver);
+
+        var failed = new SessionMachine(CoreDeviceRoute.Usb);
+        failed.Start();
+        failed.ImageMounted(false, CliError.NotConnected);
+        Assert.True(failed.IsOver);
+    }
+
+    [Fact]
+    public void AFaultWhileServeWebMayRunFailsAndStopsIt()
+    {
+        var m = ReadyUsb();
+
+        Assert.Equal(SessionAction.StopServeWeb, m.Fault());
+        Assert.Equal(SessionPhase.Failed, m.Phase);
+        Assert.Equal(SessionFailure.Other, m.Failure);
+    }
+
+    [Fact]
+    public void AFaultBeforeServeWebOnlyFails()
+    {
+        var m = new SessionMachine(CoreDeviceRoute.Wifi);
+        m.Start();
+
+        Assert.Equal(SessionAction.None, m.Fault());
+        Assert.Equal(SessionPhase.Failed, m.Phase);
+        Assert.Equal(SessionFailure.Other, m.Failure);
+    }
+
+    [Fact]
+    public void AFaultAfterAStopOrAFailureChangesNothing()
+    {
+        var stopped = ReadyUsb();
+        stopped.Stop();
+        Assert.Equal(SessionAction.None, stopped.Fault());
+        Assert.Equal(SessionPhase.Stopping, stopped.Phase);
+        Assert.Equal(SessionFailure.None, stopped.Failure);
+
+        var failed = new SessionMachine(CoreDeviceRoute.Usb);
+        failed.Start();
+        failed.ImageMounted(false, CliError.DeviceLocked);
+        Assert.Equal(SessionAction.None, failed.Fault());
+        Assert.Equal(SessionFailure.DeviceLocked, failed.Failure);
+
+        Assert.Equal(SessionAction.None, new SessionMachine(CoreDeviceRoute.Usb).Fault());
+    }
+
+    [Fact]
     public async Task StopRacingWithReconnectLogLinesStillReachesStopped()
     {
         var m = new SessionMachine(CoreDeviceRoute.Wifi);

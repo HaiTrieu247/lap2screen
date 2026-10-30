@@ -3,6 +3,9 @@ namespace MacExtend.Core.CoreDevice
     /// <summary>The Vietnamese text the window, the tray and the settings page show for a session.</summary>
     public static class CoreDeviceMessages
     {
+        /// <summary>A new session was asked for while the previous one is still stopping: one session at a time.</summary>
+        public const string WaitingForPreviousStop = "Đang dừng phiên trước...";
+
         public static string Route(CoreDeviceRoute route) =>
             route == CoreDeviceRoute.Usb ? "Qua cáp" : route == CoreDeviceRoute.Wifi ? "Qua Wi-Fi" : "";
 

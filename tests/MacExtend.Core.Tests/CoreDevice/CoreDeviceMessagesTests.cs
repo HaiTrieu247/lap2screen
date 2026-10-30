@@ -25,6 +25,12 @@ public class CoreDeviceMessagesTests
     }
 
     [Fact]
+    public void ANewSessionWaitingForThePreviousStopSaysSo()
+    {
+        Assert.Equal("Đang dừng phiên trước...", CoreDeviceMessages.WaitingForPreviousStop);
+    }
+
+    [Fact]
     public void TheCameraMessageSaysWhatToClose()
     {
         Assert.Contains("Camera", CoreDeviceMessages.Failure(SessionFailure.MediaInUse));
