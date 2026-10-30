@@ -85,9 +85,28 @@ Menu khay có mục **Điều khiển** / **Dừng điều khiển** khi đang p
 
 Con trỏ chạy theo kiểu chuột thật: bấm vào một điểm trên hình không làm con trỏ của thiết bị nhảy tới đó. Tốc độ con trỏ chỉnh ở Cài đặt > Trợ năng > Điều khiển con trỏ trên thiết bị. Phần Bluetooth dựa trên [windows-ble-hid](https://github.com/abhishek-raj/windows-ble-hid) (MIT). Nhật ký nằm ở `%LOCALAPPDATA%\MacExtend\logs\bluetooth.log` và chỉ ghi thay đổi trạng thái, không ghi phím đã gõ.
 
-### Thử nghiệm: chạm trực tiếp qua CoreDevice
+## Điều khiển trực tiếp (qua cáp hoặc Wi-Fi)
 
-Đang thử một hướng khác không cần ghép Bluetooth: dịch vụ CoreDevice dành cho lập trình viên của Apple (qua pymobiledevice3, cộng đồng dịch ngược), cho phép bấm đúng điểm, giữ và kéo trên hình. Nó chỉ là công cụ console riêng, không nằm trong app hay bản cài, và chưa được thử trên thiết bị thật. Cần bật Developer Mode, và trong lúc chạy camera/micro của thiết bị có thể không dùng được. Xem [tools/coredevice/README.md](tools/coredevice/README.md) và [kết quả thử](docs/research/2026-10-29-coredevice-results.md).
+Một cách điều khiển iPhone, iPad khác Bluetooth, trong cửa sổ riêng, không cần AirPlay: bấm đúng điểm, giữ, kéo và gõ phím, kể cả tiếng Việt. Dùng dịch vụ CoreDevice dành cho lập trình viên của Apple (cộng đồng dịch ngược), qua [pymobiledevice3](https://github.com/doronz88/pymobiledevice3). Tính năng còn mới: chưa được thử trên máy thật, xem bảng D trong [docs/TESTING.md](docs/TESTING.md).
+
+Cần:
+- Developer Mode trên thiết bị (bật một lần, thiết bị khởi động lại).
+- iTunes (tải từ apple.com) hoặc Apple Devices (Microsoft Store) trên Windows.
+- Một lần tải thành phần khoảng 100 MB (Python và pymobiledevice3). Bản beta không có release thì chọn tệp `MacExtend-<bản>-coredevice-runtime.zip` từ artifact CI bằng nút *Chọn tệp runtime...*.
+- Qua Wi-Fi: thiết bị và laptop cùng mạng loại Riêng tư, và tài khoản Windows có quyền quản trị. Tài khoản thường chỉ dùng được qua cáp.
+
+Cách dùng:
+
+1. Mục *Điều khiển* > *Điều khiển trực tiếp* > *Thiết lập...*, làm các bước theo thứ tự. Với bản cài vào Program Files, Windows hỏi quyền quản trị đúng một lần để cài thành phần, mở tường lửa và tạo một tác vụ để sau này bật kết nối Wi-Fi mà không hỏi lại. Bản portable và bản cài vào thư mục khác cài thành phần không cần quyền quản trị, nhưng hỏi quyền một lần để mở tường lửa và một lần mỗi phiên Wi-Fi.
+2. Muốn dùng Wi-Fi, cắm cáp rồi bật *Cho phép điều khiển qua Wi-Fi* cho thiết bị đó (ghép nối một lần qua cáp).
+3. Bấm *Mở điều khiển*, hoặc menu khay > *Điều khiển trực tiếp...*. Đang cắm cáp thì app dùng cáp; không thì dùng Wi-Fi nếu đã bật cho thiết bị đó.
+
+Giới hạn:
+- Trong lúc điều khiển, camera và micro của thiết bị không dùng được; phiên cũng không mở được khi một ứng dụng đang giữ camera hoặc micro.
+- Màn hình thiết bị phải bật thì mới có hình. Tiếng vẫn ra loa của thiết bị, không đi về laptop.
+- Cửa sổ cần Microsoft Edge WebView2 Runtime (đã có sẵn trên hầu hết máy Windows 11).
+
+Nhật ký ở `%LOCALAPPDATA%\MacExtend\logs\coredevice.log`, chỉ ghi trạng thái, không ghi phím hay văn bản đã gõ. Công cụ probe cho người phát triển nằm ở [tools/coredevice/README.md](tools/coredevice/README.md), kết quả thử ở [docs/research/2026-10-29-coredevice-results.md](docs/research/2026-10-29-coredevice-results.md).
 
 ## Cài đặt trong app
 
@@ -175,8 +194,9 @@ src/MacExtend.App/      app WPF: cửa sổ, khay hệ thống, chạy uxplay, t
 tests/                  unit test cho Core
 installer/              script Inno Setup
 tools/make_icons.py     sinh các file .ico (Python thuần)
-tools/coredevice/       thử nghiệm CoreDevice: runtime Python khóa phiên bản, smoke test (không thuộc app)
-tools/MacExtend.CoreDeviceProbe/  công cụ console thử CoreDevice (không thuộc app)
+tools/coredevice/       runtime Python khóa phiên bản của Điều khiển trực tiếp, script build và test CI, probe cho người phát triển
+tools/MacExtend.CoreDeviceProbe/  công cụ console thử CoreDevice (cho người phát triển, không thuộc app)
+src/MacExtend.CoreDeviceHost/    mã dùng chung giữa app và probe để chạy lệnh và dựng dòng lệnh
 docs/TESTING.md         checklist kiểm thử trên máy thật
 docs/research/          báo cáo nghiên cứu khả thi (chưa phải tính năng)
 ```
@@ -190,6 +210,8 @@ Thành phần đi kèm:
 - [GStreamer](https://gstreamer.freedesktop.org) (LGPL) và [FFmpeg](https://ffmpeg.org) (gói MSYS2, LGPL/GPL): giải mã và hiển thị.
 - libplist (LGPL), OpenSSL (Apache 2.0).
 - Font [Be Vietnam Pro](https://github.com/bettergui/BeVietnamPro) (SIL OFL 1.1).
+- [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) (GPL-3.0-or-later) và các gói Python đi kèm, cùng [CPython](https://www.python.org) 3.13 (PSF License): thành phần Điều khiển trực tiếp, tải riêng khi thiết lập; giấy phép của từng gói nằm trong `coredevice\python\Lib\site-packages\*.dist-info`.
+- [Microsoft Edge WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) SDK 1.0.4258.31 (giấy phép Microsoft, bản sao trong `licenses`): hiện hình của Điều khiển trực tiếp.
 - Phần bàn phím và chuột Bluetooth chuyển thể từ [windows-ble-hid](https://github.com/abhishek-raj/windows-ble-hid) (MIT), commit b33a004.
 
 Văn bản giấy phép của các thành phần nằm trong `uxplay/licenses` và `licenses` trong thư mục cài đặt.

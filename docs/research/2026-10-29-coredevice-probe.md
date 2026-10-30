@@ -8,11 +8,11 @@
 
 | Mục | Giá trị | Cách xác minh |
 |---|---|---|
-| Gói | `pymobiledevice3==11.47.0` | `tools/coredevice/requirements.in`, lock có hash `requirements-win-x64.lock.txt` |
+| Gói | `pymobiledevice3==11.47.0` | `tools/coredevice/requirements.in`, lock có hash `requirements-win-x64-py313.lock.txt` |
 | Tag | `v11.47.0` | `git ls-remote https://github.com/doronz88/pymobiledevice3 refs/tags/v11.47.0` |
 | Commit của tag | `f7b034ec49696b1769c80257aadfa5387271dc6b` | cùng lệnh trên, ngày 2026-10-29 |
 | Bản sửa cleanup Windows | `d700d8e22a55b27877d87c7d90acc6cf86bec31b` "cli: Let Ctrl-C cancel async commands instead of raising inside them" | GitHub compare `d700d8e...v11.47.0`: `status=ahead`, `ahead_by=157`, `behind_by=0`, merge base đúng bằng `d700d8e`, tức tag chứa bản sửa |
-| Python | CPython 3.12 x64 trên Windows | `setup.ps1` từ chối interpreter khác |
+| Python | CPython 3.13 x64 trên Windows | `setup.ps1` từ chối interpreter khác; runtime của app dùng CPython 3.13 từ nuget.org (`tools/coredevice/runtime-python.txt`) |
 
 Bản 11.17.0 không còn được hỗ trợ: nó chưa có `d700d8e`, nên Ctrl+C trên Windows có thể ném `KeyboardInterrupt` vào giữa tác vụ và bỏ qua bước trả phiên media. Không đổi phiên bản khi chưa lặp lại toàn bộ mục 2–7 với phiên bản mới.
 

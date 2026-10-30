@@ -1,9 +1,11 @@
-# CoreDevice probe (thử nghiệm, không thuộc sản phẩm)
+# CoreDevice: runtime của app và probe cho người phát triển
 
-Công cụ console riêng để thử điều khiển iPhone/iPad bằng chạm thật qua dịch vụ CoreDevice, dùng `pymobiledevice3 developer core-device display serve-web`. Mục tiêu là đánh giá có nên thay đường Bluetooth hay không; app MacExtend, installer, updater và release không dùng nó.
+Thư mục này có hai việc. Một là runtime Python (CPython 3.13 + `pymobiledevice3==11.47.0`) mà tính năng *Điều khiển trực tiếp* trong app MacExtend dùng, cùng các script build và test của nó trên CI. Hai là **probe**, một công cụ console riêng để người phát triển thử điều khiển iPhone/iPad bằng chạm thật qua dịch vụ CoreDevice (`pymobiledevice3 developer core-device display serve-web`), tách khỏi app để tách lỗi upstream. Probe không nằm trong app, installer hay release. Cách dùng tính năng trong app xem [README chính](../../README.md); phần còn lại của tài liệu này là về probe.
+
+App và probe dùng chung cùng một runtime và cùng mã chạy tiến trình ở `src/MacExtend.CoreDeviceHost` (khởi động serve-web, một Ctrl+C có hạn 40 giây, dọn tiến trình).
 
 - CoreDevice là dịch vụ lập trình viên của Apple được cộng đồng dịch ngược, không phải giao thức iPhone Mirroring công khai. Phiên bản được khóa ở `pymobiledevice3==11.47.0`; hợp đồng đã đọc từ mã nguồn ở [docs/research/2026-10-29-coredevice-probe.md](../../docs/research/2026-10-29-coredevice-probe.md).
-- Trạng thái: mã và CI không cần thiết bị đã có; **chưa có thử nghiệm trên thiết bị thật**. Kết quả ghi ở [docs/research/2026-10-29-coredevice-results.md](../../docs/research/2026-10-29-coredevice-results.md).
+- Trạng thái: mã và CI không cần thiết bị đã có; probe đã chạy trên thiết bị thật ở lượt 1, còn phần trong app chưa kiểm chứng (bảng D trong [docs/TESTING.md](../../docs/TESTING.md)). Kết quả ghi ở [docs/research/2026-10-29-coredevice-results.md](../../docs/research/2026-10-29-coredevice-results.md).
 - Trong lúc phiên chạy, camera và micro trên thiết bị có thể không dùng được (hình đen, tiếng câm); phiên cũng không mở được khi ứng dụng phía trước đang giữ camera/micro.
 
 ## Thành phần
@@ -13,7 +15,13 @@ Công cụ console riêng để thử điều khiển iPhone/iPad bằng chạm 
 | `requirements.in` | phiên bản duy nhất được hỗ trợ: `pymobiledevice3==11.47.0` |
 | `requirements-win-x64-py313.lock.txt` | toàn bộ dependency cho CPython 3.13 x64 Windows, mỗi gói có hash |
 | `compile-lock.ps1` | tạo lại lock bằng pip-tools 7.6.2 trên Windows Python 3.13 x64 |
-| `setup.ps1` | tạo `tools\coredevice\.venv` từ lock và kiểm tra nó |
+| `setup.ps1` | tạo `tools\coredevice\.venv` từ lock và kiểm tra nó (chỉ cho probe) |
+| `runtime-python.txt` | phiên bản và SHA-256 của gói CPython nuget.org dùng làm runtime của app |
+| `build-runtime.ps1` | dựng runtime của app: CPython 3.13 từ nuget.org + lock, thư mục `python\python.exe` và `RUNTIME_ID` |
+| `verify-runtime.ps1`, `check_runtime.py` | kiểm tra runtime sau khi chép sang thư mục có dấu cách; `check_runtime.py` chạy `pip check` tương đương ngay trong runtime |
+| `test-setup.ps1` | CI (runner quản trị): các chế độ nâng quyền của `MacExtend.exe` với zip runtime thật, tác vụ, luật tường lửa, tunneld khởi động đúng dòng lệnh của tác vụ |
+| `test-uninstall.ps1` | CI: bộ cài thật, thiết lập thật, rồi trình gỡ thật phải xóa tác vụ, luật và thư mục `coredevice` |
+| `spike-task.ps1` | thử một lần xem tài khoản thường có chạy được tác vụ quyền cao đã đăng ký sẵn không (hàng D1 trong TESTING.md) |
 | `test-probe.ps1`, `tests\` | smoke test probe net48 với serve-web giả, không cần thiết bị |
 | `../MacExtend.CoreDeviceProbe/` | probe: chạy serve-web, quản lý tiến trình, gửi thao tác thử |
 
@@ -36,6 +44,23 @@ pwsh tools/coredevice/compile-lock.ps1 -Python "$env:LOCALAPPDATA\Programs\Pytho
 ```
 
 Chỉ chạy trên Windows: lock tạo trên hệ khác sẽ theo dependency marker của hệ đó. Script cài pip-tools 7.6.2 vào venv tạm rồi chạy `python -m piptools compile --generate-hashes --resolver=backtracking --allow-unsafe --strip-extras --pip-args --only-binary=:all:`. Lock đang commit được tạo bằng `uv pip compile` nhắm Windows x64/Python 3.13 (dòng đầu file ghi uv); nó chỉ được coi là đã xác minh khi job *CoreDevice probe* trên `windows-latest` cài và kiểm tra đạt. Sau khi tạo lại lock, chạy `setup.ps1` và smoke test trước khi commit.
+
+## Runtime của app
+
+App không dùng venv (venv ghi đường dẫn tuyệt đối nên không chuyển được). `build-runtime.ps1` giải nén gói [`python`](https://www.nuget.org/packages/python) chính thức của nuget.org (CPython 3.13 đầy đủ, `tools\`) rồi cài thẳng lock vào `Lib\site-packages` bằng pip của Python build (`--require-hashes --no-deps --only-binary :all:`), biên dịch trước `.pyc` kiểu unchecked-hash để bản trong Program Files (chỉ đọc) không phải biên dịch lại mỗi lần chạy. Kết quả là `<Out>\python\python.exe` (cùng `pythonw.exe`) và `<Out>\RUNTIME_ID`. `verify-runtime.ps1` chép nó sang một thư mục có dấu cách rồi kiểm tra phiên bản, `check_runtime.py` và `serve-web --help`.
+
+CI (`.github/workflows/build.yml`) chạy hai script này ở job `coredevice-runtime`, nén thành `MacExtend-<bản>-coredevice-runtime.zip` trong release, ghi `coredevice.id`, `coredevice.sha256` vào bản kê cập nhật, rồi chạy `test-setup.ps1` và `test-uninstall.ps1` ở job `app`. Runtime không nằm trong bộ cài: app tải gói này ở lần thiết lập đầu và kiểm tra SHA-256.
+
+Chạy thử script build trên Windows có Python 3.13 x64:
+
+```powershell
+.\tools\coredevice\build-runtime.ps1 -Python "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe" -Out build\coredevice-runtime
+.\tools\coredevice\verify-runtime.ps1 -Runtime build\coredevice-runtime
+```
+
+Đổi phiên bản:
+- CPython: sửa cả hai dòng `version` và `sha256` trong `runtime-python.txt` (script từ chối gói có SHA-256 khác), và dùng cùng minor 3.13 cho Python build.
+- pymobiledevice3: sửa `requirements.in`, tạo lại lock (mục *Tạo lại lock*), sửa `$RequiredVersion` trong `setup.ps1`, `REQUIRED` trong `check_runtime.py` và hằng `RequiredVersion` trong `src/MacExtend.Core/CoreDevice/CoreDeviceOptions.cs`. Lặp lại toàn bộ bảng C và D của TESTING.md trước khi đổi.
 
 ## Chạy probe
 
@@ -105,7 +130,7 @@ function pmd3 { & $py -I -X utf8 -m pymobiledevice3 @args }
 
 #### Firewall khi dùng tunnel
 
-Với tunnel, thiết bị gửi hình (RTP qua UDP) tới card mạng ảo `pymobiledevice3-tunnel-<UDID>`, và Windows xếp card này là **Public**. serve-web không gửi gì cho thiết bị trước gói hình đầu tiên, nên firewall coi đó là gói vào không được yêu cầu. Nếu Python có luật Block cho Public (Windows tự tạo khi hộp thoại firewall chỉ tick Private), serve-web vẫn chạy và chạm vẫn tới thiết bị nhưng viewer không có hình. Userspace không bị, vì hình đi trong tiến trình. Đã gặp ở lượt 1.
+Với tunnel, thiết bị gửi hình (RTP qua UDP) tới card mạng ảo `pymobiledevice3-tunnel-<UDID>`, và Windows xếp card này là **Public**. serve-web không gửi gì cho thiết bị trước gói hình đầu tiên, nên firewall coi đó là gói vào không được yêu cầu. Nếu Python có luật Block cho Public (Windows tự tạo khi hộp thoại firewall chỉ tick Private), serve-web vẫn chạy và chạm vẫn tới thiết bị nhưng viewer không có hình. Userspace không bị, vì hình đi trong tiến trình. Đã gặp ở lượt 1. Trong app, bước thiết lập tự tạo các luật này (nhóm `MacExtend CoreDevice`, 4 luật cho `python.exe` và `pythonw.exe` của runtime); phần dưới là cho probe chạy bằng venv riêng.
 
 - Kiểm tra (quản trị): `Set-NetFirewallProfile -All -LogBlocked True`, chạy serve-web và mở viewer, rồi `Select-String "$env:SystemRoot\System32\LogFiles\Firewall\pfirewall.log" -Pattern 'DROP UDP fd'`. Có dòng tức là firewall đang chặn. Xong thì `Set-NetFirewallProfile -All -LogBlocked False`.
 - Sửa (quản trị). `$base` là đúng đường dẫn đã truyền cho `setup.ps1 -Python`: tiến trình nhận UDP là interpreter gốc, không phải `.venv\Scripts\python.exe`. Block luôn thắng Allow, nên tắt luật Block inbound của interpreter đó, rồi chỉ cho UDP từ dải địa chỉ tunnel `fc00::/7`:
@@ -113,10 +138,10 @@ Với tunnel, thiết bị gửi hình (RTP qua UDP) tới card mạng ảo `pym
   ```powershell
   $base = '<đường dẫn đã truyền cho setup.ps1 -Python>'
   Get-NetFirewallApplicationFilter | Where-Object Program -eq $base | Get-NetFirewallRule | Where-Object { $_.Direction -eq 'Inbound' -and $_.Action -eq 'Block' } | Disable-NetFirewallRule
-  New-NetFirewallRule -DisplayName 'CoreDevice probe: Python 3.12 UDP from tunnel' -Direction Inbound -Action Allow -Protocol UDP -RemoteAddress 'fc00::/7' -Program $base -Profile Public
+  New-NetFirewallRule -DisplayName 'CoreDevice probe: Python UDP from tunnel' -Direction Inbound -Action Allow -Protocol UDP -RemoteAddress 'fc00::/7' -Program $base -Profile Public
   ```
 
-  Mặc định Public đã chặn mọi gói vào không được yêu cầu, nên tắt luật Block không mở thêm gì; thứ được mở chỉ là UDP từ `fc00::/7` tới interpreter đó. Một số mạng công cộng cũng dùng địa chỉ `fd..`, nên gỡ luật khi thử xong: `Remove-NetFirewallRule -DisplayName 'CoreDevice probe: Python 3.12 UDP from tunnel'`, rồi bật lại các luật Block bằng lệnh trên với `Enable-NetFirewallRule`.
+  Mặc định Public đã chặn mọi gói vào không được yêu cầu, nên tắt luật Block không mở thêm gì; thứ được mở chỉ là UDP từ `fc00::/7` tới interpreter đó. Một số mạng công cộng cũng dùng địa chỉ `fd..`, nên gỡ luật khi thử xong: `Remove-NetFirewallRule -DisplayName 'CoreDevice probe: Python UDP from tunnel'`, rồi bật lại các luật Block bằng lệnh trên với `Enable-NetFirewallRule`.
 - Đổi card tunnel sang Private (`Set-NetConnectionProfile -NetworkCategory Private`) chỉ có tác dụng tới khi tunnel được tạo lại: mỗi tunnel mới là một mạng Public mới.
 
 ### 4. Thứ tự thử
@@ -138,15 +163,16 @@ Với tunnel, thiết bị gửi hình (RTP qua UDP) tới card mạng ảo `pym
 
 1. Qua USB, tạo pair record RemotePairing một lần (không hiện hộp thoại Tin cậy): `pmd3 lockdown remotepairing --pair --udid <UDID>`. File `remote_<...>.plist` nằm trong `%USERPROFILE%\.pymobiledevice3`.
 2. Rút cáp, để thiết bị và laptop **cùng một mạng Wi-Fi** (kiểm tra tên mạng ở cả hai bên). Kiểm tra thiết bị có quảng bá không: `pmd3 bonjour remotepairing --timeout 15`. Trên Windows, Bonjour của pymobiledevice3 mặc định chỉ chờ 2 giây.
-3. Tunneld phải chạy bằng **Python 3.13 trở lên**. Từ iOS 18.2, thiết bị bỏ tunnel QUIC (`QuicProtocolNotSupportedError`), còn tunnel TCP trên Python 3.12 cần `sslpsk-pmd3`. Wheel Windows của gói này (1.0.3) link tới `libssl-1_1-x64.dll` trong khi Python 3.12 dùng OpenSSL 3, nên import thất bại (`sslpsk_pmd3 is required for the TCP tunnel on python<3.13`). Từ 3.13, PSK có sẵn trong `ssl` và tunneld mặc định dùng TCP. Lock và `setup.ps1` hiện chỉ có Python 3.12; lượt 1 dùng một venv 3.13 riêng, cài `pymobiledevice3==11.47.0` không qua lock, chỉ để chạy tunneld:
+3. Tunneld phải chạy bằng **Python 3.13 trở lên**. Từ iOS 18.2, thiết bị bỏ tunnel QUIC (`QuicProtocolNotSupportedError`) và dùng tunnel TCP với TLS-PSK, có sẵn trong `ssl` của Python 3.13 (Python 3.12 không có). Runtime 3.13 dùng chung cho serve-web và tunneld; không cần venv riêng. Mở PowerShell **với quyền quản trị** rồi chạy tunneld bằng interpreter của venv do `setup.ps1` tạo:
 
    ```powershell
-   $py13 = 'C:\...\.venv313\Scripts\python.exe'
-   & $py13 -I -X utf8 -m pymobiledevice3 -v remote tunneld --no-usb --no-usbmux --no-mobdev2
+   & $py -I -X utf8 -m pymobiledevice3 -v remote tunneld --no-usb --no-usbmux --no-mobdev2
    ```
 
-   Trong tunneld, `--wifi` là phần dò RemotePairing; `--no-usb --no-usbmux --no-mobdev2` chỉ để log gọn. Chờ `Created tunnel --rsd ...` của task `start-tunnel-task-wifi-...`. Khi Windows hỏi quyền mạng cho Python 3.13, cho phép Private.
-4. Probe và serve-web vẫn dùng venv 3.12: `--transport tunnel`. Chúng chỉ hỏi tunneld qua `127.0.0.1:49151` rồi đi qua card tunnel của hệ điều hành, nên vẫn cần sửa firewall như mục *Firewall khi dùng tunnel*.
+   Trong tunneld, `--wifi` là phần dò RemotePairing; `--no-usb --no-usbmux --no-mobdev2` chỉ để log gọn. Chờ `Created tunnel --rsd ...` của task `start-tunnel-task-wifi-...`. Khi Windows hỏi quyền mạng cho Python, cho phép Private.
+4. Probe và serve-web chạy với `--transport tunnel`. Chúng chỉ hỏi tunneld qua `127.0.0.1:49151` rồi đi qua card tunnel của hệ điều hành, nên vẫn cần sửa firewall như mục *Firewall khi dùng tunnel*.
+
+Trong app, việc này do app làm: bản cài vào Program Files có một tác vụ chạy `pythonw.exe` của runtime với quyền cao nhất (app chỉ bật nó, không nâng quyền), các bản khác hỏi UAC một lần mỗi phiên Wi-Fi. Tunneld của app tắt bằng `GET http://127.0.0.1:49151/shutdown`.
 
 Đường lockdown cũ, để so sánh: `pmd3 lockdown wifi-connections on --udid <UDID>` qua USB, rồi `pmd3 bonjour mobdev2`. Apple service (`pmd3 usbmux list --network`) không thấy thiết bị qua Wi-Fi ở lượt 1.
 
