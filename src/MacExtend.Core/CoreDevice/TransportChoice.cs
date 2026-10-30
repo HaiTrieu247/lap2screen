@@ -45,4 +45,23 @@ namespace MacExtend.Core.CoreDevice
 
         private static bool Contains(IEnumerable<string> list, string udid) => list != null && list.Contains(udid, StringComparer.OrdinalIgnoreCase);
     }
+
+    public enum TunnelStep
+    {
+        UseExisting,
+        WaitForExisting,
+        StartTunneld,
+    }
+
+    /// <summary>
+    /// A tunneld that already answers on 127.0.0.1:49151 belongs to someone else (the user, or one left from an earlier
+    /// run): it is used, never started a second time, and never shut down by this session.
+    /// </summary>
+    public static class TunnelPlan
+    {
+        public static TunnelStep First(bool tunneldAnswers, bool hasTunnelForDevice) =>
+            hasTunnelForDevice ? TunnelStep.UseExisting : tunneldAnswers ? TunnelStep.WaitForExisting : TunnelStep.StartTunneld;
+
+        public static bool ShutdownAfter(TunnelStep first) => first == TunnelStep.StartTunneld;
+    }
 }
