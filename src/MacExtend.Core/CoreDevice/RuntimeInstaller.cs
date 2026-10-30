@@ -107,7 +107,7 @@ namespace MacExtend.Core.CoreDevice
             log("runtime " + expected.Id + " installed");
         }
 
-        private static void CheckLayout(string dir, string id)
+        public static void CheckLayout(string dir, string id)
         {
             foreach (var exe in new[] { "python.exe", "pythonw.exe" })
             {

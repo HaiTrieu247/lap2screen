@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using MacExtend.Core.CoreDevice;
 using MacExtend.Core.Updates;
 
 namespace MacExtend.Services
@@ -55,7 +56,7 @@ namespace MacExtend.Services
                 response.EnsureSuccessStatusCode();
                 var manifest = UpdateManifest.Parse(await response.Content.ReadAsStringAsync());
                 if (manifest == null) throw new InvalidDataException("update.ini của bản phát hành không hợp lệ.");
-                return new UpdateCheck(manifest, UpdateDecision.For(CurrentVersion, InstalledRuntimeId(), manifest));
+                return new UpdateCheck(manifest, UpdateDecision.For(CurrentVersion, InstalledRuntimeId(), manifest, CoreDevice.CoreDeviceRuntime.InstalledId));
             }
         }
 
@@ -85,9 +86,35 @@ namespace MacExtend.Services
                 Directory.Delete(runtimeDir, true);
             }
 
+            done += check.Decision.NeedsRuntime ? manifest.Runtime.Size : 0;
+            var coreDeviceDir = Path.Combine(staging, CoreDeviceUpdate.StagingFolder);
+            if (check.Decision.NeedsCoreDevice)
+            {
+                await FetchAsync(manifest, manifest.CoreDevice, staging, CoreDeviceUpdate.StagingFolder, counter, cancel);
+                CheckStagedCoreDevice(manifest, coreDeviceDir);
+            }
+            else if (Directory.Exists(coreDeviceDir))
+            {
+                Directory.Delete(coreDeviceDir, true);
+            }
+
             File.WriteAllText(Path.Combine(staging, "update.ini"), UpdateManifest.Serialize(manifest));
             progress.Report(1.0);
             return staging;
+        }
+
+        /// <summary>Only a complete runtime with the manifest's RUNTIME_ID stays staged; its zip's SHA-256 was checked on download.</summary>
+        private static void CheckStagedCoreDevice(UpdateManifest manifest, string dir)
+        {
+            try
+            {
+                CoreDeviceUpdate.CheckStaged(dir, manifest.CoreDeviceId);
+            }
+            catch (RuntimePackageException e)
+            {
+                Directory.Delete(dir, true);
+                throw new InvalidDataException("Gói runtime Điều khiển trực tiếp trong bản phát hành không hợp lệ: " + e.Message);
+            }
         }
 
         /// <summary>

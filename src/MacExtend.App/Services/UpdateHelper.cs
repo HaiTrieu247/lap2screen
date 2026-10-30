@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using MacExtend.Core;
+using MacExtend.Core.CoreDevice;
 using MacExtend.Core.Updates;
 using Microsoft.Win32;
 
@@ -148,6 +149,7 @@ namespace MacExtend.Services
         {
             try
             {
+                if (CoreDeviceUpdate.IsStaged(staging)) EndCoreDeviceUsers(installDir, log);
                 UpdateApplier.Apply(staging, installDir, line => log.WriteLine("[update] " + line));
                 SetInstalledVersion(version);
                 return "ok";
@@ -156,6 +158,40 @@ namespace MacExtend.Services
             {
                 return "failed: " + e.Message;
             }
+        }
+
+        /// <summary>
+        /// tunneld (the Scheduled Task's pythonw.exe) and a Wi-Fi session's serve-web python.exe keep the CoreDevice runtime's files
+        /// open; end them before the applier moves coredevice aside. A copy without a task (portable) has nothing to stop; this
+        /// never fails the update, which retries the move and rolls back if a file stays locked.
+        /// </summary>
+        private static void EndCoreDeviceUsers(string installDir, RotatingLog log)
+        {
+            var stopped = PowerShellRunner.RunAsync(CoreDeviceSetupScripts.StopTask()).GetAwaiter().GetResult().Succeeded;
+            log.WriteLine("[update] tunneld task stop: " + (stopped ? "ok" : "not stopped"));
+            var runtimeDir = Path.Combine(installDir, "coredevice");
+            var ended = 0;
+            foreach (var name in new[] { "pythonw", "python" })
+            {
+                foreach (var p in Process.GetProcessesByName(name))
+                {
+                    using (p)
+                    {
+                        try
+                        {
+                            if (!CoreDeviceUpdate.IsInsideRuntime(p.MainModule.FileName, runtimeDir)) continue;
+                            p.Kill();
+                            p.WaitForExit(5000);
+                            ended++;
+                        }
+                        catch (Exception e) when (e is Win32Exception || e is InvalidOperationException || e is NotSupportedException)
+                        {
+                            // exited meanwhile, or not ours to inspect
+                        }
+                    }
+                }
+            }
+            log.WriteLine("[update] runtime programs ended: " + ended);
         }
 
         /// <summary>Keeps the version shown in Windows "Installed apps" in step with the files.</summary>
