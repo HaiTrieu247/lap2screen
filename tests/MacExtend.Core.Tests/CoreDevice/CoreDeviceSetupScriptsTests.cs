@@ -1,3 +1,4 @@
+using System;
 using MacExtend.Core.CoreDevice;
 
 namespace MacExtend.Core.Tests.CoreDevice;
@@ -10,7 +11,7 @@ public class CoreDeviceSetupScriptsTests
         var script = CoreDeviceSetupScripts.RegisterTask(@"C:\Program Files\MacExtend\MacExtend.exe", @"LEGION\thinh", @"C:\Users\thinh");
 
         Assert.StartsWith("$ErrorActionPreference = 'Stop'", script);
-        Assert.Contains("-Execute 'C:\\Program Files\\MacExtend\\MacExtend.exe'", script);
+        Assert.Contains("-Execute '\"C:\\Program Files\\MacExtend\\MacExtend.exe\"'", script);
         Assert.Contains("-Argument '--coredevice-tunneld C:\\Users\\thinh'", script);
         Assert.Contains("-UserId 'LEGION\\thinh' -LogonType Interactive -RunLevel Highest", script);
         Assert.Contains("-TaskPath '\\MacExtend\\' -TaskName 'MacExtend CoreDevice tunnel'", script);
@@ -33,6 +34,32 @@ public class CoreDeviceSetupScriptsTests
 
         Assert.Contains("-UserId 'LEGION\\Thịnh\u2019\u2019s'", script);
         Assert.Contains("-Argument '--coredevice-tunneld \"C:\\Users\\Thịnh Hải\u2018\u2018x\"'", script);
+    }
+
+    [Fact]
+    public void QuotesTheExecutablePathInsideTheLiteralSoASpaceIsNotASplit()
+    {
+        var script = CoreDeviceSetupScripts.RegisterTask(@"C:\Program Files\MacExtend\MacExtend.exe", @"LEGION\thinh", @"C:\Users\thinh");
+
+        Assert.Contains("-Execute '\"C:\\Program Files\\MacExtend\\MacExtend.exe\"' -Argument", script);
+    }
+
+    [Theory]
+    [InlineData("exePath")]
+    [InlineData("userName")]
+    [InlineData("userProfile")]
+    public void RefusesAPercentSignBecauseTaskSchedulerExpandsEnvironmentVariables(string parameter)
+    {
+        var exe = @"C:\Program Files\MacExtend\MacExtend.exe";
+        var user = @"LEGION\thinh";
+        var profile = @"C:\Users\thinh";
+        if (parameter == "exePath") exe = @"C:\%TEMP%\MacExtend.exe";
+        if (parameter == "userName") user = @"LEGION\th%inh";
+        if (parameter == "userProfile") profile = @"C:\Users\%USERNAME%";
+
+        var ex = Assert.Throws<ArgumentException>(() => CoreDeviceSetupScripts.RegisterTask(exe, user, profile));
+
+        Assert.Equal(parameter, ex.ParamName);
     }
 
     [Fact]

@@ -26,18 +26,30 @@ namespace MacExtend.Core.CoreDevice
         /// <summary>
         /// The on-demand task that starts tunneld elevated without a UAC prompt: the user's own account, highest
         /// privileges, only while that user is logged on, no trigger. Its command line is fixed here, so starting it
-        /// (all a normal user can do) never runs anything else.
+        /// (all a normal user can do) never runs anything else. The executable is double-quoted because Task Scheduler
+        /// joins Command and Arguments without adding quotes.
         /// </summary>
         public static string RegisterTask(string exePath, string userName, string userProfile)
         {
+            // Task Scheduler expands %VAR% in the command and arguments at every start, from the task user's own
+            // (unelevated, writable) environment, so a '%' would let the action change after it was created.
+            RejectPercent(exePath, nameof(exePath));
+            RejectPercent(userName, nameof(userName));
+            RejectPercent(userProfile, nameof(userProfile));
             var argument = WindowsCommandLine.Join(new[] { TunneldArg, userProfile });
             return string.Join("\n",
                 Stop,
-                "$action = New-ScheduledTaskAction -Execute " + PowerShellText.Literal(exePath) + " -Argument " + PowerShellText.Literal(argument),
+                "$action = New-ScheduledTaskAction -Execute " + PowerShellText.Literal(WindowsCommandLine.Quote(exePath)) + " -Argument " + PowerShellText.Literal(argument),
                 "$principal = New-ScheduledTaskPrincipal -UserId " + PowerShellText.Literal(userName) + " -LogonType Interactive -RunLevel Highest",
                 "$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew",
                 "Register-ScheduledTask -TaskPath " + PowerShellText.Literal(TaskPath) + " -TaskName " + PowerShellText.Literal(TaskName)
                     + " -Action $action -Principal $principal -Settings $settings -Force | Out-Null");
+        }
+
+        private static void RejectPercent(string value, string parameter)
+        {
+            if (value != null && value.IndexOf('%') >= 0)
+                throw new System.ArgumentException("The value goes into a scheduled task, where '%' is expanded as an environment variable.", parameter);
         }
 
         public static string RemoveTask() =>
