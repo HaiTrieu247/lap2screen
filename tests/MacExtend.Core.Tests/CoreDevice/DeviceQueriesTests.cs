@@ -40,4 +40,67 @@ public class DeviceQueriesTests
     {
         Assert.Null(DeviceQueries.ParseBool(stdout));
     }
+
+    // `mounter list` prints the image mounter's CopyDevices entries with print_json (sorted keys, signature in hex)
+    private const string PersonalizedListed = "[\n    {\n        \"DiskImageType\": \"Personalized\",\n        \"ImageSignature\": \"0a1b2c\",\n        \"IsMounted\": true,\n        \"PersonalizedImageType\": \"DeveloperDiskImage\"\n    }\n]\n";
+
+    [Fact]
+    public void ReadsAMountedPersonalizedImage()
+    {
+        Assert.True(DeviceQueries.ParseDeveloperImageMounted(PersonalizedListed));
+    }
+
+    [Fact]
+    public void ReadsAMountedDeveloperImageOfAnOlderDevice()
+    {
+        Assert.True(DeviceQueries.ParseDeveloperImageMounted("[{\"DiskImageType\": \"Developer\", \"ImageSignature\": \"ff\", \"IsMounted\": true}]"));
+    }
+
+    [Theory]
+    [InlineData("[]\n")]
+    [InlineData("[{\"DiskImageType\": \"Cryptex\"}]")]
+    [InlineData("[{\"ImageSignature\": \"ff\"}, 7, \"Personalized\"]")]
+    public void NoDeveloperImageWhenNoneIsListed(string stdout)
+    {
+        Assert.False(DeviceQueries.ParseDeveloperImageMounted(stdout));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("{}")]
+    [InlineData("Traceback (most recent call last):")]
+    public void UnknownWhenTheImageListIsNotAList(string stdout)
+    {
+        Assert.Null(DeviceQueries.ParseDeveloperImageMounted(stdout));
+    }
+
+    [Fact]
+    public void ADeviceThatAnswersTheStatusTrustsTheLaptop()
+    {
+        Assert.True(DeviceQueries.Trusted(new CommandResult(0, "true\n", CliError.None, false)));
+    }
+
+    [Theory]
+    [InlineData(CliError.NeedsTrust)]
+    [InlineData(CliError.TrustDenied)]
+    [InlineData(CliError.DeviceLocked)]
+    public void ATrustProblemMeansNotTrusted(CliError error)
+    {
+        Assert.False(DeviceQueries.Trusted(new CommandResult(1, "", error, false)));
+    }
+
+    [Fact]
+    public void AStatusStillWaitingForTheTrustDialogMeansNotTrusted()
+    {
+        Assert.False(DeviceQueries.Trusted(new CommandResult(-1, "", CliError.None, true)));
+    }
+
+    [Theory]
+    [InlineData(CliError.NotConnected)]
+    [InlineData(CliError.Other)]
+    [InlineData(CliError.None)]
+    public void AnyOtherFailureLeavesTrustUnknown(CliError error)
+    {
+        Assert.Null(DeviceQueries.Trusted(new CommandResult(1, "", error, false)));
+    }
 }
