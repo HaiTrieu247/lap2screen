@@ -16,6 +16,13 @@ public class UsbPresenceTests
     }
 
     [Fact]
+    public void UsbmuxdMayDropTheDash()
+    {
+        Assert.True(UsbPresence.IsListed(new[] { "00008110001a2b3c4d5e6f70" }, Udid));
+        Assert.False(UsbPresence.IsListed(new[] { "00008030000102030405060A" }, Udid));
+    }
+
+    [Fact]
     public void OneMissIsNotEnough()
     {
         var presence = new UsbPresence(Udid);
@@ -30,7 +37,7 @@ public class UsbPresenceTests
 
         presence.Gone(new string[0]);
 
-        Assert.True(presence.Gone(null));
+        Assert.True(presence.Gone(new[] { Other }));
     }
 
     [Fact]
@@ -41,6 +48,25 @@ public class UsbPresenceTests
         presence.Gone(new string[0]);
         Assert.False(presence.Gone(new[] { Udid }));
         Assert.False(presence.Gone(new string[0]));
+        Assert.True(presence.Gone(new string[0]));
+    }
+
+    [Fact]
+    public void AnUnknownAnswerIsNeverAMiss()
+    {
+        var presence = new UsbPresence(Udid);
+
+        for (var i = 0; i < 10; i++) Assert.False(presence.Gone(null));
+        Assert.False(presence.Gone(new string[0]));
+    }
+
+    [Fact]
+    public void AnUnknownAnswerBetweenTwoMissesKeepsTheCount()
+    {
+        var presence = new UsbPresence(Udid);
+
+        presence.Gone(new string[0]);
+        Assert.False(presence.Gone(null));
         Assert.True(presence.Gone(new string[0]));
     }
 }

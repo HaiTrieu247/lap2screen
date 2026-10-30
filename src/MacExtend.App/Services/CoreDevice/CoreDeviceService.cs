@@ -510,11 +510,15 @@ namespace MacExtend.Services.CoreDevice
             }
         }
 
-        /// <summary>serve-web over the userspace tunnel never recovers from an unplug: notice the device leaving usbmux.</summary>
+        /// <summary>
+        /// serve-web over the userspace tunnel never recovers from an unplug: notice the device leaving usbmux. Asks the
+        /// Apple Mobile Device Service itself (no Python per poll); an answer it could not give is unknown, not a miss.
+        /// </summary>
         private async Task WatchUsbPresenceAsync(Session s, ServeWebRun run)
         {
             var token = run.Cts.Token;
             var presence = new UsbPresence(s.Udid);
+            var answered = true;
             while (true)
             {
                 try
@@ -525,8 +529,14 @@ namespace MacExtend.Services.CoreDevice
                 {
                     return;
                 }
-                var listed = await UsbDevicesAsync().ConfigureAwait(false);
+                var listed = await CoreDeviceCommands.UsbmuxUsbDevicesAsync().ConfigureAwait(false);
                 if (token.IsCancellationRequested) return;
+                // only when that changes, so a service that stays away does not fill the log
+                if ((listed != null) != answered)
+                {
+                    answered = listed != null;
+                    Log(s, answered ? "cable presence check: the Apple service answers again" : "cable presence check: no answer from the Apple service, unknown");
+                }
                 if (!presence.Gone(listed)) continue;
                 Log(s, "device left the cable");
                 Step(s, m => m.UsbDeviceGone());
