@@ -12,16 +12,16 @@ using System.Threading.Tasks;
 using MacExtend.Core.CoreDevice;
 using Microsoft.Win32.SafeHandles;
 
-namespace MacExtend.CoreDeviceProbe
+namespace MacExtend.CoreDeviceHost
 {
-    internal sealed class ProbeException : Exception
+    public sealed class CoreDeviceHostException : Exception
     {
-        public ProbeException(string message) : base(message)
+        public CoreDeviceHostException(string message) : base(message)
         {
         }
     }
 
-    internal enum ReadyFailure
+    public enum ReadyFailure
     {
         None,
         ExitedEarly,
@@ -30,7 +30,7 @@ namespace MacExtend.CoreDeviceProbe
         Cancelled,
     }
 
-    internal enum StopExit
+    public enum StopExit
     {
         /// <summary>Every process in the job had already exited when the stop began.</summary>
         AlreadyExited,
@@ -49,7 +49,7 @@ namespace MacExtend.CoreDeviceProbe
     /// that console through the probe's signal-ctrl-c helper; pymobiledevice3 11.47.0 turns the first Ctrl+C into a
     /// cancellation that runs serve-web's cleanup, and a second one aborts that cleanup.
     /// </summary>
-    internal sealed class CoreDeviceProcessHost : IDisposable
+    public sealed class CoreDeviceProcessHost : IDisposable
     {
         private const string ViewerTitle = "<title>pymobiledevice3 screen</title>";
 
@@ -68,14 +68,14 @@ namespace MacExtend.CoreDeviceProbe
         public CoreDeviceProcessHost()
         {
             _job = NativeMethods.CreateJobObject(IntPtr.Zero, null);
-            if (_job.IsInvalid) throw new ProbeException("CreateJobObject failed: " + Win32Message());
+            if (_job.IsInvalid) throw new CoreDeviceHostException("CreateJobObject failed: " + Win32Message());
             var info = new NativeMethods.JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
             info.BasicLimitInformation.LimitFlags = NativeMethods.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
             if (!NativeMethods.SetInformationJobObject(_job, NativeMethods.JobObjectExtendedLimitInformation, ref info, Marshal.SizeOf(typeof(NativeMethods.JOBOBJECT_EXTENDED_LIMIT_INFORMATION))))
             {
                 var message = Win32Message();
                 _job.Dispose();
-                throw new ProbeException("SetInformationJobObject failed: " + message);
+                throw new CoreDeviceHostException("SetInformationJobObject failed: " + message);
             }
         }
 
@@ -138,13 +138,13 @@ namespace MacExtend.CoreDeviceProbe
                     var errReader = Task.Run(() => ReadAll(child.Stderr, null));
                     if (NativeMethods.WaitForSingleObject(child.Process, (uint)timeout.TotalMilliseconds) != NativeMethods.WAIT_OBJECT_0)
                     {
-                        throw new ProbeException($"{Path.GetFileName(executable)} did not finish within {timeout.TotalSeconds:0} s");
+                        throw new CoreDeviceHostException($"{Path.GetFileName(executable)} did not finish within {timeout.TotalSeconds:0} s");
                     }
                     NativeMethods.GetExitCodeProcess(child.Process, out var exitCode);
                     // a descendant that outlived the command would hold the pipes open
                     NativeMethods.TerminateJobObject(host._job, 1);
                     Task.WaitAll(new Task[] { outReader, errReader }, 5000);
-                    if (exitCode != 0) throw new ProbeException($"{Path.GetFileName(executable)} exited with code {exitCode}");
+                    if (exitCode != 0) throw new CoreDeviceHostException($"{Path.GetFileName(executable)} exited with code {exitCode}");
                     lock (stdout) return stdout.ToString();
                 }
                 finally
@@ -162,7 +162,7 @@ namespace MacExtend.CoreDeviceProbe
             {
                 if (!NativeMethods.QueryInformationJobObject(_job, NativeMethods.JobObjectBasicAccountingInformation, buffer, NativeMethods.AccountingInfoSize, out _))
                 {
-                    throw new ProbeException("QueryInformationJobObject failed: " + Win32Message());
+                    throw new CoreDeviceHostException("QueryInformationJobObject failed: " + Win32Message());
                 }
                 return Marshal.ReadInt32(buffer, NativeMethods.AccountingActiveProcessesOffset);
             }
@@ -190,7 +190,7 @@ namespace MacExtend.CoreDeviceProbe
                         for (var i = 0; i < count; i++) pids.Add((int)Marshal.ReadIntPtr(buffer, NativeMethods.ProcessIdListHeader + i * IntPtr.Size).ToInt64());
                         return pids;
                     }
-                    if (Marshal.GetLastWin32Error() != NativeMethods.ERROR_MORE_DATA) throw new ProbeException("QueryInformationJobObject failed: " + Win32Message());
+                    if (Marshal.GetLastWin32Error() != NativeMethods.ERROR_MORE_DATA) throw new CoreDeviceHostException("QueryInformationJobObject failed: " + Win32Message());
                     capacity = Math.Max(capacity * 2, Marshal.ReadInt32(buffer, 0) + 8);
                 }
                 finally
@@ -198,7 +198,7 @@ namespace MacExtend.CoreDeviceProbe
                     Marshal.FreeHGlobal(buffer);
                 }
             }
-            throw new ProbeException("the job's process list kept growing");
+            throw new CoreDeviceHostException("the job's process list kept growing");
         }
 
         /// <summary>
@@ -384,9 +384,9 @@ namespace MacExtend.CoreDeviceProbe
             ChildProcess helper;
             try
             {
-                helper = Launch(helperExecutable, WindowsCommandLineOf(helperExecutable, "signal-ctrl-c", pid.ToString()), null, redirect: false, flags: NativeMethods.CREATE_NO_WINDOW);
+                helper = Launch(helperExecutable, WindowsCommandLineOf(helperExecutable, CtrlCHelper.Command, pid.ToString()), null, redirect: false, flags: NativeMethods.CREATE_NO_WINDOW);
             }
-            catch (ProbeException)
+            catch (CoreDeviceHostException)
             {
                 return HelperAttachFailed;
             }
@@ -421,9 +421,9 @@ namespace MacExtend.CoreDeviceProbe
             try
             {
                 started?.Invoke(child.Pid);
-                if (failAssign) throw new ProbeException("job assignment refused (--test-fail-assign)");
-                if (!NativeMethods.AssignProcessToJobObject(_job, child.Process)) throw new ProbeException("AssignProcessToJobObject failed: " + Win32Message());
-                if (NativeMethods.ResumeThread(child.Thread) == uint.MaxValue) throw new ProbeException("ResumeThread failed: " + Win32Message());
+                if (failAssign) throw new CoreDeviceHostException("job assignment refused (--test-fail-assign)");
+                if (!NativeMethods.AssignProcessToJobObject(_job, child.Process)) throw new CoreDeviceHostException("AssignProcessToJobObject failed: " + Win32Message());
+                if (NativeMethods.ResumeThread(child.Thread) == uint.MaxValue) throw new CoreDeviceHostException("ResumeThread failed: " + Win32Message());
             }
             catch
             {
@@ -560,14 +560,14 @@ namespace MacExtend.CoreDeviceProbe
                     var size = IntPtr.Zero;
                     NativeMethods.InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref size);
                     attributes = Marshal.AllocHGlobal(size);
-                    if (!NativeMethods.InitializeProcThreadAttributeList(attributes, 1, 0, ref size)) throw new ProbeException("InitializeProcThreadAttributeList failed: " + Win32Message());
+                    if (!NativeMethods.InitializeProcThreadAttributeList(attributes, 1, 0, ref size)) throw new CoreDeviceHostException("InitializeProcThreadAttributeList failed: " + Win32Message());
                     handleList = Marshal.AllocHGlobal(3 * IntPtr.Size);
                     Marshal.WriteIntPtr(handleList, 0, stdinRead.DangerousGetHandle());
                     Marshal.WriteIntPtr(handleList, IntPtr.Size, stdoutWrite.DangerousGetHandle());
                     Marshal.WriteIntPtr(handleList, 2 * IntPtr.Size, stderrWrite.DangerousGetHandle());
                     if (!NativeMethods.UpdateProcThreadAttribute(attributes, 0, NativeMethods.PROC_THREAD_ATTRIBUTE_HANDLE_LIST, handleList, (IntPtr)(3 * IntPtr.Size), IntPtr.Zero, IntPtr.Zero))
                     {
-                        throw new ProbeException("UpdateProcThreadAttribute failed: " + Win32Message());
+                        throw new CoreDeviceHostException("UpdateProcThreadAttribute failed: " + Win32Message());
                     }
                     startup.lpAttributeList = attributes;
                     startup.StartupInfo.dwFlags = NativeMethods.STARTF_USESTDHANDLES | NativeMethods.STARTF_USESHOWWINDOW;
@@ -586,7 +586,7 @@ namespace MacExtend.CoreDeviceProbe
                 var commandBuffer = new StringBuilder(commandLine, commandLine.Length + 1);
                 if (!NativeMethods.CreateProcess(executable, commandBuffer, IntPtr.Zero, IntPtr.Zero, redirect, creation, environment, null, ref startup, out var info))
                 {
-                    throw new ProbeException($"could not start {Path.GetFileName(executable)}: " + Win32Message());
+                    throw new CoreDeviceHostException($"could not start {Path.GetFileName(executable)}: " + Win32Message());
                 }
                 return new ChildProcess
                 {
@@ -623,19 +623,19 @@ namespace MacExtend.CoreDeviceProbe
         private static void CreateInheritablePipe(out SafeFileHandle read, out SafeFileHandle write, bool childReads)
         {
             var security = new NativeMethods.SECURITY_ATTRIBUTES { nLength = Marshal.SizeOf(typeof(NativeMethods.SECURITY_ATTRIBUTES)), bInheritHandle = true };
-            if (!NativeMethods.CreatePipe(out read, out write, ref security, 0)) throw new ProbeException("CreatePipe failed: " + Win32Message());
+            if (!NativeMethods.CreatePipe(out read, out write, ref security, 0)) throw new CoreDeviceHostException("CreatePipe failed: " + Win32Message());
             // only the child's end stays inheritable
             var parentEnd = childReads ? (SafeHandle)write : read;
-            if (!NativeMethods.SetHandleInformation(parentEnd, NativeMethods.HANDLE_FLAG_INHERIT, 0)) throw new ProbeException("SetHandleInformation failed: " + Win32Message());
+            if (!NativeMethods.SetHandleInformation(parentEnd, NativeMethods.HANDLE_FLAG_INHERIT, 0)) throw new CoreDeviceHostException("SetHandleInformation failed: " + Win32Message());
         }
 
         private static string Win32Message() => new Win32Exception(Marshal.GetLastWin32Error()).Message;
     }
 }
 
-namespace MacExtend.CoreDeviceProbe
+namespace MacExtend.CoreDeviceHost
 {
-    internal struct PortListener
+    public struct PortListener
     {
         public int Pid;
 
@@ -644,7 +644,7 @@ namespace MacExtend.CoreDeviceProbe
     }
 
     /// <summary>Who listens on a TCP port (IPv4 and IPv6, every local address), from GetExtendedTcpTable.</summary>
-    internal static class TcpListeners
+    public static class TcpListeners
     {
         // MIB_TCPROW_OWNER_PID: state, localAddr, localPort, remoteAddr, remotePort, owningPid
         private const int Row4Size = 24, Row4Local = 4, Row4Port = 8, Row4Pid = 20;
@@ -672,7 +672,7 @@ namespace MacExtend.CoreDeviceProbe
                 {
                     var rc = NativeMethods.GetExtendedTcpTable(buffer, ref size, false, family, NativeMethods.TCP_TABLE_OWNER_PID_LISTENER, 0);
                     if (rc == NativeMethods.ERROR_INSUFFICIENT_BUFFER) continue; // the table grew between calls
-                    if (rc != 0) throw new ProbeException($"GetExtendedTcpTable failed ({rc})");
+                    if (rc != 0) throw new CoreDeviceHostException($"GetExtendedTcpTable failed ({rc})");
                     var rows = Marshal.ReadInt32(buffer);
                     for (var i = 0; i < rows; i++)
                     {
@@ -696,7 +696,7 @@ namespace MacExtend.CoreDeviceProbe
                     Marshal.FreeHGlobal(buffer);
                 }
             }
-            throw new ProbeException("GetExtendedTcpTable kept growing");
+            throw new CoreDeviceHostException("GetExtendedTcpTable kept growing");
         }
     }
 }

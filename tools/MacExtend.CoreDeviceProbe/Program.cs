@@ -6,13 +6,12 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using MacExtend.Core.CoreDevice;
+using MacExtend.CoreDeviceHost;
 
 namespace MacExtend.CoreDeviceProbe
 {
     internal static class Program
     {
-        private const string HelperCommand = "signal-ctrl-c";
-
         private const string UsageText =
             "MacExtend CoreDevice probe: runs pymobiledevice3 serve-web for one device and lets you test it.\n" +
             "\n" +
@@ -37,11 +36,9 @@ namespace MacExtend.CoreDeviceProbe
 
         private static int Main(string[] args)
         {
-            if (args.Length > 0 && args[0] == HelperCommand) return SignalCtrlC(args);
+            if (CtrlCHelper.TryRun(args, out var helperExit)) return helperExit;
 
-            // "ignore Ctrl+C" is inherited from whoever started the probe (a CREATE_NEW_PROCESS_GROUP parent sets it)
-            // and would pass on to serve-web, which then never sees the one Ctrl+C that runs its cleanup
-            NativeMethods.SetConsoleCtrlHandler(IntPtr.Zero, false);
+            CtrlCHelper.ClearInheritedCtrlCIgnore();
 
             // .NET Framework defaults: "Expect: 100-continue" on POSTs and Nagle's delay on small writes
             ServicePointManager.Expect100Continue = false;
@@ -257,24 +254,6 @@ namespace MacExtend.CoreDeviceProbe
         {
             if (!int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var value)) throw new FormatException(option + " needs a whole number");
             return value;
-        }
-
-        /// <summary>
-        /// The helper: attach to the console of <c>pid</c> and send exactly one CTRL_C_EVENT to every process on it,
-        /// ignoring it here. Runs as a separate process so the probe never leaves its own console. The exit code
-        /// tells the probe whether the event was certainly sent, certainly not sent, or unknown.
-        /// </summary>
-        private static int SignalCtrlC(string[] args)
-        {
-            if (args.Length != 2 || !uint.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out var pid) || pid == 0)
-            {
-                return CoreDeviceProcessHost.HelperBadArguments;
-            }
-            NativeMethods.FreeConsole();
-            if (!NativeMethods.AttachConsole(pid)) return CoreDeviceProcessHost.HelperAttachFailed;
-            NativeMethods.SetConsoleCtrlHandler(IntPtr.Zero, true);
-            var sent = NativeMethods.GenerateConsoleCtrlEvent(NativeMethods.CTRL_C_EVENT, 0);
-            return sent ? CoreDeviceProcessHost.HelperSent : CoreDeviceProcessHost.HelperGenerateFailed;
         }
     }
 }

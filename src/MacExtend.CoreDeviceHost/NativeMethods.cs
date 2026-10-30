@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 
-namespace MacExtend.CoreDeviceProbe
+namespace MacExtend.CoreDeviceHost
 {
     /// <summary>A process, thread or job handle, closed with CloseHandle.</summary>
     internal sealed class SafeKernelHandle : SafeHandleZeroOrMinusOneIsInvalid

@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MacExtend.Core\MacExtend.Core.csproj" />
+    <ProjectReference Include="..\..\src\MacExtend.CoreDeviceHost\MacExtend.CoreDeviceHost.csproj" />
     <Reference Include="System.Net.Http" />
   </ItemGroup>
 

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- serve-web and tunneld process hosting shared by the app and the developer probe: kill-on-close job objects,
+       exactly one Ctrl+C, readiness checks. See tools/coredevice/README.md. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <RootNamespace>MacExtend.CoreDeviceHost</RootNamespace>
+    <AssemblyName>MacExtend.CoreDeviceHost</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Copyright>GPL-3.0-or-later</Copyright>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MacExtend.Core\MacExtend.Core.csproj" />
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+</Project>

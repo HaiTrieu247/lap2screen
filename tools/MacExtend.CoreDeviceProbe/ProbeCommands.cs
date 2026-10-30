@@ -9,6 +9,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using MacExtend.Core.CoreDevice;
+using MacExtend.CoreDeviceHost;
 
 namespace MacExtend.CoreDeviceProbe
 {
@@ -115,7 +116,7 @@ namespace MacExtend.CoreDeviceProbe
                 }
                 Out($"pymobiledevice3 {version}");
             }
-            catch (ProbeException e)
+            catch (CoreDeviceHostException e)
             {
                 Out("error: version check failed: " + e.Message);
                 return await FailStartAsync("version check failed", ExitCodes.Usage).ConfigureAwait(false);
@@ -134,7 +135,7 @@ namespace MacExtend.CoreDeviceProbe
             {
                 _host.Start(options.PythonPath, args, env, _settings.TestFailAssign == AssignFailure.ServeWeb, pid => Out($"child pid={pid}"));
             }
-            catch (ProbeException e)
+            catch (CoreDeviceHostException e)
             {
                 Out("error: " + e.Message + "; the child was terminated before it ran");
                 return await FailStartAsync("start failed", ExitCodes.StartFailed).ConfigureAwait(false);
@@ -317,7 +318,7 @@ namespace MacExtend.CoreDeviceProbe
                 {
                     empty = _host.IsEmpty;
                 }
-                catch (ProbeException)
+                catch (CoreDeviceHostException)
                 {
                     return;
                 }
@@ -394,7 +395,7 @@ namespace MacExtend.CoreDeviceProbe
             {
                 return _host.JobProcessIds();
             }
-            catch (ProbeException)
+            catch (CoreDeviceHostException)
             {
                 return new int[0];
             }
