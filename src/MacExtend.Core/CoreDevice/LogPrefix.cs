@@ -2,7 +2,7 @@ namespace MacExtend.Core.CoreDevice
 {
     /// <summary>
     /// The prefix pymobiledevice3's ansilogs puts on every line: "&lt;date&gt; &lt;time&gt; &lt;host&gt; &lt;logger&gt;[&lt;pid&gt;] &lt;LEVEL&gt; ".
-    /// One builder for ServeWebLog, CliLog and TunneldLog.
+    /// One builder for ServeWebLog and CliLog.
     /// </summary>
     internal static class LogPrefix
     {
