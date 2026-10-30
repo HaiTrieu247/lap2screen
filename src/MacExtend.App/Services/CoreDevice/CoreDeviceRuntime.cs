@@ -16,8 +16,9 @@ namespace MacExtend.Services.CoreDevice
     /// <summary>The CoreDevice runtime under {app}\coredevice: what is installed, getting this build's zip, installing it.</summary>
     internal static class CoreDeviceRuntime
     {
-        public const string NoMetadataMessage = "Bản build cục bộ không có thông tin runtime. Hãy dùng bản do CI build.";
+        public static string NoMetadataMessage => HelperOutcomes.Message((int)HelperOutcome.PackageMissing);
 
+        private const string Ok = "ok";
         private const int ErrorCancelled = 1223;
 
         /// <summary>The zip this build was made with (CI metadata); null for a local build.</summary>
@@ -121,24 +122,30 @@ namespace MacExtend.Services.CoreDevice
             {
                 // only a copy in a folder that only administrators can change is set up elevated; any other copy, even an
                 // installed one, is treated like a portable copy
-                var outcome = TaskAllowed ? SetupElevated(zip, log) : InstallHere(zip, log);
+                var outcome = TaskAllowed ? SetupElevated(zip) : InstallHere(zip, log);
                 log.WriteLine("[setup] outcome: " + outcome);
-                if (outcome == SetupHelperResult.Ok && zip != null) ForgetDownload(zip);
+                if (outcome == Ok && zip != null) ForgetDownload(zip);
                 return outcome;
             }
         });
 
         private static string InstallHere(string zip, RotatingLog log)
         {
-            if (zip == null) return SetupHelperResult.Ok;
+            if (zip == null) return Ok;
             if (Package == null) return "failed: " + NoMetadataMessage;
             try
             {
                 RuntimeInstaller.Install(zip, Package, AppPaths.CoreDeviceRoot, line => log.WriteLine("[setup] " + line));
-                return SetupHelperResult.Ok;
+                return Ok;
             }
-            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException || e is NotSupportedException)
+            catch (RuntimePackageException e)
             {
+                return "failed: " + HelperOutcomes.Message((int)HelperOutcomes.For(e.Problem));
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is InvalidDataException || e is ArgumentException
+                                      || e is NotSupportedException)
+            {
+                // unelevated, in the user's own folder: the system's message is only shown to that user
                 return "failed: " + e.Message;
             }
         }
@@ -152,69 +159,55 @@ namespace MacExtend.Services.CoreDevice
         {
             using (var log = new RotatingLog(AppPaths.CoreDeviceLog, 512 * 1024))
             {
-                var outcome = RunElevated(result => new[] { CoreDeviceHelpers.RulesArg, result }, log);
+                var outcome = RunElevated(new[] { CoreDeviceHelpers.RulesArg });
                 log.WriteLine("[setup] firewall rules outcome: " + outcome);
                 return outcome;
             }
         });
 
-        private static string SetupElevated(string zip, RotatingLog log)
+        private static string SetupElevated(string zip)
         {
             // the elevated side refuses (exit 2) a network or device path; say why instead of asking UAC for nothing
             if (zip != null && !HelperPaths.IsLocalDrivePath(zip))
             {
                 return "failed: Tệp runtime phải nằm trên ổ đĩa của máy này. Hãy chép tệp về máy rồi chọn lại.";
             }
-            return RunElevated(result => new[]
-            {
-                CoreDeviceHelpers.SetupArg, zip ?? CoreDeviceHelpers.NoZip, result, Elevation.CurrentUserName(),
-                UsesTask ? "1" : "0",
-            }, log);
+            return RunElevated(new[] { CoreDeviceHelpers.SetupArg, zip ?? CoreDeviceHelpers.NoZip, Elevation.CurrentUserName(), UsesTask ? "1" : "0" });
         }
 
-        /// <summary>Runs one of this exe's elevated helper modes behind UAC and logs the lines of its result file.</summary>
-        /// <param name="args">The mode's arguments, given the path of a result file that does not exist yet.</param>
-        private static string RunElevated(Func<string, string[]> args, RotatingLog log)
+        /// <summary>
+        /// Runs one of this exe's elevated helper modes behind UAC. Its exit code is the whole answer (HelperOutcome),
+        /// turned into a fixed message here. The Process object Start returns holds the handle ShellExecuteEx gave back
+        /// for the elevated process, which is enough to wait for it and read its exit code.
+        /// </summary>
+        /// <returns>"ok", "cancelled" (UAC declined) or "failed: " + a fixed message.</returns>
+        private static string RunElevated(string[] args)
         {
-            var result = Path.Combine(ResultDir(), HelperPaths.ResultFileName(Guid.NewGuid()));
+            int code;
             try
             {
-                using (var p = Process.Start(new ProcessStartInfo(AppPaths.SelfExe, WindowsCommandLine.Join(args(result)))
+                using (var p = Process.Start(new ProcessStartInfo(AppPaths.SelfExe, WindowsCommandLine.Join(args))
                 {
                     UseShellExecute = true,
                     Verb = "runas",
                     WindowStyle = ProcessWindowStyle.Hidden,
                 }))
                 {
-                    p?.WaitForExit();
+                    if (p == null) return "failed: " + HelperOutcomes.Message((int)HelperOutcome.Failed);
+                    p.WaitForExit();
+                    code = p.ExitCode;
                 }
-                var parsed = SetupHelperResult.Parse(File.Exists(result) ? File.ReadAllText(result) : null);
-                foreach (var line in parsed.Lines) log.WriteLine("[setup] " + line);
-                if (parsed.Succeeded) return SetupHelperResult.Ok;
-                if (parsed.Outcome == null) return "failed: Bước cài đặt có quyền quản trị không trả kết quả.";
-                return parsed.Outcome.StartsWith("failed: ", StringComparison.Ordinal) ? parsed.Outcome : "failed: " + parsed.Outcome;
             }
             catch (Win32Exception e) when (e.NativeErrorCode == ErrorCancelled)
             {
                 return "cancelled";
             }
-            catch (Exception e) when (e is Win32Exception || e is IOException || e is UnauthorizedAccessException)
+            catch (Exception e) when (e is Win32Exception || e is InvalidOperationException)
             {
-                return "failed: " + e.Message;
+                // could not start it, or no exit code from its handle
+                return "failed: " + HelperOutcomes.Message((int)HelperOutcome.Failed);
             }
-            finally
-            {
-                TryDelete(result);
-            }
-        }
-
-        /// <summary>The user's own temp folder, or the updates folder when TEMP is not a local drive path (the helper refuses those).</summary>
-        private static string ResultDir()
-        {
-            var temp = Path.GetTempPath();
-            if (HelperPaths.IsLocalDrivePath(temp)) return temp;
-            Directory.CreateDirectory(AppPaths.UpdatesDir);
-            return AppPaths.UpdatesDir;
+            return code == (int)HelperOutcome.Ok ? Ok : "failed: " + HelperOutcomes.Message(code);
         }
 
         /// <summary>The downloaded zip has done its job once installed; a zip the user picked stays where it is.</summary>

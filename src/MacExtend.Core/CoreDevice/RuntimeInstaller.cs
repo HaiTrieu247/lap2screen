@@ -5,6 +5,27 @@ using MacExtend.Core.Updates;
 
 namespace MacExtend.Core.CoreDevice
 {
+    public enum RuntimeProblem
+    {
+        /// <summary>The SHA-256 is not the one this build was made with.</summary>
+        NotThePackage,
+        /// <summary>No python\python.exe or python\pythonw.exe.</summary>
+        Incomplete,
+        /// <summary>RUNTIME_ID is missing or names another runtime.</summary>
+        WrongRuntimeId,
+    }
+
+    /// <summary>A zip that is not this build's usable runtime. The message is a fixed sentence without paths.</summary>
+    public sealed class RuntimePackageException : Exception
+    {
+        public RuntimePackageException(RuntimeProblem problem, string message) : base(message)
+        {
+            Problem = problem;
+        }
+
+        public RuntimeProblem Problem { get; }
+    }
+
     /// <summary>
     /// Puts a CoreDevice runtime zip in place as {app}\coredevice: only this build's own package (SHA-256 and
     /// RUNTIME_ID), only inside its folder, and never leaving the machine without the runtime it had.
@@ -41,7 +62,8 @@ namespace MacExtend.Core.CoreDevice
         /// second read. The tree must hold python\python.exe, python\pythonw.exe and the expected RUNTIME_ID. TARGET then
         /// moves to TARGET.old and TARGET.new takes its place; whatever fails after that, TARGET.old comes back.
         /// </summary>
-        /// <exception cref="InvalidDataException">The zip is not <paramref name="expected"/>, or not a usable runtime.</exception>
+        /// <exception cref="RuntimePackageException">The zip is not <paramref name="expected"/>, or not a usable runtime.</exception>
+        /// <exception cref="InvalidDataException">The right bytes, but a zip that cannot be extracted safely.</exception>
         public static void Install(Stream source, RuntimePackage expected, string target, Action<string> log)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
@@ -56,7 +78,7 @@ namespace MacExtend.Core.CoreDevice
                 {
                     if (!expected.Matches(FileHash.CopySha256(source, copy)))
                     {
-                        throw new InvalidDataException("Gói runtime không phải của bản MacExtend này (sai mã SHA-256).");
+                        throw new RuntimePackageException(RuntimeProblem.NotThePackage, "Gói runtime không phải của bản MacExtend này (sai mã SHA-256).");
                     }
                     copy.Position = 0;
                     UpdateStager.Extract(copy, fresh);
@@ -89,13 +111,16 @@ namespace MacExtend.Core.CoreDevice
         {
             foreach (var exe in new[] { "python.exe", "pythonw.exe" })
             {
-                if (!File.Exists(Path.Combine(dir, "python", exe))) throw new InvalidDataException("Gói runtime thiếu python\\" + exe + ".");
+                if (!File.Exists(Path.Combine(dir, "python", exe)))
+                {
+                    throw new RuntimePackageException(RuntimeProblem.Incomplete, "Gói runtime thiếu python\\" + exe + ".");
+                }
             }
             var idFile = Path.Combine(dir, RuntimeIdFile);
             var found = File.Exists(idFile) ? File.ReadAllText(idFile).Trim() : "";
             if (!string.Equals(found, id, StringComparison.Ordinal))
             {
-                throw new InvalidDataException("Gói runtime có RUNTIME_ID khác với bản MacExtend này.");
+                throw new RuntimePackageException(RuntimeProblem.WrongRuntimeId, "Gói runtime có RUNTIME_ID khác với bản MacExtend này.");
             }
         }
 

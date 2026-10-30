@@ -145,8 +145,9 @@ public sealed class RuntimeInstallerTests : IDisposable
         var expected = PackageForZip();
         WriteZip(Runtime().Concat(new[] { ("python/Lib/extra.py", "one more file") }).ToArray());
 
-        Assert.Throws<InvalidDataException>(() => RuntimeInstaller.Install(ZipPath, expected, Target, _log.Add));
+        var e = Assert.Throws<RuntimePackageException>(() => RuntimeInstaller.Install(ZipPath, expected, Target, _log.Add));
 
+        Assert.Equal(RuntimeProblem.NotThePackage, e.Problem);
         AssertOldRuntimeUntouched();
     }
 
@@ -156,22 +157,24 @@ public sealed class RuntimeInstallerTests : IDisposable
         InstallOldRuntime();
         WriteZip(Runtime("cd-2"));
 
-        Assert.Throws<InvalidDataException>(() => RuntimeInstaller.Install(ZipPath, PackageForZip("cd-1"), Target, _log.Add));
+        var e = Assert.Throws<RuntimePackageException>(() => RuntimeInstaller.Install(ZipPath, PackageForZip("cd-1"), Target, _log.Add));
 
+        Assert.Equal(RuntimeProblem.WrongRuntimeId, e.Problem);
         AssertOldRuntimeUntouched();
     }
 
     [Theory]
-    [InlineData("python/python.exe")]
-    [InlineData("python/pythonw.exe")]
-    [InlineData("RUNTIME_ID")]
-    public void RefusesAZipWithoutAPartTheAppNeeds(string missing)
+    [InlineData("python/python.exe", RuntimeProblem.Incomplete)]
+    [InlineData("python/pythonw.exe", RuntimeProblem.Incomplete)]
+    [InlineData("RUNTIME_ID", RuntimeProblem.WrongRuntimeId)]
+    public void RefusesAZipWithoutAPartTheAppNeeds(string missing, RuntimeProblem problem)
     {
         InstallOldRuntime();
         WriteZip(Runtime().Where(e => e.Name != missing).ToArray());
 
-        Assert.Throws<InvalidDataException>(() => RuntimeInstaller.Install(ZipPath, PackageForZip(), Target, _log.Add));
+        var e = Assert.Throws<RuntimePackageException>(() => RuntimeInstaller.Install(ZipPath, PackageForZip(), Target, _log.Add));
 
+        Assert.Equal(problem, e.Problem);
         AssertOldRuntimeUntouched();
     }
 
@@ -282,7 +285,8 @@ public sealed class RuntimeInstallerTests : IDisposable
 
         using (var source = new TwoFacedStream(other, good))
         {
-            Assert.Throws<InvalidDataException>(() => RuntimeInstaller.Install(source, expected, Target, _log.Add));
+            var e = Assert.Throws<RuntimePackageException>(() => RuntimeInstaller.Install(source, expected, Target, _log.Add));
+            Assert.Equal(RuntimeProblem.NotThePackage, e.Problem);
         }
 
         AssertOldRuntimeUntouched();
@@ -297,7 +301,7 @@ public sealed class RuntimeInstallerTests : IDisposable
 
         RuntimeInstaller.Install(ZipPath, expected, Target, _log.Add);
         WriteZip(Runtime("cd-2"));
-        Assert.Throws<InvalidDataException>(() => RuntimeInstaller.Install(ZipPath, expected, Target, _log.Add));
+        Assert.Throws<RuntimePackageException>(() => RuntimeInstaller.Install(ZipPath, expected, Target, _log.Add));
 
         Assert.False(File.Exists(Target + ".zip.tmp"));
         Assert.Equal(new[] { "coredevice" }, Directory.GetFileSystemEntries(App).Select(Path.GetFileName).ToArray());

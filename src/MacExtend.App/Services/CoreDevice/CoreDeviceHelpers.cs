@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using MacExtend.Core.CoreDevice;
 using MacExtend.CoreDeviceHost;
 using MacExtend.Native;
@@ -10,21 +8,20 @@ namespace MacExtend.Services.CoreDevice
 {
     /// <summary>
     /// MacExtend.exe's helper modes for "Điều khiển trực tiếp", handled before any UI or the single-instance check:
-    ///   signal-ctrl-c PID                                one Ctrl+C to serve-web's console
-    ///   --coredevice-setup ZIP|- RESULT USER TASK(0|1)   elevated, one UAC: this build's runtime (ZIP; "-" keeps the
-    ///                                                    installed one), the firewall rules and, for TASK=1, the
-    ///                                                    Scheduled Task (only for an installed copy inside Program
-    ///                                                    Files or Program Files (x86), checked here again; otherwise
-    ///                                                    any old task is removed). A runtime is staged only there too.
-    ///   --coredevice-rules RESULT                        elevated, one UAC: only the firewall rules, for a copy without
-    ///                                                    the task before its first Wi-Fi session; no runtime, no task;
-    ///                                                    running it again gives the same rules
-    ///   --coredevice-remove                              elevated: task and rules (uninstaller, CI)
+    ///   signal-ctrl-c PID                         one Ctrl+C to serve-web's console
+    ///   --coredevice-setup ZIP|- USER TASK(0|1)   elevated, one UAC: this build's runtime (ZIP, a local drive path; "-"
+    ///                                             keeps the installed one), the firewall rules and, for TASK=1, the
+    ///                                             Scheduled Task. The runtime and the task only for an installed copy
+    ///                                             inside Program Files or Program Files (x86), checked here again;
+    ///                                             otherwise any old task is removed.
+    ///   --coredevice-rules                        elevated, one UAC: only the firewall rules, for a copy whose setup made
+    ///                                             none, before its first Wi-Fi session; no runtime, no task; running it
+    ///                                             again gives the same rules
+    ///   --coredevice-remove                       elevated: task and rules (uninstaller, CI)
+    /// The elevated modes report only their exit code (HelperOutcome; the app shows HelperOutcomes.Message) and write
+    /// nothing outside the install folder: no log, no result file, so no caller-chosen path ever receives their text.
     /// tunneld is never hosted here: the task starts the runtime's pythonw.exe itself, because an elevated .NET process
-    /// would honour COR_PROFILER from the user's own environment. The elevated modes write nothing into the user's
-    /// folders except the new RESULT file; the app logs the step lines it carries (SetupHelperResult). ZIP and RESULT
-    /// come from an unelevated caller, so both must be local drive paths and RESULT must have the app's own name
-    /// (HelperPaths); anything else exits 2 before anything is created.
+    /// would honour COR_PROFILER from the user's own environment.
     /// </summary>
     internal static class CoreDeviceHelpers
     {
@@ -33,181 +30,207 @@ namespace MacExtend.Services.CoreDevice
         public const string RemoveArg = "--coredevice-remove";
         /// <summary>The ZIP argument when the runtime is already in place: firewall rules and task only.</summary>
         public const string NoZip = "-";
-        /// <summary>Exit code of a helper mode given the wrong arguments; the app itself never starts from them.</summary>
-        public const int BadArguments = 2;
-
-        private const string OnlyProgramFilesMessage =
-            "Chỉ cài thành phần với quyền quản trị cho bản MacExtend cài trong Program Files hoặc Program Files (x86).";
 
         /// <returns>true when <paramref name="args"/> asked for a helper mode; the process exits with <paramref name="exitCode"/>.</returns>
         public static bool TryRun(string[] args, out int exitCode)
         {
             args = args ?? new string[0];
             if (CtrlCHelper.TryRun(args, out exitCode)) return true;
-            if (args.Length > 0 && args[0] == SetupArg)
+            var mode = args.Length > 0 ? args[0] : null;
+            HelperOutcome outcome;
+            if (mode == SetupArg)
             {
-                var valid = args.Length == 5 && (args[1] == NoZip || HelperPaths.IsLocalDrivePath(args[1]))
-                            && HelperPaths.IsResultFile(args[2]) && (args[4] == "0" || args[4] == "1");
-                exitCode = valid ? Setup(args[1] == NoZip ? null : args[1], args[2], args[3], args[4] == "1") : BadArguments;
-                return true;
+                var valid = args.Length == 4 && (args[1] == NoZip || HelperPaths.IsLocalDrivePath(args[1])) && (args[3] == "0" || args[3] == "1");
+                outcome = valid ? Run(() => Setup(args[1] == NoZip ? null : args[1], args[2], args[3] == "1")) : HelperOutcome.BadArguments;
             }
-            if (args.Length > 0 && args[0] == RulesArg)
+            else if (mode == RulesArg)
             {
-                exitCode = args.Length == 2 && HelperPaths.IsResultFile(args[1]) ? Rules(args[1]) : BadArguments;
-                return true;
+                outcome = args.Length == 1 ? Run(Rules) : HelperOutcome.BadArguments;
             }
-            if (args.Length > 0 && args[0] == RemoveArg)
+            else if (mode == RemoveArg)
             {
-                exitCode = args.Length == 1 ? Remove() : BadArguments;
-                return true;
+                outcome = args.Length == 1 ? Remove() : HelperOutcome.BadArguments;
             }
-            exitCode = 0;
-            return false;
+            else
+            {
+                exitCode = 0;
+                return false;
+            }
+            exitCode = (int)outcome;
+            return true;
+        }
+
+        private static HelperOutcome Run(Action steps)
+        {
+            try
+            {
+                steps();
+                return HelperOutcome.Ok;
+            }
+            catch (StepFailed e)
+            {
+                return e.Outcome;
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is InvalidOperationException || e is InvalidDataException
+                                      || e is ArgumentException || e is NotSupportedException || e is System.Security.SecurityException)
+            {
+                return HelperOutcome.Failed;
+            }
         }
 
         /// <param name="zip">The runtime zip to install, or null to keep the installed one.</param>
         /// <param name="userName">The logged-on user (read by the unelevated app): the task's principal.</param>
         /// <param name="withTask">The caller's account elevates by itself, so a "highest privileges" task gives tunneld its rights.</param>
-        private static int Setup(string zip, string resultFile, string userName, bool withTask) => Steps(resultFile, log =>
+        private static void Setup(string zip, string userName, bool withTask)
         {
             RequireElevated();
             if (zip != null)
             {
                 // the private copy, TARGET.new and TARGET.old are written and deleted with administrator rights: only in a
                 // folder that only administrators can change (any other copy installs its runtime without UAC)
-                if (!CoreDeviceRuntime.TaskAllowed) throw new InvalidOperationException(OnlyProgramFilesMessage);
+                if (!CoreDeviceRuntime.TaskAllowed) throw new StepFailed(HelperOutcome.NotProtectedLocation);
                 // the package this exe was built with; the installer hashes its private copy and extracts only from it
-                var expected = CoreDeviceRuntime.Package ?? throw new InvalidOperationException(CoreDeviceRuntime.NoMetadataMessage);
-                // the task's tunneld (pythonw.exe) holds the runtime's files while it runs
-                TryScript(CoreDeviceSetupScripts.StopTask(), "stop task", "Không dừng được tunneld", log);
-                RuntimeInstaller.Install(zip, expected, AppPaths.CoreDeviceRoot, log);
+                var expected = CoreDeviceRuntime.Package ?? throw new StepFailed(HelperOutcome.PackageMissing);
+                using (var source = OpenZip(zip))
+                {
+                    // the task's tunneld (pythonw.exe) holds the runtime's files while it runs
+                    TryScript(CoreDeviceSetupScripts.StopTask);
+                    Install(source, expected);
+                }
             }
             else
             {
                 RequireRuntime();
             }
 
-            AddRules(log);
+            AddRules();
             // decided again here, never taken from the unelevated caller: a task with highest privileges only runs a
             // pythonw.exe that only administrators can replace
             var task = withTask && CoreDeviceRuntime.TaskAllowed;
             if (task)
             {
-                RunScript(CoreDeviceSetupScripts.RegisterTask(AppPaths.CoreDevicePythonw, AppPaths.CoreDevicePythonDir, userName),
-                          "scheduled task", "Không tạo được tác vụ Scheduled Task", log);
+                RunScript(() => CoreDeviceSetupScripts.RegisterTask(AppPaths.CoreDevicePythonw, AppPaths.CoreDevicePythonDir, userName),
+                          HelperOutcome.TaskFailed);
             }
             else
             {
-                if (withTask) log("no scheduled task: not an installed copy inside Program Files or Program Files (x86)");
                 // an older task may point at a folder that is no longer protected
-                TryScript(CoreDeviceSetupScripts.RemoveTask(), "remove task", "Không xóa được tác vụ", log);
+                TryScript(CoreDeviceSetupScripts.RemoveTask);
             }
-            Verify(task, log);
-        });
+            Verify(task);
+        }
 
         /// <summary>Only the firewall rules (AddFirewallRules removes the group first, so a second run is the same as one).</summary>
-        private static int Rules(string resultFile) => Steps(resultFile, log =>
+        private static void Rules()
         {
             RequireElevated();
             RequireRuntime();
-            AddRules(log);
-            Verify(false, log);
-        });
-
-        private static int Remove()
-        {
-            Action<string> quiet = _ => { };
-            // tunneld first: the uninstaller deletes the runtime right after this
-            var ok = TryScript(CoreDeviceSetupScripts.StopTask(), "stop task", "Không dừng được tunneld", quiet);
-            ok &= TryScript(CoreDeviceSetupScripts.RemoveTask(), "remove task", "Không xóa được tác vụ", quiet);
-            ok &= TryScript(CoreDeviceSetupScripts.RemoveFirewallRules(), "remove firewall rules", "Không xóa được luật tường lửa", quiet);
-            return ok ? 0 : 1;
+            AddRules();
+            Verify(false);
         }
 
-        /// <summary>Runs the steps of an elevated mode and writes its outcome and step lines to RESULT.</summary>
-        /// <returns>0 when every step succeeded and RESULT was written; 1 otherwise.</returns>
-        private static int Steps(string resultFile, Action<Action<string>> steps)
+        private static HelperOutcome Remove()
         {
-            var lines = new List<string>();
-            string outcome;
-            try
-            {
-                steps(lines.Add);
-                outcome = SetupHelperResult.Ok;
-            }
-            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is InvalidOperationException
-                                      || e is ArgumentException || e is NotSupportedException || e is System.Security.SecurityException)
-            {
-                // InvalidDataException (a zip that is not this build's runtime) is an IOException
-                outcome = "failed: " + e.Message;
-            }
-            var written = WriteResult(resultFile, SetupHelperResult.Format(outcome, lines));
-            return written && outcome == SetupHelperResult.Ok ? 0 : 1;
+            // tunneld first: the uninstaller deletes the runtime right after this
+            var ok = TryScript(CoreDeviceSetupScripts.StopTask);
+            ok &= TryScript(CoreDeviceSetupScripts.RemoveTask);
+            ok &= TryScript(CoreDeviceSetupScripts.RemoveFirewallRules);
+            return ok ? HelperOutcome.Ok : HelperOutcome.RemoveFailed;
         }
 
         private static void RequireElevated()
         {
-            if (!Elevation.IsElevated) throw new UnauthorizedAccessException("Bước cài đặt không có quyền quản trị.");
+            if (!Elevation.IsElevated) throw new StepFailed(HelperOutcome.NotElevated);
         }
 
         private static void RequireRuntime()
         {
-            if (!File.Exists(AppPaths.CoreDevicePython) || !File.Exists(AppPaths.CoreDevicePythonw))
+            if (!File.Exists(AppPaths.CoreDevicePython) || !File.Exists(AppPaths.CoreDevicePythonw)) throw new StepFailed(HelperOutcome.RuntimeMissing);
+        }
+
+        private static FileStream OpenZip(string zip)
+        {
+            try
             {
-                throw new InvalidOperationException("Chưa có thành phần Điều khiển trực tiếp trong thư mục MacExtend.");
+                // other programs cannot change, rename or delete it while it is copied
+                return new FileStream(zip, FileMode.Open, FileAccess.Read, FileShare.Read);
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException || e is NotSupportedException
+                                      || e is System.Security.SecurityException)
+            {
+                throw new StepFailed(HelperOutcome.ZipNotFound);
             }
         }
 
-        private static void AddRules(Action<string> log) =>
-            RunScript(CoreDeviceSetupScripts.AddFirewallRules(AppPaths.CoreDevicePythonDir), "firewall rules", "Không tạo được luật tường lửa", log);
+        private static void Install(Stream source, RuntimePackage expected)
+        {
+            try
+            {
+                RuntimeInstaller.Install(source, expected, AppPaths.CoreDeviceRoot, null);
+            }
+            catch (RuntimePackageException e)
+            {
+                throw new StepFailed(HelperOutcomes.For(e.Problem));
+            }
+            catch (InvalidDataException)
+            {
+                // the right bytes, but an entry outside its folder or a zip that cannot be read
+                throw new StepFailed(HelperOutcome.BadPackage);
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                // files in use or disk full; the installer has put the previous runtime back
+                throw new StepFailed(HelperOutcome.InstallFailed);
+            }
+        }
+
+        private static void AddRules() =>
+            RunScript(() => CoreDeviceSetupScripts.AddFirewallRules(AppPaths.CoreDevicePythonDir), HelperOutcome.FirewallFailed);
 
         /// <summary>What the scripts made must be visible afterwards: all firewall rules, and the task when one was wanted.</summary>
-        private static void Verify(bool needsTask, Action<string> log)
+        private static void Verify(bool needsTask)
         {
             var result = PowerShellRunner.RunAsync(CoreDeviceSetupScripts.Query()).GetAwaiter().GetResult();
-            var state = CoreDeviceSetupScripts.ParseQuery(result.Output);
-            log("check: rules=" + state.Rules + " task=" + (state.Task ? 1 : 0));
-            if (!state.IsComplete(needsTask)) throw new InvalidOperationException("Windows chưa có đủ luật tường lửa hoặc tác vụ sau khi thiết lập.");
+            if (!CoreDeviceSetupScripts.ParseQuery(result.Output).IsComplete(needsTask)) throw new StepFailed(HelperOutcome.VerifyFailed);
         }
 
-        /// <param name="what">English, for the log line.</param>
-        /// <param name="failure">Vietnamese, for the outcome the setup window shows.</param>
-        private static void RunScript(string script, string what, string failure, Action<string> log)
+        /// <param name="script">Builds the script; a value it refuses (a '%' in the task definition) is that step's failure too.</param>
+        private static void RunScript(Func<string> script, HelperOutcome failure)
         {
-            var result = PowerShellRunner.RunAsync(script).GetAwaiter().GetResult();
-            log(what + ": exit " + result.ExitCode);
-            if (!result.Succeeded) throw new InvalidOperationException(failure + " (mã " + result.ExitCode + ").");
+            string text;
+            try
+            {
+                text = script();
+            }
+            catch (ArgumentException)
+            {
+                throw new StepFailed(failure);
+            }
+            if (!PowerShellRunner.RunAsync(text).GetAwaiter().GetResult().Succeeded) throw new StepFailed(failure);
         }
 
-        private static bool TryScript(string script, string what, string failure, Action<string> log)
+        private static bool TryScript(Func<string> script)
         {
             try
             {
-                RunScript(script, what, failure, log);
+                RunScript(script, HelperOutcome.Failed);
                 return true;
             }
-            catch (InvalidOperationException)
+            catch (StepFailed)
             {
                 return false;
             }
         }
 
-        private static bool WriteResult(string path, string text)
+        /// <summary>Ends the steps of a mode with its exit code.</summary>
+        private sealed class StepFailed : Exception
         {
-            try
+            public StepFailed(HelperOutcome outcome) : base(outcome.ToString())
             {
-                // a new file only: nothing already at that name (another program's file or link) is ever overwritten
-                using (var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                using (var writer = new StreamWriter(file, new UTF8Encoding(false)))
-                {
-                    writer.Write(text);
-                }
-                return true;
+                Outcome = outcome;
             }
-            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is System.Security.SecurityException)
-            {
-                return false;
-            }
+
+            public HelperOutcome Outcome { get; }
         }
     }
 }
