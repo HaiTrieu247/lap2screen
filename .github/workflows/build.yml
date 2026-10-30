@@ -149,6 +149,10 @@ jobs:
       # Elevated pieces for real on the admin runner: the helper modes, the firewall rules, the Scheduled Task and the
       # task's own tunneld command line (no iPhone needed). It works on temporary copies of build/MacExtend, so the
       # portable zip below is not affected.
+      # The registered Scheduled Task is started for real here (Start-ScheduledTask, then GET / == {}); this is the only
+      # step that proves the task's Execute/Arguments/WorkingDirectory/principal actually launch tunneld, and that setup
+      # replaces and remove ends a tunneld the task is running. It fails if the runner cannot run the Interactive task;
+      # a local run may skip it with MACEXTEND_CI_ALLOW_TASK_SKIP=1 (deliberately not set here).
       - name: CoreDevice setup, task and tunneld (elevated runner)
         shell: pwsh
         timeout-minutes: 20

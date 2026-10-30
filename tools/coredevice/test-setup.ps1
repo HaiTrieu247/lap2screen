@@ -145,7 +145,7 @@ function Assert-Task([string]$pythonDir) {
     if (($task.Principal.UserId -split '\\')[-1] -ine ($user -split '\\')[-1]) { throw "task user '$($task.Principal.UserId)', expected '$user'" }
     if ([string]$task.Principal.RunLevel -ne 'Highest') { throw "task run level $($task.Principal.RunLevel)" }
     if ([string]$task.Principal.LogonType -ne 'Interactive') { throw "task logon type $($task.Principal.LogonType)" }
-    if (@($task.Triggers).Count -ne 0) { throw 'the task must have no trigger (it starts on demand)' }
+    if (($task.Triggers | Where-Object { $_ } | Measure-Object).Count -ne 0) { throw 'the task must have no trigger (it starts on demand)' }
     if (@($task.Actions).Count -ne 1) { throw "task has $(@($task.Actions).Count) actions" }
     $action = $task.Actions[0]
     $pythonw = Join-Path $pythonDir 'pythonw.exe'
@@ -207,10 +207,9 @@ function Wait-PortClosed([int]$Seconds) {
 
 function Stop-Tunneld { try { $null = Invoke-WebRequest -Uri 'http://127.0.0.1:49151/shutdown' -UseBasicParsing -TimeoutSec 5 } catch { } }
 
-# The task's exact command line: the runtime's pythonw.exe, the joined bootstrap arguments, the python folder as the
-# working directory. The parent environment is hostile on purpose; the bootstrap must rebuild its own.
-function Invoke-TunneldSmoke([string]$pythonDir) {
-    if (Test-TunneldPort) { throw 'something already listens on 127.0.0.1:49151' }
+# Runs $Body with a hostile parent environment (OPENSSL_CONF naming a config that breaks TLS, a bogus SystemRoot and
+# windir) and puts the real environment back afterwards; returns what $Body returns.
+function Invoke-HostileEnvironment([scriptblock]$Body) {
     $brokenConfig = Join-Path $work 'broken-openssl.cnf'
     Set-Content -LiteralPath $brokenConfig -Encoding ascii -Value @(
         'openssl_conf = ci_init', '', '[ci_init]', 'ssl_conf = ci_ssl', '', '[ci_ssl]', 'system_default = ci_system', '',
@@ -223,10 +222,56 @@ function Invoke-TunneldSmoke([string]$pythonDir) {
         [Environment]::SetEnvironmentVariable('OPENSSL_CONF', $brokenConfig, 'Process')
         [Environment]::SetEnvironmentVariable('SystemRoot', $bogusRoot, 'Process')
         [Environment]::SetEnvironmentVariable('windir', $bogusRoot, 'Process')
-        $p = Start-Process -FilePath (Join-Path $pythonDir 'pythonw.exe') -ArgumentList $expectedArguments -WorkingDirectory $pythonDir -PassThru
+        & $Body
     }
     finally {
         foreach ($n in $names) { [Environment]::SetEnvironmentVariable($n, $saved[$n], 'Process') }
+    }
+}
+
+# The environment reset of the bootstrap, checked directly: the bootstrap's own code up to and including the statement
+# that sets SystemRoot, windir, PATH and OPENSSL_CONF (cut from Core's string at "import runpy", no second copy), then a
+# print of the result. Under the hostile parent environment the child must see the rebuilt values.
+function Assert-EnvironmentReset([string]$pythonDir) {
+    $py = Join-Path $pythonDir 'python.exe'
+    $code = [MacExtend.Core.CoreDevice.CoreDeviceArguments]::TunneldBootstrap()[4]
+    $cut = $code.IndexOf('import runpy')
+    if ($cut -lt 0) { throw "the bootstrap has no 'import runpy' statement to cut at" }
+    $prefix = $code.Substring(0, $cut)
+    if ($prefix -notmatch 'OPENSSL_CONF=os\.devnull\); $') { throw "the bootstrap's reset prefix does not end with the OPENSSL_CONF statement: ...$($prefix.Substring([Math]::Max(0, $prefix.Length - 60)))" }
+    $print = "print(os.environ.get('OPENSSL_CONF'), os.environ.get('SystemRoot'), os.environ.get('windir'), os.environ.get('PATH'), sep='|')"
+    $win = [IO.Path]::GetDirectoryName([Environment]::SystemDirectory)
+    $lines = @(Invoke-HostileEnvironment { & $py -I -X utf8 -c ($prefix + $print) })
+    if ($LASTEXITCODE -ne 0) { throw "the reset prefix exited $LASTEXITCODE under the hostile environment: $($lines -join ' / ')" }
+    $parts = ([string]$lines[-1]).Split('|')
+    if ($parts.Count -ne 4) { throw "unexpected output of the reset check: $($lines -join ' / ')" }
+    if ($parts[0] -ine 'nul') { throw "OPENSSL_CONF is '$($parts[0])' after the reset, expected nul (os.devnull)" }
+    if ($parts[1] -ine $win -or $parts[2] -ine $win) { throw "SystemRoot/windir are '$($parts[1])' / '$($parts[2])' after the reset, expected '$win'" }
+    $expectedPath = (Join-Path $win 'System32') + ';' + $win
+    if ($parts[3] -ine $expectedPath) { throw "PATH is '$($parts[3])' after the reset, expected '$expectedPath'" }
+    Write-Host '   ok: the bootstrap rebuilt OPENSSL_CONF, SystemRoot, windir and PATH from a hostile parent environment'
+}
+
+# Negative control for the OPENSSL_CONF attack: without the reset, the broken config should make TLS fail.
+function Test-OpenSslAttackReproduces([string]$pythonDir) {
+    $py = Join-Path $pythonDir 'python.exe'
+    $null = Invoke-HostileEnvironment { & $py -I -c 'import ssl; ssl.create_default_context()' 2>&1 | Out-Null }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host '   ok: without the reset the broken OPENSSL_CONF makes ssl fail, so the reset is what protects tunneld'
+    }
+    else {
+        Write-Host '::warning title=CoreDevice OPENSSL_CONF::the OPENSSL_CONF attack was not reproduced on this runner (ssl worked with the broken config); the protection rests on the reset check alone'
+    }
+}
+
+# The task's exact command line: the runtime's pythonw.exe, the joined bootstrap arguments, the python folder as the
+# working directory, started under the hostile parent environment.
+function Invoke-TunneldSmoke([string]$pythonDir) {
+    if (Test-TunneldPort) { throw 'something already listens on 127.0.0.1:49151' }
+    Assert-EnvironmentReset $pythonDir
+    Test-OpenSslAttackReproduces $pythonDir
+    $p = Invoke-HostileEnvironment {
+        Start-Process -FilePath (Join-Path $pythonDir 'pythonw.exe') -ArgumentList $expectedArguments -WorkingDirectory $pythonDir -PassThru
     }
     $null = $p.Handle
     try {
@@ -336,9 +381,12 @@ try {
     }
 
     Step 'replace the runtime while the task runs tunneld' {
-        try { $script:taskRuns = Start-TaskTunneld } catch { $script:taskRuns = $false; Write-Host "   Start-ScheduledTask failed: $($_.Exception.Message)" }
-        if ($taskRuns) {
-            Write-Host '   ok: the task started tunneld (GET / returned {})'
+        $started = $false
+        $startError = $null
+        try { $started = Start-TaskTunneld } catch { $startError = $_.Exception.Message }
+        $script:taskRuns = $started
+        if ($started) {
+            Write-Host '   ok: the registered task started tunneld (GET / returned {})'
             Expect-Exit 'setup while tunneld runs' (Invoke-Helper $exe @('--coredevice-setup', $zipArg, $userArg, '1')) 'Ok'
             if (-not (Wait-PortClosed 10)) { throw 'tunneld still listens after the setup replaced the runtime' }
             Assert-Runtime $installed
@@ -349,7 +397,14 @@ try {
             Write-Host '   ok: runtime replaced while running, and the new runtime starts through the task'
         }
         else {
-            Write-Host '::warning title=CoreDevice task::this runner session cannot start the Interactive task; replace-while-running and remove-while-running were not exercised'
+            if ($startError) { Write-Host "   Start-ScheduledTask failed: $startError" }
+            $info = Get-ScheduledTaskInfo -TaskPath $taskPath -TaskName $taskName -ErrorAction SilentlyContinue
+            if ($info) { Write-Host "   task LastTaskResult=$($info.LastTaskResult) LastRunTime=$($info.LastRunTime)" }
+            # the only real start of the registered task in CI: skipping it must be a deliberate, visible choice
+            if ($env:MACEXTEND_CI_ALLOW_TASK_SKIP -ne '1') {
+                throw 'the registered Interactive task did not start tunneld on this runner (set MACEXTEND_CI_ALLOW_TASK_SKIP=1 to skip knowingly)'
+            }
+            Write-Host '::warning title=CoreDevice task::MACEXTEND_CI_ALLOW_TASK_SKIP=1: the registered task was not started; replace-while-running and remove-while-running were not exercised'
         }
     }
 
