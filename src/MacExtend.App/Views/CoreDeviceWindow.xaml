@@ -1,0 +1,161 @@
+<Window x:Class="MacExtend.Views.CoreDeviceWindow"
+        x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Điều khiển trực tiếp"
+        Width="420" Height="860" MinWidth="360" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Window.Background}"
+        Foreground="{DynamicResource Text.Primary}"
+        FontFamily="{StaticResource Font.Sans}" FontSize="13.5"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True"
+        Icon="pack://application:,,,/MacExtend;component/Assets/app.ico">
+
+    <Window.Resources>
+        <!-- toolbar buttons never take the keyboard focus, so the keys keep going to the device after a click -->
+        <Style x:Key="ToolButton" TargetType="Button" BasedOn="{StaticResource Button.Subtle}">
+            <Setter Property="Foreground" Value="{DynamicResource Text.Primary}" />
+            <Setter Property="Padding" Value="9,7" />
+            <Setter Property="Margin" Value="2,0,0,0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+        </Style>
+        <Style x:Key="ToolGlyph" TargetType="TextBlock" BasedOn="{StaticResource Text.Icon}">
+            <Setter Property="FontSize" Value="16" />
+        </Style>
+        <Style x:Key="ToolDivider" TargetType="Border">
+            <Setter Property="Width" Value="1" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Margin" Value="6,0,4,0" />
+            <Setter Property="Background" Value="{DynamicResource Divider}" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- toolbar ========================================================================== -->
+        <Border x:Name="Toolbar" Grid.Row="0" Padding="12,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Divider}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border x:Name="RouteBadge" Padding="10,3" CornerRadius="10" Background="{DynamicResource Accent.Soft}"
+                        HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed">
+                    <TextBlock x:Name="RouteText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource Accent.SoftText}" />
+                </Border>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="HomeButton" Style="{StaticResource ToolButton}" ToolTip="Home (hoặc nhấp chuột phải vào hình)" AutomationProperties.Name="Home" Click="OnHome">
+                        <TextBlock Style="{StaticResource ToolGlyph}" Text="&#xE80F;" />
+                    </Button>
+                    <Border Style="{StaticResource ToolDivider}" />
+                    <Button x:Name="RotateLeftButton" Style="{StaticResource ToolButton}" ToolTip="Xoay trái" AutomationProperties.Name="Xoay trái" Click="OnRotateLeft">
+                        <TextBlock Style="{StaticResource ToolGlyph}" Text="&#xE7AD;" RenderTransformOrigin="0.5,0.5">
+                            <TextBlock.RenderTransform>
+                                <ScaleTransform ScaleX="-1" />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                    </Button>
+                    <Button x:Name="RotateRightButton" Style="{StaticResource ToolButton}" ToolTip="Xoay phải" AutomationProperties.Name="Xoay phải" Click="OnRotateRight">
+                        <TextBlock Style="{StaticResource ToolGlyph}" Text="&#xE7AD;" />
+                    </Button>
+                    <Border Style="{StaticResource ToolDivider}" />
+                    <Button x:Name="TextButton" Style="{StaticResource ToolButton}" ToolTip="Gửi hoặc lấy văn bản" AutomationProperties.Name="Văn bản" Click="OnText">
+                        <TextBlock Style="{StaticResource ToolGlyph}" Text="&#xE77F;" />
+                    </Button>
+                    <Button x:Name="FullscreenButton" Style="{StaticResource ToolButton}" ToolTip="Toàn màn hình (F11)" AutomationProperties.Name="Toàn màn hình" Click="OnFullscreen">
+                        <TextBlock x:Name="FullscreenGlyph" Style="{StaticResource ToolGlyph}" Text="&#xE740;" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- status band: WPF cannot draw over the WebView2 (airspace), so messages sit above the picture -->
+        <Border x:Name="Banner" Grid.Row="1" Visibility="Collapsed" Padding="14,8"
+                Background="{DynamicResource Notice.Background}" BorderBrush="{DynamicResource Notice.Border}" BorderThickness="0,0,0,1">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Text.Icon}" Text="&#xE7BA;" Foreground="{DynamicResource Notice.Text}"
+                           VerticalAlignment="Top" Margin="0,3,10,0" />
+                <TextBlock x:Name="BannerText" Style="{StaticResource Text.Body}" Foreground="{DynamicResource Notice.Text}" />
+            </DockPanel>
+        </Border>
+
+        <!-- the picture: the WebView2 is added here in code (not at all while its runtime is missing); the placeholder
+             stands in while there is no picture -->
+        <Grid x:Name="Picture" Grid.Row="2" Background="{DynamicResource Stage.Background}">
+            <StackPanel x:Name="Placeholder" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="320" Margin="24">
+                <Grid x:Name="Spinner" Width="32" Height="32" Margin="0,0,0,18" HorizontalAlignment="Center">
+                    <Ellipse Stroke="{DynamicResource Stage.Grid}" StrokeThickness="3" />
+                    <Path Data="M16,1.5 A14.5,14.5 0 0 1 30.5,16" Stroke="{DynamicResource Status.Ready}" StrokeThickness="3"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+                        <!-- turned in code, and only while visible: a running animation keeps WPF rendering every frame -->
+                        <Path.RenderTransform>
+                            <RotateTransform x:Name="SpinnerTurn" />
+                        </Path.RenderTransform>
+                    </Path>
+                </Grid>
+                <TextBlock x:Name="ProblemGlyph" Style="{StaticResource Text.Icon}" FontSize="28" Text="&#xE7BA;"
+                           Foreground="{DynamicResource Stage.TextDim}" HorizontalAlignment="Center" Margin="0,0,0,14" Visibility="Collapsed" />
+                <TextBlock x:Name="PlaceholderTitle" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource Stage.Text}"
+                           TextAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock x:Name="PlaceholderDetail" Style="{StaticResource Text.Body}" Foreground="{DynamicResource Stage.TextDim}"
+                           TextAlignment="Center" Margin="0,8,0,0" Visibility="Collapsed" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button x:Name="RetryButton" Content="Thử lại" Style="{StaticResource Button.Primary}" MinWidth="96"
+                            Margin="4,20,4,0" Visibility="Collapsed" Click="OnRetry" />
+                    <Button x:Name="SetupButton" Content="Mở Thiết lập" Style="{StaticResource Button.Secondary}"
+                            Margin="4,20,4,0" Visibility="Collapsed" Click="OnSetup" />
+                    <Button x:Name="DownloadButton" Content="Tải WebView2 Runtime" Style="{StaticResource Button.Primary}"
+                            Margin="4,20,4,0" Visibility="Collapsed" Click="OnDownloadRuntime" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- one-time reminder of the session's cost on the device -->
+        <Border x:Name="Hint" Grid.Row="3" Padding="14,6,8,6" Background="{DynamicResource Sheet.Background}"
+                BorderBrush="{DynamicResource Sheet.Border}" BorderThickness="0,1,0,0">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Đã hiểu" Style="{StaticResource Button.Subtle}" Padding="10,5"
+                        Focusable="False" VerticalAlignment="Center" Click="OnDismissHint" />
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Text.Icon}" Text="&#xE946;" Foreground="{DynamicResource Text.Secondary}"
+                           Margin="0,0,10,0" />
+                <TextBlock Text="Trong lúc điều khiển, camera và micro của thiết bị không dùng được." Style="{StaticResource Text.Caption}"
+                           VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+
+        <!-- a Popup is a window of its own, so it does show above the WebView2; right-aligned under the toolbar in code -->
+        <Popup x:Name="TextPopup" PlacementTarget="{Binding ElementName=Toolbar}" Placement="Custom" StaysOpen="False"
+               AllowsTransparency="True" PopupAnimation="Fade" Opened="OnTextPopupOpened" Closed="OnTextPopupClosed">
+            <Grid Margin="12,4,12,18">
+                <!-- the shadow sits on its own layer: an effect on the sheet itself would blur its text -->
+                <Border CornerRadius="10" Background="{DynamicResource Sheet.Background}">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.2" Color="Black" />
+                    </Border.Effect>
+                </Border>
+                <Border Style="{StaticResource Sheet}" Width="320" Padding="16,14">
+                    <StackPanel>
+                        <TextBlock Text="Văn bản" Style="{StaticResource Text.Label}" />
+                        <TextBlock Text="Gửi chữ vào clipboard của thiết bị, hoặc lấy chữ thiết bị vừa sao chép." Style="{StaticResource Text.Caption}"
+                                   Margin="0,2,0,10" />
+                        <TextBox x:Name="ClipText" Height="96" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top" />
+                        <TextBlock x:Name="ClipStatus" Style="{StaticResource Text.Caption}" Margin="0,8,0,0" Visibility="Collapsed" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button x:Name="GetTextButton" Content="Lấy từ thiết bị" Style="{StaticResource Button.Secondary}" Click="OnGetText" />
+                            <Button x:Name="SendTextButton" Content="Gửi tới thiết bị" Style="{StaticResource Button.Primary}" Margin="8,0,0,0"
+                                    Click="OnSendText" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Popup>
+    </Grid>
+</Window>

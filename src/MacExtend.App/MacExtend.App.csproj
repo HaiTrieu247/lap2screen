@@ -42,7 +42,9 @@
   <ItemGroup>
     <ProjectReference Include="..\MacExtend.Core\MacExtend.Core.csproj" />
     <ProjectReference Include="..\MacExtend.CoreDeviceHost\MacExtend.CoreDeviceHost.csproj" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45" />
+    <!-- WebView2 for the direct-control window; its build copies runtimes\win-x64\native\WebView2Loader.dll, which
+         Microsoft.Web.WebView2.Core.dll (net462) loads from beside itself -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
@@ -57,6 +59,8 @@
     <None Include="Assets\Fonts\OFL-BeVietnamPro.txt" CopyToOutputDirectory="PreserveNewest" Link="licenses\OFL-BeVietnamPro.txt" />
     <!-- MacExtend.Core/Bluetooth adapts code from windows-ble-hid (MIT) -->
     <None Include="..\..\licenses\windows-ble-hid-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" Link="licenses\windows-ble-hid-LICENSE.txt" />
+    <!-- the WebView2 SDK's binaries ship with the app; their licence asks for its notice beside them -->
+    <None Include="..\..\licenses\Microsoft.Web.WebView2-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" Link="licenses\Microsoft.Web.WebView2-LICENSE.txt" />
   </ItemGroup>
 
 </Project>
