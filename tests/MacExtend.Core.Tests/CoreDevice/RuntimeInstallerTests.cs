@@ -249,4 +249,109 @@ public sealed class RuntimeInstallerTests : IDisposable
 
         Assert.Throws<ArgumentNullException>(() => RuntimeInstaller.Install(ZipPath, null, Target, _log.Add));
     }
+
+    [Fact]
+    public void InstallsTheBytesItHashedEvenWhenTheSourceChangesUnderneath()
+    {
+        WriteZip(Runtime());
+        var good = File.ReadAllBytes(ZipPath);
+        var expected = PackageForZip();
+        // a valid runtime with the right id, but not the package: what an SMB server could serve on a second read
+        WriteZip(("python/python.exe", "evil python"), ("python/pythonw.exe", "evil pythonw"), ("RUNTIME_ID", "cd-1\n"));
+        var evil = File.ReadAllBytes(ZipPath);
+
+        using (var source = new TwoFacedStream(good, evil))
+        {
+            RuntimeInstaller.Install(source, expected, Target, _log.Add);
+        }
+
+        Assert.Equal("new python", Read("python/python.exe"));
+        Assert.Equal("new pythonw", Read("python/pythonw.exe"));
+        AssertNoLeftovers();
+    }
+
+    [Fact]
+    public void ASourceThatShowsTheRightBytesOnlyLaterIsRefused()
+    {
+        InstallOldRuntime();
+        WriteZip(Runtime());
+        var good = File.ReadAllBytes(ZipPath);
+        var expected = PackageForZip();
+        WriteZip(Runtime().Concat(new[] { ("python/Lib/extra.py", "x") }).ToArray());
+        var other = File.ReadAllBytes(ZipPath);
+
+        using (var source = new TwoFacedStream(other, good))
+        {
+            Assert.Throws<InvalidDataException>(() => RuntimeInstaller.Install(source, expected, Target, _log.Add));
+        }
+
+        AssertOldRuntimeUntouched();
+    }
+
+    [Fact]
+    public void LeavesNoPrivateCopyOfTheZipBehind()
+    {
+        InstallOldRuntime();
+        WriteZip(Runtime());
+        var expected = PackageForZip();
+
+        RuntimeInstaller.Install(ZipPath, expected, Target, _log.Add);
+        WriteZip(Runtime("cd-2"));
+        Assert.Throws<InvalidDataException>(() => RuntimeInstaller.Install(ZipPath, expected, Target, _log.Add));
+
+        Assert.False(File.Exists(Target + ".zip.tmp"));
+        Assert.Equal(new[] { "coredevice" }, Directory.GetFileSystemEntries(App).Select(Path.GetFileName).ToArray());
+    }
+
+    /// <summary>Serves one set of bytes until it is rewound (or read past its end), and another set after that.</summary>
+    private sealed class TwoFacedStream : Stream
+    {
+        private readonly byte[] _second;
+        private byte[] _current;
+        private long _position;
+
+        public TwoFacedStream(byte[] first, byte[] second)
+        {
+            _current = first;
+            _second = second;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => true;
+        public override bool CanWrite => false;
+        public override long Length => _current.Length;
+
+        public override long Position
+        {
+            get => _position;
+            set => Seek(value, SeekOrigin.Begin);
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_position >= _current.Length)
+            {
+                _current = _second;
+                return 0;
+            }
+            var n = (int)Math.Min(count, _current.Length - _position);
+            Array.Copy(_current, _position, buffer, offset, n);
+            _position += n;
+            return n;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            _current = _second;
+            _position = origin == SeekOrigin.Begin ? offset : origin == SeekOrigin.Current ? _position + offset : _current.Length + offset;
+            return _position;
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
 }

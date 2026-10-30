@@ -12,6 +12,8 @@ namespace MacExtend.Core.CoreDevice
     public static class RuntimeInstaller
     {
         public const string RuntimeIdFile = "RUNTIME_ID";
+        /// <summary>TARGET + this is the private copy of the zip while it is checked and extracted.</summary>
+        public const string PrivateCopySuffix = ".zip.tmp";
 
         private const int MoveAttempts = 5;
 
@@ -20,28 +22,44 @@ namespace MacExtend.Core.CoreDevice
         internal static TimeSpan RetryDelay = TimeSpan.FromMilliseconds(500);
 
         /// <summary>
-        /// Opens <paramref name="zipPath"/> once, refusing other writers, renames and deletes while it is open, checks its
-        /// SHA-256 on that handle and extracts from the same handle to TARGET.new, so the bytes installed are the bytes
-        /// checked. The tree must hold python\python.exe, python\pythonw.exe and the expected RUNTIME_ID. TARGET then
+        /// The zip from a file, which other programs cannot change, rename or delete while it is read; the checks are
+        /// those of the Stream overload.
+        /// </summary>
+        public static void Install(string zipPath, RuntimePackage expected, string target, Action<string> log)
+        {
+            if (expected == null) throw new ArgumentNullException(nameof(expected));
+            using (var source = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                Install(source, expected, target, log);
+            }
+        }
+
+        /// <summary>
+        /// Reads <paramref name="source"/> once into a private copy beside TARGET (TARGET.zip.tmp: no other handle, gone
+        /// when closed), hashing the bytes as they are copied, and extracts only from that copy to TARGET.new. So the
+        /// bytes installed are the bytes checked, whatever the source (an SMB share, a redirected path) would answer to a
+        /// second read. The tree must hold python\python.exe, python\pythonw.exe and the expected RUNTIME_ID. TARGET then
         /// moves to TARGET.old and TARGET.new takes its place; whatever fails after that, TARGET.old comes back.
         /// </summary>
         /// <exception cref="InvalidDataException">The zip is not <paramref name="expected"/>, or not a usable runtime.</exception>
-        public static void Install(string zipPath, RuntimePackage expected, string target, Action<string> log)
+        public static void Install(Stream source, RuntimePackage expected, string target, Action<string> log)
         {
+            if (source == null) throw new ArgumentNullException(nameof(source));
             if (expected == null) throw new ArgumentNullException(nameof(expected));
             log = log ?? (_ => { });
             var fresh = target + ".new";
             var aside = target + ".old";
             try
             {
-                using (var stream = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var copy = new FileStream(target + PrivateCopySuffix, FileMode.Create, FileAccess.ReadWrite, FileShare.None, 81920,
+                                                 FileOptions.DeleteOnClose))
                 {
-                    if (!expected.Matches(FileHash.Sha256(stream)))
+                    if (!expected.Matches(FileHash.CopySha256(source, copy)))
                     {
                         throw new InvalidDataException("Gói runtime không phải của bản MacExtend này (sai mã SHA-256).");
                     }
-                    stream.Position = 0;
-                    UpdateStager.Extract(stream, fresh);
+                    copy.Position = 0;
+                    UpdateStager.Extract(copy, fresh);
                 }
                 CheckLayout(fresh, expected.Id);
 

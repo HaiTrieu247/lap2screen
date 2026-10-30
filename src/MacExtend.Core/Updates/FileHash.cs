@@ -17,8 +17,31 @@ namespace MacExtend.Core.Updates
         {
             using (var sha = SHA256.Create())
             {
-                return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
+                return Hex(sha.ComputeHash(stream));
             }
         }
+
+        /// <summary>
+        /// Copies the rest of <paramref name="source"/> to <paramref name="destination"/> in one pass, hashing the bytes
+        /// as they are written: the hash is of the copy, whatever the source would answer to a second read.
+        /// </summary>
+        /// <returns>Lowercase hex SHA-256 of the bytes copied.</returns>
+        public static string CopySha256(Stream source, Stream destination)
+        {
+            using (var sha = SHA256.Create())
+            {
+                var buffer = new byte[81920];
+                int read;
+                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    sha.TransformBlock(buffer, 0, read, null, 0);
+                    destination.Write(buffer, 0, read);
+                }
+                sha.TransformFinalBlock(buffer, 0, 0);
+                return Hex(sha.Hash);
+            }
+        }
+
+        private static string Hex(byte[] hash) => BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
     }
 }

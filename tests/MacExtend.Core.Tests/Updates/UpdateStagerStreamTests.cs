@@ -51,6 +51,17 @@ public sealed class UpdateStagerStreamTests : IDisposable
     }
 
     [Fact]
+    public void CopiesAStreamAndHashesWhatItCopied()
+    {
+        using (var source = new MemoryStream(Encoding.ASCII.GetBytes("abc")))
+        using (var copy = new MemoryStream())
+        {
+            Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", FileHash.CopySha256(source, copy));
+            Assert.Equal("abc", Encoding.ASCII.GetString(copy.ToArray()));
+        }
+    }
+
+    [Fact]
     public void HashesAStreamToTheKnownSha256Vector()
     {
         using (var s = new MemoryStream(Encoding.ASCII.GetBytes("abc")))
