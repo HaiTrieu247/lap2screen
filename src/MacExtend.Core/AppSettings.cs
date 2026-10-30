@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace MacExtend.Core
 {
@@ -41,6 +43,24 @@ namespace MacExtend.Core
         public bool AlwaysOnTop { get; set; }
         /// <summary>Run the Bluetooth helper so the laptop can act as a keyboard and mouse for the device.</summary>
         public bool BluetoothControl { get; set; }
+        /// <summary>Devices allowed to use "Điều khiển trực tiếp" over Wi-Fi (RemotePairing done), UDIDs joined by ';'.</summary>
+        public string DirectWifiDevices { get; set; } = "";
+        /// <summary>The device the last direct-control session used; opened again without asking when reachable.</summary>
+        public string DirectLastDevice { get; set; } = "";
+        /// <summary>The "camera and microphone are unavailable" hint was dismissed.</summary>
+        public bool DirectHintDismissed { get; set; }
+        /// <summary>Last size and position of the direct-control window, "x,y,width,height" in device-independent pixels.</summary>
+        public string DirectWindowBounds { get; set; } = "";
+
+        public IReadOnlyList<string> WifiDevices() =>
+            (DirectWifiDevices ?? "").Split(';').Where(CoreDevice.CoreDeviceOptions.IsValidUdid).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        public void SetWifiDevice(string udid, bool on)
+        {
+            var list = WifiDevices().Where(u => !string.Equals(u, udid, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (on && CoreDevice.CoreDeviceOptions.IsValidUdid(udid)) list.Add(udid);
+            DirectWifiDevices = string.Join(";", list);
+        }
 
         public AppSettings Clone() => (AppSettings)MemberwiseClone();
 
@@ -48,6 +68,9 @@ namespace MacExtend.Core
         {
             DeviceName = DeviceName ?? "";
             Pin = Pin ?? "";
+            DirectWifiDevices = string.Join(";", WifiDevices());
+            DirectLastDevice = CoreDevice.CoreDeviceOptions.IsValidUdid(DirectLastDevice) ? DirectLastDevice : "";
+            DirectWindowBounds = DirectWindowBounds ?? "";
             if (!Enum.IsDefined(typeof(ResolutionMode), ResolutionMode)) ResolutionMode = ResolutionMode.Auto;
             CustomWidth = Math.Min(MaxWidth, Math.Max(MinWidth, CustomWidth));
             CustomHeight = Math.Min(MaxHeight, Math.Max(MinHeight, CustomHeight));

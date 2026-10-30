@@ -24,6 +24,10 @@ public class SettingsStoreTests
         Fullscreen = true,
         AlwaysOnTop = true,
         BluetoothControl = true,
+        DirectWifiDevices = "00008030-001E185E343B802E",
+        DirectLastDevice = "00008030-001E185E343B802E",
+        DirectHintDismissed = true,
+        DirectWindowBounds = "10,20,520,960",
     };
 
     private static void AssertSame(AppSettings expected, AppSettings actual)
@@ -45,6 +49,10 @@ public class SettingsStoreTests
         Assert.Equal(expected.Fullscreen, actual.Fullscreen);
         Assert.Equal(expected.AlwaysOnTop, actual.AlwaysOnTop);
         Assert.Equal(expected.BluetoothControl, actual.BluetoothControl);
+        Assert.Equal(expected.DirectWifiDevices, actual.DirectWifiDevices);
+        Assert.Equal(expected.DirectLastDevice, actual.DirectLastDevice);
+        Assert.Equal(expected.DirectHintDismissed, actual.DirectHintDismissed);
+        Assert.Equal(expected.DirectWindowBounds, actual.DirectWindowBounds);
     }
 
     [Fact]
@@ -261,6 +269,29 @@ public class SettingsStoreTests
 
         Assert.Contains("BluetoothControl=" + (on ? "true" : "false") + "\n", text);
         Assert.Equal(on, SettingsStore.Parse(text).BluetoothControl);
+    }
+
+    [Fact]
+    public void ClampKeepsOnlyValidWifiDevices()
+    {
+        var s = new AppSettings { DirectWifiDevices = "00008030-001E185E343B802E;junk;;00008030-001E185E343B802E", DirectLastDevice = "junk" };
+
+        s.Clamp();
+
+        Assert.Equal("00008030-001E185E343B802E", s.DirectWifiDevices);
+        Assert.Equal("", s.DirectLastDevice);
+    }
+
+    [Fact]
+    public void WifiDevicesCanBeTurnedOnAndOff()
+    {
+        var s = new AppSettings();
+
+        s.SetWifiDevice("00008030-001E185E343B802E", true);
+        s.SetWifiDevice("00008101-000A1B2C3D4E5F60", true);
+        s.SetWifiDevice("00008030-001E185E343B802E", false);
+
+        Assert.Equal(new[] { "00008101-000A1B2C3D4E5F60" }, s.WifiDevices());
     }
 
     [Theory]
