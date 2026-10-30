@@ -20,7 +20,6 @@ namespace MacExtend.Services.CoreDevice
     internal sealed class TunnelController
     {
         public static readonly TimeSpan TunnelTimeout = TimeSpan.FromSeconds(30);
-        private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(10);
         private const int ErrorCancelled = 1223;
 
         private static readonly HttpClient Http = new HttpClient(new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false })
@@ -36,16 +35,17 @@ namespace MacExtend.Services.CoreDevice
 
         private static readonly TimeSpan StartJoinTimeout = TimeSpan.FromSeconds(15);
 
-        private volatile bool _stopRequested;
-        private bool _ours;
+        // 1 once a tunneld this controller started is its to stop; handed over atomically between the start and StopAsync
+        private int _ours;
         private bool _startedWithTask;
         private Task _startPhase = Task.CompletedTask;
+        // one per start: StopAsync cancels the current one, and a later EnsureAsync cannot clear that request
+        private CancellationTokenSource _startStop;
 
         public async Task<TunnelOutcome> EnsureAsync(string udid, CancellationToken token)
         {
             // Wi-Fi needs an account that elevates by itself; a standard account is told at once, with no UAC
             if (!Elevation.IsAdminAccount) return TunnelOutcome.NeedsAdminAccount;
-            _stopRequested = false;
 
             var listing = await ListAsync(token).ConfigureAwait(false);
             var answers = TunneldListing.IsListing(listing);
@@ -59,8 +59,10 @@ namespace MacExtend.Services.CoreDevice
             var startedByUs = false;
             if (step == TunnelStep.StartTunneld)
             {
-                var phase = StartAsync(token);
-                _startPhase = phase;
+                var stop = new CancellationTokenSource();
+                Volatile.Write(ref _startStop, stop);
+                var phase = StartAsync(stop.Token, token);
+                Volatile.Write(ref _startPhase, phase);
                 var started = await phase.ConfigureAwait(false);
                 if (started.Outcome != TunnelOutcome.Ready) return await FailedAsync(started.Outcome, started.RulesAdded, startedByUs: false).ConfigureAwait(false);
                 rulesThisCall = started.RulesAdded;
@@ -91,7 +93,7 @@ namespace MacExtend.Services.CoreDevice
         }
 
         /// <summary>The rules (a copy without the task) and the start of tunneld; ownership is claimed only once it started with the port closed.</summary>
-        private async Task<StartResult> StartAsync(CancellationToken token)
+        private async Task<StartResult> StartAsync(CancellationToken stop, CancellationToken token)
         {
             var result = new StartResult();
             if (!WindowsSetupState.UseTask && !_rulesAdded)
@@ -102,17 +104,19 @@ namespace MacExtend.Services.CoreDevice
             }
             // the UAC prompt cannot be cancelled: do not go on to start tunneld for a session that was cancelled meanwhile
             token.ThrowIfCancellationRequested();
+            stop.ThrowIfCancellationRequested();
             result.Outcome = await Task.Run(() => StartTunneld()).ConfigureAwait(false);
             if (result.Outcome == TunnelOutcome.Ready)
             {
-                if (_stopRequested)
+                var withTask = WindowsSetupState.UseTask;
+                _startedWithTask = withTask;
+                Volatile.Write(ref _ours, 1);
+                // a stop requested before or after the hand-over: whichever side takes _ours back (this one, or StopAsync) shuts it down
+                if (stop.IsCancellationRequested)
                 {
-                    // StopAsync gave up waiting for this start: what it started is shut down here and never claimed
-                    await ShutDownAsync(WindowsSetupState.UseTask).ConfigureAwait(false);
+                    if (Interlocked.Exchange(ref _ours, 0) == 1) await ShutDownAsync(withTask).ConfigureAwait(false);
                     throw new OperationCanceledException();
                 }
-                _ours = true;
-                _startedWithTask = WindowsSetupState.UseTask;
             }
             return result;
         }
@@ -121,34 +125,45 @@ namespace MacExtend.Services.CoreDevice
         public async Task StopAsync()
         {
             // a start still in flight (UAC prompt, schtasks) decides whether there is anything to stop
-            var phase = _startPhase;
-            _stopRequested = true;
+            Volatile.Read(ref _startStop)?.Cancel();
+            var phase = Volatile.Read(ref _startPhase);
             if (!phase.IsCompleted) await Task.WhenAny(phase, Task.Delay(StartJoinTimeout)).ConfigureAwait(false);
-            if (!_ours) return;
-            _ours = false;
+            if (Interlocked.Exchange(ref _ours, 0) == 0) return;
             await ShutDownAsync(_startedWithTask).ConfigureAwait(false);
         }
 
-        /// <summary>GET /shutdown, then, if the port still listens after 10 s, end the task (task mode) or only log (UAC mode).</summary>
+        /// <summary>
+        /// Stops a tunneld this controller started. It may still be importing Python and bind 49151 only later, so
+        /// /shutdown is sent on every poll while the port listens (TunnelPlan.NextShutdown decides each step).
+        /// </summary>
         private static async Task ShutDownAsync(bool withTask)
         {
-            try
-            {
-                using (await Http.GetAsync(ShutdownUri).ConfigureAwait(false)) { }
-            }
-            catch (Exception e) when (e is HttpRequestException || e is TaskCanceledException || e is InvalidOperationException)
-            {
-                // tunneld exits while answering; no answer is the usual outcome
-            }
-
             var watch = Stopwatch.StartNew();
-            while (await Task.Run(() => IsListening()).ConfigureAwait(false))
+            Stopwatch sinceFirst = null;
+            var seen = false;
+            while (true)
             {
-                if (watch.Elapsed >= StopTimeout)
+                var listening = await Task.Run(() => IsListening()).ConfigureAwait(false);
+                seen |= listening;
+                switch (TunnelPlan.NextShutdown(seen, listening, watch.Elapsed, sinceFirst?.Elapsed, withTask))
                 {
-                    if (withTask) await Task.Run(() => EndTask()).ConfigureAwait(false);
-                    else Log("tunneld still answers after shutdown; it was started with UAC and cannot be stopped from here");
-                    return;
+                    case ShutdownAction.Done:
+                        Log(listening ? "tunneld still answers after shutdown; it was started with UAC and cannot be stopped from here" : "tunneld stopped");
+                        return;
+                    case ShutdownAction.EndTask:
+                        await Task.Run(() => EndTask()).ConfigureAwait(false);
+                        return;
+                    case ShutdownAction.SendShutdown:
+                        if (sinceFirst == null) sinceFirst = Stopwatch.StartNew();
+                        try
+                        {
+                            using (await Http.GetAsync(ShutdownUri).ConfigureAwait(false)) { }
+                        }
+                        catch (Exception e) when (e is HttpRequestException || e is TaskCanceledException || e is InvalidOperationException)
+                        {
+                            // tunneld exits while answering; no answer is the usual outcome
+                        }
+                        break;
                 }
                 await Task.Delay(500).ConfigureAwait(false);
             }

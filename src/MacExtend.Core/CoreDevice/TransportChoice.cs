@@ -55,6 +55,14 @@ namespace MacExtend.Core.CoreDevice
         PortBusy,
     }
 
+    public enum ShutdownAction
+    {
+        SendShutdown,
+        Wait,
+        EndTask,
+        Done,
+    }
+
     /// <summary>
     /// A tunneld that already answers on 127.0.0.1:49151 belongs to someone else (the user, or one left from an earlier
     /// run): it is used, never started a second time, and never shut down by this session.
@@ -72,6 +80,30 @@ namespace MacExtend.Core.CoreDevice
 
         /// <summary>Rules a copy without the task added itself are re-added only when its own start timed out.</summary>
         public static bool ReaddRulesAfter(TunnelOutcome outcome, bool startedByUs) => startedByUs && outcome == TunnelOutcome.Timeout;
+
+        /// <summary>How long a shutdown of a tunneld this session started may take, counting from when it was asked.</summary>
+        public static readonly TimeSpan ShutdownBound = TimeSpan.FromSeconds(30);
+
+        /// <summary>In task mode, how long after the first /shutdown a still listening port makes the task be ended.</summary>
+        public static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
+
+        /// <summary>
+        /// One poll of stopping a tunneld this session started: it may bind its port only after the stop was asked, so
+        /// /shutdown is sent on every poll while the port listens, and the port counts as stopped once it closed after
+        /// having listened. Task mode ends the task if the port never came up within the bound or still listens after the grace.
+        /// </summary>
+        /// <param name="sinceFirstShutdown">Null until a /shutdown was sent.</param>
+        public static ShutdownAction NextShutdown(bool seenListening, bool listening, TimeSpan elapsed, TimeSpan? sinceFirstShutdown, bool taskMode)
+        {
+            if (seenListening && !listening) return ShutdownAction.Done;
+            if (listening)
+            {
+                if (taskMode && sinceFirstShutdown >= ShutdownGrace) return ShutdownAction.EndTask;
+                return elapsed >= ShutdownBound ? ShutdownAction.Done : ShutdownAction.SendShutdown;
+            }
+            if (elapsed < ShutdownBound) return ShutdownAction.Wait;
+            return taskMode ? ShutdownAction.EndTask : ShutdownAction.Done;
+        }
 
         public static bool ShutdownAfter(TunnelStep first) => first == TunnelStep.StartTunneld;
     }

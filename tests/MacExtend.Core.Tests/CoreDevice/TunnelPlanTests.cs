@@ -1,3 +1,4 @@
+using System;
 using MacExtend.Core.CoreDevice;
 
 namespace MacExtend.Core.Tests.CoreDevice;
@@ -47,6 +48,44 @@ public class TunnelPlanTests
     [InlineData(TunnelOutcome.Ready, true, false)]
     public void RulesAreReaddedOnlyAfterATimeoutOfOurOwnStart(TunnelOutcome outcome, bool startedByUs, bool expected) =>
         Assert.Equal(expected, TunnelPlan.ReaddRulesAfter(outcome, startedByUs));
+
+    private static ShutdownAction Next(bool seen, bool listening, int elapsed, int? sinceFirst, bool task) =>
+        TunnelPlan.NextShutdown(seen, listening, TimeSpan.FromSeconds(elapsed), sinceFirst.HasValue ? TimeSpan.FromSeconds(sinceFirst.Value) : (TimeSpan?)null, task);
+
+    [Fact]
+    public void ShutdownIsResentWhileThePortListens()
+    {
+        Assert.Equal(ShutdownAction.SendShutdown, Next(seen: true, listening: true, elapsed: 0, sinceFirst: null, task: true));
+        Assert.Equal(ShutdownAction.SendShutdown, Next(true, true, 5, 3, task: false));
+    }
+
+    [Fact]
+    public void ShutdownIsDoneOnceTheSeenPortCloses()
+    {
+        Assert.Equal(ShutdownAction.Done, Next(seen: true, listening: false, elapsed: 4, sinceFirst: 2, task: true));
+    }
+
+    [Fact]
+    public void ALateBindingTunneldIsWaitedForUntilTheBound()
+    {
+        Assert.Equal(ShutdownAction.Wait, Next(seen: false, listening: false, elapsed: 10, sinceFirst: null, task: false));
+        Assert.Equal(ShutdownAction.Done, Next(false, false, 30, null, task: false));
+    }
+
+    [Fact]
+    public void TaskModeEndsTheTaskWhenThePortNeverCameUpOrStaysUp()
+    {
+        Assert.Equal(ShutdownAction.EndTask, Next(seen: false, listening: false, elapsed: 30, sinceFirst: null, task: true));
+        Assert.Equal(ShutdownAction.EndTask, Next(seen: true, listening: true, elapsed: 12, sinceFirst: 10, task: true));
+        Assert.Equal(ShutdownAction.SendShutdown, Next(true, true, 12, 9, task: true));
+    }
+
+    [Fact]
+    public void UacModeStopsTryingAtTheBoundAndNeverEndsATask()
+    {
+        Assert.Equal(ShutdownAction.Done, Next(seen: true, listening: true, elapsed: 30, sinceFirst: 25, task: false));
+        Assert.Equal(ShutdownAction.SendShutdown, Next(true, true, 12, 10, task: false));
+    }
 
     [Fact]
     public void OnlyATunneldThisSessionStartedIsShutDown()
