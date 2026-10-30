@@ -36,6 +36,7 @@ namespace MacExtend.Services.CoreDevice
 
         private static readonly TimeSpan StartJoinTimeout = TimeSpan.FromSeconds(15);
 
+        private volatile bool _stopRequested;
         private bool _ours;
         private bool _startedWithTask;
         private Task _startPhase = Task.CompletedTask;
@@ -44,6 +45,7 @@ namespace MacExtend.Services.CoreDevice
         {
             // Wi-Fi needs an account that elevates by itself; a standard account is told at once, with no UAC
             if (!Elevation.IsAdminAccount) return TunnelOutcome.NeedsAdminAccount;
+            _stopRequested = false;
 
             var listing = await ListAsync(token).ConfigureAwait(false);
             var answers = TunneldListing.IsListing(listing);
@@ -103,6 +105,12 @@ namespace MacExtend.Services.CoreDevice
             result.Outcome = await Task.Run(() => StartTunneld()).ConfigureAwait(false);
             if (result.Outcome == TunnelOutcome.Ready)
             {
+                if (_stopRequested)
+                {
+                    // StopAsync gave up waiting for this start: what it started is shut down here and never claimed
+                    await ShutDownAsync(WindowsSetupState.UseTask).ConfigureAwait(false);
+                    throw new OperationCanceledException();
+                }
                 _ours = true;
                 _startedWithTask = WindowsSetupState.UseTask;
             }
@@ -114,9 +122,16 @@ namespace MacExtend.Services.CoreDevice
         {
             // a start still in flight (UAC prompt, schtasks) decides whether there is anything to stop
             var phase = _startPhase;
+            _stopRequested = true;
             if (!phase.IsCompleted) await Task.WhenAny(phase, Task.Delay(StartJoinTimeout)).ConfigureAwait(false);
             if (!_ours) return;
             _ours = false;
+            await ShutDownAsync(_startedWithTask).ConfigureAwait(false);
+        }
+
+        /// <summary>GET /shutdown, then, if the port still listens after 10 s, end the task (task mode) or only log (UAC mode).</summary>
+        private static async Task ShutDownAsync(bool withTask)
+        {
             try
             {
                 using (await Http.GetAsync(ShutdownUri).ConfigureAwait(false)) { }
@@ -131,7 +146,7 @@ namespace MacExtend.Services.CoreDevice
             {
                 if (watch.Elapsed >= StopTimeout)
                 {
-                    if (_startedWithTask) await Task.Run(() => EndTask()).ConfigureAwait(false);
+                    if (withTask) await Task.Run(() => EndTask()).ConfigureAwait(false);
                     else Log("tunneld still answers after shutdown; it was started with UAC and cannot be stopped from here");
                     return;
                 }
