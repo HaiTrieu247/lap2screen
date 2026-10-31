@@ -276,13 +276,14 @@ jobs:
           if-no-files-found: error
 
   # Every push to main (and every v* tag) becomes a release in RELEASE_REPOSITORY, so the app's updater can find it.
+  # A manual run (Run workflow) on main or on a v* tag releases too, for a push that skipped CI.
   # A tag with a suffix (v1.0.8-beta.1) becomes a pre-release: never Latest, so the updater, which reads only the
   # latest release, does not offer it to anyone.
   # Publishing there needs the secret RELEASES_TOKEN: a fine-grained token with Contents read and write on that
   # repository only (GITHUB_TOKEN can write to this repository alone).
   release:
     name: GitHub release
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: app
     runs-on: ubuntu-latest
     steps:
