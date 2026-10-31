@@ -22,8 +22,8 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- GitHub repository the updater reads releases from; CI passes github.repository -->
-    <UpdateRepository Condition="'$(UpdateRepository)' == ''">HaiTrieu247/lap2screen</UpdateRepository>
+    <!-- GitHub repository the updater reads releases from; CI passes RELEASE_REPOSITORY from build.yml -->
+    <UpdateRepository Condition="'$(UpdateRepository)' == ''">HaiTrieu247/MacExtend</UpdateRepository>
   </PropertyGroup>
 
   <ItemGroup>

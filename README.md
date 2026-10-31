@@ -21,7 +21,7 @@ MacExtend dùng [UxPlay](https://github.com/FDH2/UxPlay) làm lõi nhận AirPla
 
 ## Cài đặt
 
-Tải bản mới nhất ở trang **Releases** của repo:
+Tải bản mới nhất ở trang [Releases](https://github.com/HaiTrieu247/MacExtend/releases/latest):
 
 - `MacExtend-x.y.z-setup.exe`: bộ cài. Bộ cài tự thêm quy tắc tường lửa và tạo lối tắt trong Start.
 - `MacExtend-x.y.z-portable.zip`: bản chạy ngay. Giải nén rồi mở `MacExtend.exe`. Lần đầu bấm **Cho phép** ở mục Tường lửa trong app.
@@ -171,13 +171,13 @@ Repo có sẵn workflow `.github/workflows/build.yml` chạy trên máy Windows 
 1. Push repo lên GitHub.
 2. Workflow tự chạy với mỗi lần push vào `main`, hoặc chạy tay ở tab **Actions**, chọn **build**, rồi **Run workflow**.
 3. Khi xong, tải artifact `MacExtend-<phiên bản>`. Artifact chứa file `.zip` portable và bộ cài `.exe`.
-4. Mỗi lần push vào `main`, workflow tự tạo một GitHub Release `v<phiên bản>`. Release gồm bộ cài, bản portable và các gói cập nhật (`update.ini`, `MacExtend-x.y.z-app.zip`, `MacExtend-x.y.z-runtime.zip`). App trên máy sẽ tìm thấy bản mới qua các gói này.
+4. Mỗi lần push vào `main`, workflow tự tạo một GitHub Release `v<phiên bản>` ở repo công khai [HaiTrieu247/MacExtend](https://github.com/HaiTrieu247/MacExtend) (biến `RELEASE_REPOSITORY` trong workflow). Việc đăng release cần secret `RELEASES_TOKEN`: một fine-grained token chỉ cấp cho repo đó, quyền Contents đọc và ghi. Release gồm bộ cài, bản portable và các gói cập nhật (`update.ini`, `MacExtend-x.y.z-app.zip`, `MacExtend-x.y.z-runtime.zip`). App trên máy sẽ tìm thấy bản mới qua các gói này.
 5. Phiên bản là `<version.txt>.<số thứ tự lần build>`, ví dụ `1.0.57`. Muốn lên `1.1.x` thì sửa `version.txt`. Đẩy tag `vX.Y.Z` cũng tạo release đúng phiên bản `X.Y.Z`. Sau đó hãy nâng `version.txt` cao hơn, để các bản build tiếp theo vẫn được coi là mới hơn.
 
 Workflow gồm ba bước:
 - `runtime`: build `uxplay.exe` trong MSYS2 UCRT64 từ commit UxPlay được khóa trong `native/uxplay.ref`. Sau đó gom các plugin GStreamer và DLL cần thiết, rồi kiểm tra bản gom chạy được trên Windows sạch, không có MSYS2.
 - `app`: chạy unit test, build app WPF, đóng gói zip và bộ cài Inno Setup.
-- `release`: chỉ chạy khi có tag `v*`.
+- `release`: chạy khi push vào `main` hoặc đẩy tag `v*`, đăng release lên repo công khai ở trên.
 
 ### Trên máy
 

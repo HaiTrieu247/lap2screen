@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Public repository that holds the releases and that the app's updater reads; this source repository can be private.
+  RELEASE_REPOSITORY: HaiTrieu247/MacExtend
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -57,6 +61,7 @@ jobs:
           name: uxplay-runtime
           path: dist/uxplay
           if-no-files-found: error
+          retention-days: 1
 
   # Python 3.13 + the locked pymobiledevice3 for "Điều khiển trực tiếp", downloaded by the app on first use
   # (never in the installer or the portable zip). Built and checked on a relocated copy.
@@ -86,6 +91,7 @@ jobs:
           name: coredevice-runtime
           path: build/coredevice-runtime
           if-no-files-found: error
+          retention-days: 1
 
   app:
     name: MacExtend app, tests and packages
@@ -139,7 +145,7 @@ jobs:
         run: dotnet test tests/MacExtend.Core.Tests -c Release
 
       - name: Build app
-        run: dotnet build src/MacExtend.App -c Release -o build/MacExtend -p:Version=${{ steps.version.outputs.number }} -p:InformationalVersion=${{ steps.version.outputs.value }} -p:UpdateRepository=${{ github.repository }} -p:DebugType=none -p:CoreDeviceRuntimeId=${{ steps.coredevice.outputs.id }} -p:CoreDeviceRuntimeFile=${{ steps.coredevice.outputs.file }} -p:CoreDeviceRuntimeSha256=${{ steps.coredevice.outputs.sha256 }} -p:CoreDeviceRuntimeSize=${{ steps.coredevice.outputs.size }}
+        run: dotnet build src/MacExtend.App -c Release -o build/MacExtend -p:Version=${{ steps.version.outputs.number }} -p:InformationalVersion=${{ steps.version.outputs.value }} -p:UpdateRepository=${{ env.RELEASE_REPOSITORY }} -p:DebugType=none -p:CoreDeviceRuntimeId=${{ steps.coredevice.outputs.id }} -p:CoreDeviceRuntimeFile=${{ steps.coredevice.outputs.file }} -p:CoreDeviceRuntimeSha256=${{ steps.coredevice.outputs.sha256 }} -p:CoreDeviceRuntimeSize=${{ steps.coredevice.outputs.size }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -216,6 +222,7 @@ jobs:
           name: MacExtend-${{ steps.version.outputs.value }}
           path: dist/*
           if-no-files-found: error
+          retention-days: 1
 
   # Experimental CoreDevice probe (tools/coredevice/README.md): a separate console tool, never part of the app,
   # its packages or the release. Needs neither the uxplay runtime nor a device: the smoke tests use a fake
@@ -265,29 +272,64 @@ jobs:
           path: build/coredevice-probe
           if-no-files-found: error
 
-  # Every push to main (and every v* tag) becomes a release, so the app's updater can find it. A tag with a
-  # suffix (v1.0.8-beta.1) becomes a pre-release: never Latest, so the updater, which reads only the latest
-  # release, does not offer it to anyone.
+  # Every push to main (and every v* tag) becomes a release in RELEASE_REPOSITORY, so the app's updater can find it.
+  # A tag with a suffix (v1.0.8-beta.1) becomes a pre-release: never Latest, so the updater, which reads only the
+  # latest release, does not offer it to anyone.
+  # Publishing there needs the secret RELEASES_TOKEN: a fine-grained token with Contents read and write on that
+  # repository only (GITHUB_TOKEN can write to this repository alone).
   release:
     name: GitHub release
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: app
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
+      - name: Check the release token
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -z "$RELEASES_TOKEN" ]; then
+            echo "::error::Secret RELEASES_TOKEN is missing: a fine-grained token with Contents read and write on $RELEASE_REPOSITORY"
+            exit 1
+          fi
+
       - uses: actions/download-artifact@v4
         with:
           pattern: MacExtend-*
           path: dist
           merge-multiple: true
 
-      - uses: softprops/action-gh-release@v2
+      # no target_commitish: this run's commit is not in that repository, so the tag goes on its default branch
+      - name: Release in ${{ env.RELEASE_REPOSITORY }}
+        uses: softprops/action-gh-release@v2
         with:
+          repository: ${{ env.RELEASE_REPOSITORY }}
+          token: ${{ secrets.RELEASES_TOKEN }}
           tag_name: v${{ needs.app.outputs.version }}
           name: MacExtend ${{ needs.app.outputs.version }}
-          target_commitish: ${{ github.sha }}
+          body: |
+            Cài mới: tải `MacExtend-${{ needs.app.outputs.version }}-setup.exe`, hoặc `MacExtend-${{ needs.app.outputs.version }}-portable.zip` để chạy không cần cài.
+            Máy đã cài MacExtend tự nhận bản này, hoặc bấm **Kiểm tra cập nhật** trong app. Các file còn lại là gói cập nhật app dùng.
           prerelease: ${{ needs.app.outputs.prerelease }}
           make_latest: ${{ needs.app.outputs.prerelease == 'true' && 'false' || 'true' }}
           files: dist/*
-          generate_release_notes: true
+
+  # A private repository gets 500 MB of artifact storage, billed by the hour, and one run uploads about 500 MB.
+  # Once the release holds the files, this run's artifacts are not needed; the small CoreDevice probe stays.
+  # Runs without a release (pull requests) keep theirs for a day (retention-days on each upload).
+  cleanup:
+    name: Delete this run's artifacts
+    needs: [release, coredevice-probe]
+    if: always() && needs.release.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete artifacts except the CoreDevice probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+            --jq '.artifacts[] | select(.name | startswith("coredevice-probe-") | not) | .id' |
+          while read -r id; do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id"
+          done

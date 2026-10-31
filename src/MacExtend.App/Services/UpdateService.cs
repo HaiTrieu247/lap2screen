@@ -31,7 +31,7 @@ namespace MacExtend.Services
 
         public static string Repository =>
             typeof(UpdateService).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-                .FirstOrDefault(a => a.Key == "UpdateRepository")?.Value ?? "HaiTrieu247/lap2screen";
+                .FirstOrDefault(a => a.Key == "UpdateRepository")?.Value ?? "HaiTrieu247/MacExtend";
 
         public static Version CurrentVersion => AppVersion.Normalize(typeof(UpdateService).Assembly.GetName().Version);
 
