@@ -134,6 +134,58 @@ public class ViewerBridgeTests
     }
 
     [Fact]
+    public void TheWheelScrollsTheDeviceWithAFingerDrag()
+    {
+        var script = ViewerBridge.DocumentScript(Stage);
+
+        // viewer.js has no wheel at all: the window's own listener drags a finger through /touch and the viewer's own
+        // touchCoords, so a rotated picture scrolls the way it looks
+        Assert.Contains("window.addEventListener('wheel', function (e) {", script);
+        Assert.Contains("}, { passive: false });", script);
+        Assert.Contains("var c = touchCoords({ clientX: p.x, clientY: p.y });", script);
+        Assert.Contains("return fetch('/touch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: type, x: c.x, y: c.y }) });", script);
+        // installed once the viewer has run, and only if it still has touchCoords
+        Assert.Contains("if (c && typeof touchCoords === 'function') wheelDrag(c);", script);
+    }
+
+    [Fact]
+    public void TheWheelNeverTapsOrStartsASystemGesture()
+    {
+        var script = ViewerBridge.DocumentScript(Stage);
+
+        // the left button's own finger wins; Ctrl+wheel (a touchpad pinch) is left alone
+        Assert.Contains("(typeof activePointer !== 'undefined' && activePointer !== null)) return;", script);
+        Assert.Contains("if (e.ctrlKey) return;", script);
+        // no finger goes down until the wheel asks for more than a tap
+        Assert.Contains("if (Math.abs(pending.x) + Math.abs(pending.y) < 12) return;", script);
+        // the finger stays away from the edges where iOS starts Home, Control Center and Back
+        Assert.Contains("x: Math.min(r.right - r.width * 0.1, Math.max(r.left + r.width * 0.1, p.x))", script);
+        Assert.Contains("y: Math.min(r.bottom - r.height * 0.2, Math.max(r.top + r.height * 0.2, p.y))", script);
+        // any press, blur or hidden page lifts it
+        Assert.Contains("window.addEventListener('pointerdown', cancel, true);", script);
+        Assert.Contains("window.addEventListener('blur', cancel);", script);
+        Assert.Contains("document.addEventListener('visibilitychange', cancel);", script);
+    }
+
+    [Fact]
+    public void TheWheelMovesOneFingerAndFlicksWhenItWasTurningFast()
+    {
+        var script = ViewerBridge.DocumentScript(Stage);
+
+        // a notch (100 px) moves the finger a tenth of the picture; down moves the content up, Shift turns it sideways
+        Assert.Contains("scale = r.height * 0.001;", script);
+        Assert.Contains("var move = { x: -dx * scale, y: -dy * scale };", script);
+        Assert.Contains("if (e.shiftKey && !dx) { dx = dy; dy = 0; }", script);
+        // notches in a row move the finger that is already down
+        Assert.Contains("if (finger) { aim(move); schedule(); return; }", script);
+        // three notches within the last 250 ms flick on release
+        Assert.Contains("return sum >= 300;", script);
+        Assert.Contains("up(fast());", script);
+        // one request after another: a release never overtakes the moves before it
+        Assert.Contains("queue = queue.then(function () {", script);
+    }
+
+    [Fact]
     public void SaysInVietnameseWhatToDoWhenThePictureStops()
     {
         var script = ViewerBridge.DocumentScript(Stage);
