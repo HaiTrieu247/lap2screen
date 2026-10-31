@@ -256,7 +256,10 @@ function Assert-EnvironmentReset([string]$pythonDir) {
 function Test-OpenSslAttackReproduces([string]$pythonDir) {
     $py = Join-Path $pythonDir 'python.exe'
     $null = Invoke-HostileEnvironment { & $py -I -c 'import ssl; ssl.create_default_context()' 2>&1 | Out-Null }
-    if ($LASTEXITCODE -ne 0) {
+    $failed = $LASTEXITCODE -ne 0
+    # the expected failure must not become the step's result: the runner ends a pwsh step with exit $LASTEXITCODE
+    $global:LASTEXITCODE = 0
+    if ($failed) {
         Write-Host '   ok: without the reset the broken OPENSSL_CONF makes ssl fail, so the reset is what protects tunneld'
     }
     else {
