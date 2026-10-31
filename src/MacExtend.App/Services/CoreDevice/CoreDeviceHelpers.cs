@@ -22,6 +22,10 @@ namespace MacExtend.Services.CoreDevice
     /// nothing outside the install folder: no log, no result file, so no caller-chosen path ever receives their text.
     /// tunneld is never hosted here: the task starts the runtime's pythonw.exe itself, because an elevated .NET process
     /// would honour COR_PROFILER from the user's own environment.
+    /// Known limitation: the setup helper itself is this .NET exe self-elevated through runas, so COR_PROFILER and
+    /// COR_ENABLE_PROFILING from the user's environment can still load a profiler into the elevated setup process. This
+    /// is inherent to any runas of a managed exe and falls in the "UAC is not a security boundary" class; a native
+    /// elevation shim is a possible future follow-up.
     /// </summary>
     internal static class CoreDeviceHelpers
     {

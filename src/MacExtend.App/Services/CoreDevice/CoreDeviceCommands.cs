@@ -127,7 +127,10 @@ namespace MacExtend.Services.CoreDevice
             {
                 using (var client = new TcpClient())
                 {
-                    return client.ConnectAsync("127.0.0.1", UsbmuxPort).Wait(500) && client.Connected;
+                    var connect = client.ConnectAsync("127.0.0.1", UsbmuxPort);
+                    // an abandoned attempt faults when the client is disposed: observe it so it never reaches the crash log
+                    connect.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
+                    return connect.Wait(500) && client.Connected;
                 }
             }
             catch (AggregateException)

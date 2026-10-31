@@ -81,6 +81,8 @@ namespace MacExtend.Services
 
         private static ProcessStartInfo Start(string script)
         {
+            // first statement of every script, elevated or not: an elevated child must not autoload a module planted in the user's PSModulePath
+            script = "$env:PSModulePath = \"$PSHOME\\Modules\"\n" + script;
             var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
             var exe = Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe");
             return new ProcessStartInfo(exe, "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " + encoded);
