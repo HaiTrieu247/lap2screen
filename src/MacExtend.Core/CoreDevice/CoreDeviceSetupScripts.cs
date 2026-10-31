@@ -67,13 +67,22 @@ namespace MacExtend.Core.CoreDevice
         /// Ends tunneld if the task is running it (its pythonw.exe holds the runtime's files); does nothing when the task
         /// is missing or idle. Run before the runtime folder is replaced or removed.
         /// </summary>
-        public static string StopTask() =>
-            "Get-ScheduledTask -TaskPath " + PowerShellText.Literal(TaskPath) + " -TaskName " + PowerShellText.Literal(TaskName)
-            + " -ErrorAction SilentlyContinue | Stop-ScheduledTask";
+        public static string StopTask() => IfFound(FindTask(), "Stop-ScheduledTask");
 
-        public static string RemoveTask() =>
-            "Get-ScheduledTask -TaskPath " + PowerShellText.Literal(TaskPath) + " -TaskName " + PowerShellText.Literal(TaskName)
-            + " -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false";
+        public static string RemoveTask() => IfFound(FindTask(), "Unregister-ScheduledTask -Confirm:$false");
+
+        private static string FindTask() =>
+            "Get-ScheduledTask -TaskPath " + PowerShellText.Literal(TaskPath) + " -TaskName " + PowerShellText.Literal(TaskName);
+
+        /// <summary>
+        /// Runs <paramref name="action"/> on what <paramref name="lookup"/> finds, and nothing when it finds nothing. A lookup
+        /// that finds nothing writes an error even with SilentlyContinue, and powershell.exe -Command exits 1 when its last
+        /// command wrote one, so the script ends with an explicit exit 0; a failing action stops it, which exits 1.
+        /// </summary>
+        private static string IfFound(string lookup, string action) => string.Join("\n",
+            "$found = @(" + lookup + " -ErrorAction SilentlyContinue)",
+            "if ($found.Count -gt 0) { $found | " + action + " -ErrorAction Stop }",
+            "exit 0");
 
         /// <summary>
         /// Video arrives as unsolicited UDP on the tunnel adapter (Public, a new network for every tunnel), and Bonjour
@@ -101,7 +110,7 @@ namespace MacExtend.Core.CoreDevice
         }
 
         public static string RemoveFirewallRules() =>
-            "Get-NetFirewallRule -Group " + PowerShellText.Literal(FirewallGroup) + " -ErrorAction SilentlyContinue | Remove-NetFirewallRule";
+            IfFound("Get-NetFirewallRule -Group " + PowerShellText.Literal(FirewallGroup), "Remove-NetFirewallRule");
 
         /// <summary>Unelevated check; prints "rules=N task=0|1".</summary>
         public static string Query() => string.Join("\n",

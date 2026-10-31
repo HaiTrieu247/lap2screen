@@ -109,7 +109,9 @@ public class CoreDeviceSetupScriptsTests
     [Fact]
     public void RemovesAndQueriesTheSameNames()
     {
-        Assert.Equal("Get-NetFirewallRule -Group 'MacExtend CoreDevice' -ErrorAction SilentlyContinue | Remove-NetFirewallRule", CoreDeviceSetupScripts.RemoveFirewallRules());
+        Assert.Equal("$found = @(Get-NetFirewallRule -Group 'MacExtend CoreDevice' -ErrorAction SilentlyContinue)\n"
+                     + "if ($found.Count -gt 0) { $found | Remove-NetFirewallRule -ErrorAction Stop }\nexit 0",
+                     CoreDeviceSetupScripts.RemoveFirewallRules());
         Assert.Contains("-TaskPath '\\MacExtend\\' -TaskName 'MacExtend CoreDevice tunnel'", CoreDeviceSetupScripts.RemoveTask());
         Assert.Contains("\"rules=$rules task=$task\"", CoreDeviceSetupScripts.Query());
     }
@@ -117,8 +119,22 @@ public class CoreDeviceSetupScriptsTests
     [Fact]
     public void EndsARunningTunneldOfTheTaskAndNothingElse()
     {
-        Assert.Equal("Get-ScheduledTask -TaskPath '\\MacExtend\\' -TaskName 'MacExtend CoreDevice tunnel' -ErrorAction SilentlyContinue | Stop-ScheduledTask",
+        Assert.Equal("$found = @(Get-ScheduledTask -TaskPath '\\MacExtend\\' -TaskName 'MacExtend CoreDevice tunnel' -ErrorAction SilentlyContinue)\n"
+                     + "if ($found.Count -gt 0) { $found | Stop-ScheduledTask -ErrorAction Stop }\nexit 0",
                      CoreDeviceSetupScripts.StopTask());
+    }
+
+    // powershell.exe -Command exits 1 when its last command wrote an error, and a lookup that finds nothing writes one even
+    // with SilentlyContinue: --coredevice-remove on a clean machine returned RemoveFailed
+    [Fact]
+    public void UndoScriptsSucceedWhenThereIsNothingToUndo()
+    {
+        foreach (var script in new[] { CoreDeviceSetupScripts.StopTask(), CoreDeviceSetupScripts.RemoveTask(), CoreDeviceSetupScripts.RemoveFirewallRules() })
+        {
+            Assert.StartsWith("$found = @(", script);
+            Assert.Contains(" -ErrorAction SilentlyContinue)\nif ($found.Count -gt 0) { $found | ", script);
+            Assert.EndsWith(" -ErrorAction Stop }\nexit 0", script);
+        }
     }
 
     [Fact]
