@@ -114,6 +114,26 @@ public class ViewerBridgeTests
     }
 
     [Fact]
+    public void GivesTheViewerTheWholeDecodedPictureWhenTheDecoderCutsItShort()
+    {
+        var script = ViewerBridge.DocumentScript(Stage);
+
+        // Edge's HEVC decoder (WebView2 too) decodes 832x1808 but marks only 832x720 visible and shows it as 1280x720,
+        // WebCodecs' default for a config without a size: the viewer drew the top 40 % stretched sideways
+        Assert.Contains("var NativeDecoder = window.VideoDecoder;", script);
+        Assert.Contains("return new NativeDecoder({ output: function (frame) { output(wholePicture(frame)); }, error: init.error });", script);
+        Assert.Contains("Decoder.isConfigSupported = function (config) { return NativeDecoder.isConfigSupported(config); };", script);
+        Assert.Contains("window.VideoDecoder = Decoder;", script);
+        // a real conformance window crops less than one 64 px coding tree block, and such a frame is left as it is
+        Assert.Contains("if (!r || (w - r.width < 64 && h - r.height < 64)) return frame;", script);
+        Assert.Contains("new VideoFrame(frame, { visibleRect: { x: 0, y: 0, width: w, height: h }, displayWidth: w, displayHeight: h })", script);
+        Assert.Contains("frame.close();", script);
+        // before viewer.js builds its decoder, and only on the viewer page
+        Assert.True(script.IndexOf("window.VideoDecoder = Decoder;", StringComparison.Ordinal)
+                    < script.IndexOf("document.addEventListener('DOMContentLoaded'", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SaysInVietnameseWhatToDoWhenThePictureStops()
     {
         var script = ViewerBridge.DocumentScript(Stage);

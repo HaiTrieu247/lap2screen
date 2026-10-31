@@ -42,9 +42,36 @@ namespace MacExtend.Core.CoreDevice
             + "#offline-overlay{border-radius:10px}"
             + "#offline-overlay span{white-space:normal!important;text-align:center;max-width:80%;line-height:1.45}";
 
+        // viewer.js configures its HEVC decoder with codec and hvcC only. Edge's decoder (WebView2's too) then decodes the
+        // whole picture (coded 832x1808) but marks only the part inside WebCodecs' default 1280x720 visible and shows it
+        // as 1280x720, so the viewer drew the top 40 % stretched sideways; Chrome takes the size from the stream. Every
+        // frame cut short by more than a conformance window can (less than one 64 px coding tree block) is handed on as
+        // the whole decoded picture, so the canvas, the rotation and the collapse compensation all see the real size.
+        private const string WholePictureDecoder =
+            "  if (window.VideoDecoder && window.VideoFrame) {\n"
+            + "    var wholePicture = function (frame) {\n"
+            + "      var r = frame.visibleRect, w = frame.codedWidth, h = frame.codedHeight;\n"
+            + "      if (!r || (w - r.width < 64 && h - r.height < 64)) return frame;\n"
+            + "      try {\n"
+            + "        var whole = new VideoFrame(frame, { visibleRect: { x: 0, y: 0, width: w, height: h }, displayWidth: w, displayHeight: h });\n"
+            + "        frame.close();\n"
+            + "        return whole;\n"
+            + "      } catch (e) { return frame; }\n"
+            + "    };\n"
+            + "    var NativeDecoder = window.VideoDecoder;\n"
+            + "    var Decoder = function (init) {\n"
+            + "      var output = init.output;\n"
+            + "      return new NativeDecoder({ output: function (frame) { output(wholePicture(frame)); }, error: init.error });\n"
+            + "    };\n"
+            + "    Decoder.isConfigSupported = function (config) { return NativeDecoder.isConfigSupported(config); };\n"
+            + "    Decoder.prototype = NativeDecoder.prototype;\n"
+            + "    window.VideoDecoder = Decoder;\n"
+            + "  }\n";
+
         /// <summary>
         /// Runs in the viewer page before its own script (AddScriptToExecuteOnDocumentCreatedAsync): no bezel, no zoom,
-        /// no clipboard sync, only the canvas on <paramref name="background"/>, and the offline label in Vietnamese.
+        /// no clipboard sync, only the canvas on <paramref name="background"/>, the whole decoded picture even where the
+        /// decoder marks only part of it visible (Edge), and the offline label in Vietnamese.
         /// The keys viewer.js keeps for itself are masked so they reach the device like any other key: '?' (its help,
         /// hidden here, would swallow every key until Esc), Ctrl+P (a screenshot download), Ctrl+= / Ctrl+- / Ctrl+0 (zoom).
         /// </summary>
@@ -68,6 +95,7 @@ namespace MacExtend.Core.CoreDevice
                 + "      try { Object.defineProperty(e, 'key', { value: 'Unidentified' }); } catch (x) {}\n"
                 + "    }\n"
                 + "  }, true);\n"
+                + WholePictureDecoder
                 + "  document.addEventListener('DOMContentLoaded', function () {\n"
                 + "    var style = document.createElement('style');\n"
                 + "    style.textContent = " + JsString(Css.Replace("{BG}", background)) + ";\n"
