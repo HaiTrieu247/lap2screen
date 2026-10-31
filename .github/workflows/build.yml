@@ -1,10 +1,13 @@
 name: build
 
 on:
+  # site/ is the Netlify landing page, deployed by hand; changing only it must not publish a new release
   push:
     branches: [main]
     tags: ['v*']
+    paths-ignore: ['site/**']
   pull_request:
+    paths-ignore: ['site/**']
   workflow_dispatch:
 
 permissions:

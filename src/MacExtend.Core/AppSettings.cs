@@ -51,6 +51,8 @@ namespace MacExtend.Core
         public bool DirectHintDismissed { get; set; }
         /// <summary>Last size and position of the direct-control window, "x,y,width,height" in device-independent pixels.</summary>
         public string DirectWindowBounds { get; set; } = "";
+        /// <summary>Keep the direct-control window above other apps while it is not full screen (its toolbar's pin).</summary>
+        public bool DirectOnTop { get; set; }
 
         public IReadOnlyList<string> WifiDevices() =>
             (DirectWifiDevices ?? "").Split(';').Where(CoreDevice.CoreDeviceOptions.IsValidUdid).Distinct(StringComparer.OrdinalIgnoreCase).ToList();

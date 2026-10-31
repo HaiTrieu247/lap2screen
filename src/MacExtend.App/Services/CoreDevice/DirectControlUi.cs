@@ -90,9 +90,12 @@ namespace MacExtend.Services.CoreDevice
             setup.Closed += (_, __) =>
             {
                 if (_setup == setup) _setup = null;
+                if (_window != null) _window.SetupOpen = false;
                 Changed?.Invoke();
             };
             _setup = setup;
+            // a pinned direct-control window would stay over it
+            if (_window != null) _window.SetupOpen = true;
             setup.Show();
         }
 
@@ -200,7 +203,7 @@ namespace MacExtend.Services.CoreDevice
                 Bring(_window);
                 return;
             }
-            var window = new CoreDeviceWindow(_service, _settings, OpenSetup, () => _ = RetryAsync());
+            var window = new CoreDeviceWindow(_service, _settings, OpenSetup, () => _ = RetryAsync()) { SetupOpen = _setup != null };
             window.Closed += (_, __) =>
             {
                 if (_window == window) _window = null;

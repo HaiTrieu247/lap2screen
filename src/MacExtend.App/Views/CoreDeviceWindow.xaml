@@ -21,6 +21,11 @@
             <Setter Property="Focusable" Value="False" />
             <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
         </Style>
+        <!-- a tool that is switched on, like the pin -->
+        <Style x:Key="ToolButtonOn" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+            <Setter Property="Background" Value="{DynamicResource Accent.Soft}" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}" />
+        </Style>
         <Style x:Key="ToolGlyph" TargetType="TextBlock" BasedOn="{StaticResource Text.Icon}">
             <Setter Property="FontSize" Value="16" />
         </Style>
@@ -69,6 +74,10 @@
                     <Border Style="{StaticResource ToolDivider}" />
                     <Button x:Name="TextButton" Style="{StaticResource ToolButton}" ToolTip="Gửi hoặc lấy văn bản" AutomationProperties.Name="Văn bản" Click="OnText">
                         <TextBlock Style="{StaticResource ToolGlyph}" Text="&#xE77F;" />
+                    </Button>
+                    <!-- glyph, tooltip and style follow the pin in code -->
+                    <Button x:Name="PinButton" Style="{StaticResource ToolButton}" AutomationProperties.Name="Ghim trên cùng" Click="OnPin">
+                        <TextBlock x:Name="PinGlyph" Style="{StaticResource ToolGlyph}" />
                     </Button>
                     <Button x:Name="FullscreenButton" Style="{StaticResource ToolButton}" ToolTip="Toàn màn hình (F11)" AutomationProperties.Name="Toàn màn hình" Click="OnFullscreen">
                         <TextBlock x:Name="FullscreenGlyph" Style="{StaticResource ToolGlyph}" Text="&#xE740;" />

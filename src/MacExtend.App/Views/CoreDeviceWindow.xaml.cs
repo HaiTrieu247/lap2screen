@@ -68,6 +68,7 @@ namespace MacExtend.Views
         private bool _closed;
         private bool _fullscreen;
         private WindowState _stateBeforeFullscreen;
+        private bool _setupOpen;
 
         public CoreDeviceWindow(CoreDeviceService service, SettingsService settings, Action openSetup, Action retry)
         {
@@ -78,6 +79,7 @@ namespace MacExtend.Views
             InitializeComponent();
             RestoreSavedBounds();
             UpdateHint();
+            ApplyPin();
             TextPopup.CustomPopupPlacementCallback = PlaceTextPopup;
             var spin = new DoubleAnimation(0, 360, TimeSpan.FromSeconds(0.9)) { RepeatBehavior = RepeatBehavior.Forever };
             Spinner.IsVisibleChanged += (_, __) => SpinnerTurn.BeginAnimation(RotateTransform.AngleProperty, Spinner.IsVisible ? spin : null);
@@ -546,7 +548,44 @@ namespace MacExtend.Views
             FullscreenGlyph.Text = _fullscreen ? "\uE73F" : "\uE740"; // BackToWindow, FullScreen
             FullscreenButton.ToolTip = _fullscreen ? "Thoát toàn màn hình (F11)" : "Toàn màn hình (F11)";
             UpdateHint();
+            ApplyPin();
             FocusViewer();
+        }
+
+        // ---- the pin -------------------------------------------------------------------------
+
+        /// <summary>
+        /// The setup window is open. The pin waits meanwhile: this window's own "Mở Thiết lập" opens the setup, which
+        /// would otherwise open behind it.
+        /// </summary>
+        public bool SetupOpen
+        {
+            set
+            {
+                if (_closed) return;
+                _setupOpen = value;
+                ApplyPin();
+            }
+        }
+
+        private void OnPin(object sender, RoutedEventArgs e)
+        {
+            _settings.Current.DirectOnTop = !_settings.Current.DirectOnTop;
+            _settings.ScheduleSave();
+            ApplyPin();
+        }
+
+        /// <summary>
+        /// The user's pin, but never full screen: a pinned full-screen window would stay over the whole monitor after
+        /// Alt+Tab. The button shows the user's choice either way.
+        /// </summary>
+        private void ApplyPin()
+        {
+            var pinned = _settings.Current.DirectOnTop;
+            Topmost = pinned && !_fullscreen && !_setupOpen;
+            PinButton.Style = (Style)FindResource(pinned ? "ToolButtonOn" : "ToolButton");
+            PinGlyph.Text = pinned ? "\uE841" : "\uE718"; // PinnedFill, Pin
+            PinButton.ToolTip = pinned ? "Bỏ ghim khỏi trên cùng" : "Ghim cửa sổ lên trên cùng";
         }
 
         // ---- text ----------------------------------------------------------------------------

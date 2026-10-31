@@ -47,6 +47,7 @@ namespace MacExtend.Core
             Line(sb, "DirectLastDevice", s.DirectLastDevice);
             Line(sb, "DirectHintDismissed", Bool(s.DirectHintDismissed));
             Line(sb, "DirectWindowBounds", s.DirectWindowBounds);
+            Line(sb, "DirectOnTop", Bool(s.DirectOnTop));
             return sb.ToString();
         }
 
@@ -122,6 +123,7 @@ namespace MacExtend.Core
                 case "directlastdevice": s.DirectLastDevice = value; break;
                 case "directhintdismissed": if (TryBool(value, out var hint)) s.DirectHintDismissed = hint; break;
                 case "directwindowbounds": s.DirectWindowBounds = value; break;
+                case "directontop": if (TryBool(value, out var directOnTop)) s.DirectOnTop = directOnTop; break;
             }
         }
 

@@ -28,6 +28,7 @@ public class SettingsStoreTests
         DirectLastDevice = "00008030-001E185E343B802E",
         DirectHintDismissed = true,
         DirectWindowBounds = "10,20,520,960",
+        DirectOnTop = true,
     };
 
     private static void AssertSame(AppSettings expected, AppSettings actual)
@@ -53,6 +54,7 @@ public class SettingsStoreTests
         Assert.Equal(expected.DirectLastDevice, actual.DirectLastDevice);
         Assert.Equal(expected.DirectHintDismissed, actual.DirectHintDismissed);
         Assert.Equal(expected.DirectWindowBounds, actual.DirectWindowBounds);
+        Assert.Equal(expected.DirectOnTop, actual.DirectOnTop);
     }
 
     [Fact]
@@ -301,5 +303,35 @@ public class SettingsStoreTests
     public void BluetoothControlParsesLikeOtherSwitches(string line, bool expected)
     {
         Assert.Equal(expected, SettingsStore.Parse("Fps=30\n" + line).BluetoothControl);
+    }
+
+    [Fact]
+    public void DirectWindowIsNotPinnedByDefaultNorInOlderFiles()
+    {
+        Assert.False(new AppSettings().DirectOnTop);
+        // the AirPlay window's pin is a setting of its own
+        Assert.False(SettingsStore.Parse("# MacExtend settings\nAlwaysOnTop=true\nDirectHintDismissed=true\n").DirectOnTop);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DirectOnTopRoundTripsApartFromAlwaysOnTop(bool on)
+    {
+        var text = SettingsStore.Serialize(new AppSettings { DirectOnTop = on, AlwaysOnTop = !on });
+
+        Assert.Contains("DirectOnTop=" + (on ? "true" : "false") + "\n", text);
+        var parsed = SettingsStore.Parse(text);
+        Assert.Equal(on, parsed.DirectOnTop);
+        Assert.Equal(!on, parsed.AlwaysOnTop);
+    }
+
+    [Theory]
+    [InlineData("directontop=TRUE", true)]
+    [InlineData("DirectOnTop=yes", false)]
+    [InlineData("DirectOnTop=", false)]
+    public void DirectOnTopParsesLikeOtherSwitches(string line, bool expected)
+    {
+        Assert.Equal(expected, SettingsStore.Parse("Fps=30\n" + line).DirectOnTop);
     }
 }
