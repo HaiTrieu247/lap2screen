@@ -142,8 +142,8 @@ public class ViewerBridgeTests
         // touchCoords, so a rotated picture scrolls the way it looks
         Assert.Contains("window.addEventListener('wheel', function (e) {", script);
         Assert.Contains("}, { passive: false });", script);
-        Assert.Contains("var c = touchCoords({ clientX: p.x, clientY: p.y });", script);
-        Assert.Contains("return fetch('/touch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: type, x: c.x, y: c.y }) });", script);
+        Assert.Contains("var c = touchCoords({ clientX: p.x, clientY: p.y }), last = queue[queue.length - 1];", script);
+        Assert.Contains("fetch('/touch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: t.type, x: t.x, y: t.y }) })", script);
         // installed once the viewer has run, and only if it still has touchCoords
         Assert.Contains("if (c && typeof touchCoords === 'function') wheelDrag(c);", script);
     }
@@ -156,11 +156,11 @@ public class ViewerBridgeTests
         // the left button's own finger wins; Ctrl+wheel (a touchpad pinch) is left alone
         Assert.Contains("(typeof activePointer !== 'undefined' && activePointer !== null)) return;", script);
         Assert.Contains("if (e.ctrlKey) return;", script);
-        // no finger goes down until the wheel asks for more than a tap
-        Assert.Contains("if (Math.abs(pending.x) + Math.abs(pending.y) < 12) return;", script);
-        // the finger stays away from the edges where iOS starts Home, Control Center and Back
-        Assert.Contains("x: Math.min(r.right - r.width * 0.1, Math.max(r.left + r.width * 0.1, p.x))", script);
-        Assert.Contains("y: Math.min(r.bottom - r.height * 0.2, Math.max(r.top + r.height * 0.2, p.y))", script);
+        // every touch first moves the 10 pt iOS needs before it scrolls, so none is ever a tap
+        Assert.Contains("var slop = 10 * pxPerPoint(), vertical = Math.abs(move.y) >= Math.abs(move.x);", script);
+        // it goes down away from the edges where iOS starts Home, Control Center and Back, and may then travel to 3 % of them
+        Assert.Contains("origin = within({ x: e.clientX, y: e.clientY }, 0.15, 0.2);", script);
+        Assert.Contains("target = within(want, 0.03, 0.03);", script);
         // any press, blur or hidden page lifts it
         Assert.Contains("window.addEventListener('pointerdown', cancel, true);", script);
         Assert.Contains("window.addEventListener('blur', cancel);", script);
@@ -168,21 +168,36 @@ public class ViewerBridgeTests
     }
 
     [Fact]
-    public void TheWheelMovesOneFingerAndFlicksWhenItWasTurningFast()
+    public void TheWheelScrollsAsManyLinesAsWindowsSays()
     {
         var script = ViewerBridge.DocumentScript(Stage);
 
-        // a notch (100 px) moves the finger a tenth of the picture; down moves the content up, Shift turns it sideways
-        Assert.Contains("scale = r.height * 0.001;", script);
-        Assert.Contains("var move = { x: -dx * scale, y: -dy * scale };", script);
+        // Edge gives 33.33 px per Windows line (166.67 for a 5-line notch, at 125 % too): one line is a 22 pt line of iOS text
+        Assert.Contains("var k = pxPerPoint() * 0.66;", script);
+        Assert.Contains("if (e.deltaMode === 1) { dx *= 100 / 3; dy *= 100 / 3; }", script);
+        // "one screen at a time" scrolls most of a screen
+        Assert.Contains("kx = page ? r.width * 0.875 : k, ky = page ? r.height * 0.875 : k;", script);
+        // the device's points: iPhones over 2000 px tall have a 3x screen, other iPhones and every iPad 2x
+        Assert.Contains("(l / s > 1.9 && l > 2000 ? 3 : 2) / canvas.height;", script);
+        // down moves the content up, Shift turns it sideways
+        Assert.Contains("var move = { x: -dx * kx, y: -dy * ky };", script);
         Assert.Contains("if (e.shiftKey && !dx) { dx = dy; dy = 0; }", script);
-        // notches in a row move the finger that is already down
-        Assert.Contains("if (finger) { aim(move); schedule(); return; }", script);
-        // three notches within the last 250 ms flick on release
-        Assert.Contains("return sum >= 300;", script);
-        Assert.Contains("up(fast());", script);
-        // one request after another: a release never overtakes the moves before it
-        Assert.Contains("queue = queue.then(function () {", script);
+    }
+
+    [Fact]
+    public void TheWheelGlidesWhileATouchpadFollowsTheFingers()
+    {
+        var script = ViewerBridge.DocumentScript(Stage);
+
+        // a wheel notch is a multiple of 120 in wheelDelta, a touchpad's are small: only notches are eased out
+        Assert.Contains("smooth = (e.wheelDeltaY && e.wheelDeltaY % 120 === 0) || (e.wheelDeltaX && e.wheelDeltaX % 120 === 0);", script);
+        Assert.Contains("finger = smooth ? { x: toward(finger.x, target.x), y: toward(finger.y, target.y) } : target;", script);
+        // one finger for a whole scroll: it stays down until nothing has come for 400 ms (a touchpad's glide included)
+        Assert.Contains("} else if (Date.now() - lastWheel >= 400) {", script);
+        Assert.Contains("if (finger) aim(move);", script);
+        // one request at a time, and a move that has not gone yet is replaced by the newer one
+        Assert.Contains("if (type === 'contact' && !first && last && last.type === 'contact' && !last.first) queue[queue.length - 1] = t;", script);
+        Assert.Contains(".then(function () { busy = false; pump(); });", script);
     }
 
     [Fact]

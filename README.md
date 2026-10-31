@@ -87,7 +87,7 @@ Con trỏ chạy theo kiểu chuột thật: bấm vào một điểm trên hìn
 
 ## Điều khiển trực tiếp (qua cáp hoặc Wi-Fi)
 
-Một cách điều khiển iPhone, iPad khác Bluetooth, trong cửa sổ riêng, không cần AirPlay: bấm đúng điểm, giữ, kéo, cuộn bằng con lăn chuột hoặc touchpad (Shift + lăn để cuộn ngang) và gõ phím, kể cả tiếng Việt. Dùng dịch vụ CoreDevice dành cho lập trình viên của Apple (cộng đồng dịch ngược), qua [pymobiledevice3](https://github.com/doronz88/pymobiledevice3). Tính năng còn mới: chưa được thử trên máy thật, xem bảng D trong [docs/TESTING.md](docs/TESTING.md).
+Một cách điều khiển iPhone, iPad khác Bluetooth, trong cửa sổ riêng, không cần AirPlay: bấm đúng điểm, giữ, kéo, cuộn bằng con lăn chuột hoặc touchpad theo cài đặt cuộn của Windows (Shift + lăn để cuộn ngang) và gõ phím, kể cả tiếng Việt. Dùng dịch vụ CoreDevice dành cho lập trình viên của Apple (cộng đồng dịch ngược), qua [pymobiledevice3](https://github.com/doronz88/pymobiledevice3). Tính năng còn mới: chưa được thử trên máy thật, xem bảng D trong [docs/TESTING.md](docs/TESTING.md).
 
 Cần:
 - Developer Mode trên thiết bị, bật một lần. Tùy chọn này nằm ở **Cài đặt > Quyền riêng tư & Bảo mật > Chế độ nhà phát triển** và chỉ hiện sau khi cửa sổ thiết lập chạy bước *Hiện tùy chọn*. Bật nó thì thiết bị khởi động lại và hỏi xác nhận; cửa sổ thiết lập hướng dẫn từng bước này.
