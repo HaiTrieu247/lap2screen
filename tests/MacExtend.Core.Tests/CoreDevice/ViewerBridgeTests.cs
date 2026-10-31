@@ -173,7 +173,7 @@ public class ViewerBridgeTests
         var script = ViewerBridge.DocumentScript(Stage);
 
         // Edge gives 33.33 px per Windows line (166.67 for a 5-line notch, at 125 % too): one line is a 22 pt line of iOS text
-        Assert.Contains("var k = pxPerPoint() * 0.66;", script);
+        Assert.Contains(", k = pxPerPoint() * 0.66;", script);
         Assert.Contains("if (e.deltaMode === 1) { dx *= 100 / 3; dy *= 100 / 3; }", script);
         // "one screen at a time" scrolls most of a screen
         Assert.Contains("kx = page ? r.width * 0.875 : k, ky = page ? r.height * 0.875 : k;", script);
