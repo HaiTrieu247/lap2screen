@@ -89,7 +89,9 @@ public class CoreDeviceGesturesTests
         var result = await CoreDeviceGestures.DragAsync(client, 65535, 0, 0, 65535, TimeSpan.FromMilliseconds(200), ReleaseDeadline, CancellationToken.None);
 
         Assert.Equal(GestureEnd.Completed, result.End);
-        Assert.InRange(watch.Elapsed, TimeSpan.FromMilliseconds(200), TimeSpan.FromMilliseconds(700));
+        // the top only rules out a drag that waits on something; a shared CI runner has taken 780 ms for this 200 ms one
+        // (the first HttpClient call's JIT, 15.6 ms timer ticks, the other test classes running in parallel)
+        Assert.InRange(watch.Elapsed, TimeSpan.FromMilliseconds(200), TimeSpan.FromMilliseconds(1500));
         var bodies = handler.Bodies;
         Assert.Equal(Touch("contact", 65535, 0), bodies[0]);
         Assert.Equal(Touch("contact", 0, 65535), bodies[^2]);
