@@ -101,6 +101,8 @@ Cách dùng:
 2. Muốn dùng Wi-Fi, cắm cáp rồi bật *Cho phép điều khiển qua Wi-Fi* cho thiết bị đó (ghép nối một lần qua cáp).
 3. Bấm *Mở điều khiển*, hoặc menu khay > *Điều khiển trực tiếp...*. Đang cắm cáp thì app dùng cáp; không thì dùng Wi-Fi nếu đã bật cho thiết bị đó.
 
+Nếu danh sách có từ hai thiết bị trở lên, app hiện bảng chọn trước khi kết nối, kể cả khi đã lưu máy dùng lần cuối. Mỗi thiết bị hiện sáu ký tự cuối UDID và cách kết nối; cùng một máy có cả cáp và Wi-Fi chỉ hiện một lần và dùng cáp. Danh sách Wi-Fi dựa trên các máy đã thiết lập, chưa xác nhận máy đang có mặt.
+
 Giới hạn:
 - Trong lúc điều khiển, camera và micro của thiết bị không dùng được; phiên cũng không mở được khi một ứng dụng đang giữ camera hoặc micro.
 - Màn hình thiết bị phải bật thì mới có hình. Tiếng vẫn ra loa của thiết bị, không đi về laptop.

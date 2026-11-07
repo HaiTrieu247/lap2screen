@@ -89,7 +89,7 @@ namespace MacExtend.Core.CoreDevice
 
     /// <summary>
     /// "Mở điều khiển" from the settings page or the tray: the setup window while nothing could work yet; otherwise the
-    /// device (the last one used, the only one, or the user's pick) and its route, the cable first.
+    /// only device, or the user's pick among several, and its route, the cable first.
     /// </summary>
     public static class DirectOpen
     {
@@ -100,16 +100,19 @@ namespace MacExtend.Core.CoreDevice
         /// <param name="usb">The devices on a cable.</param>
         /// <param name="wifi">The devices set up for Wi-Fi whose pairing record is there.</param>
         /// <param name="windowsSetupDone">Windows' part of Wi-Fi (the firewall rules, the task) is in place.</param>
-        /// <param name="lastUsed">The device of the last session; opened without asking while it can be.</param>
+        /// <param name="lastUsed">The device of the last session; kept for caller compatibility, never bypasses the picker.</param>
         public static DirectOpenPlan Plan(IReadOnlyList<string> usb, IReadOnlyList<string> wifi, bool windowsSetupDone, string lastUsed)
         {
             usb = usb ?? new string[0];
             wifi = wifi ?? new string[0];
             var wifiAvailable = wifi.Count > 0 && windowsSetupDone;
-            var udid = TransportChoice.PickDevice(usb, wifi, wifiAvailable, lastUsed);
-            if (udid != null) return DirectOpenPlan.Open(udid, TransportChoice.Choose(udid, usb, wifi, wifiAvailable));
             var candidates = TransportChoice.Candidates(usb, wifi, wifiAvailable);
-            if (candidates.Count > 0)
+            if (candidates.Count == 1)
+            {
+                var udid = candidates[0];
+                return DirectOpenPlan.Open(udid, TransportChoice.Choose(udid, usb, wifi, wifiAvailable));
+            }
+            if (candidates.Count > 1)
             {
                 return DirectOpenPlan.Pick(candidates.Select(u => new DeviceChoice(u, TransportChoice.Choose(u, usb, wifi, wifiAvailable))).ToList());
             }
@@ -118,8 +121,8 @@ namespace MacExtend.Core.CoreDevice
         }
 
         /// <summary>
-        /// Whether Windows' part of Wi-Fi could change the plan. It is read with PowerShell (seconds); a cable session to
-        /// the last device does not wait for it.
+        /// Whether Windows' part of Wi-Fi could change the plan. It is read with PowerShell (seconds), only when it
+        /// changes the available devices or their routes.
         /// </summary>
         public static bool NeedsWindowsCheck(IReadOnlyList<string> usb, IReadOnlyList<string> wifi, string lastUsed) =>
             wifi != null && wifi.Count > 0 && !Plan(usb, wifi, true, lastUsed).Equals(Plan(usb, wifi, false, lastUsed));

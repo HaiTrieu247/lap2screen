@@ -14,7 +14,7 @@ namespace MacExtend.Services.CoreDevice
 {
     /// <summary>
     /// Opens a session from the tray or the settings page: the setup window first while nothing could work yet, then the
-    /// device (the last one, the only one, or the user's pick, DirectOpen), then the session and its window. One open at
+    /// device (the only one, or the user's pick among several, DirectOpen), then the session and its window. One open at
     /// a time; everything here runs on the UI thread, the device queries on the thread pool.
     /// </summary>
     internal sealed class DirectControlUi
