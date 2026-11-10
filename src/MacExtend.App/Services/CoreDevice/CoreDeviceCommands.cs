@@ -111,6 +111,12 @@ namespace MacExtend.Services.CoreDevice
         /// </summary>
         public static Task<CommandResult> MountedImagesAsync(string udid) => Task.Run(() => Run(udid, ShortTimeout, "mounter", "list"));
 
+        /// <summary>`apps list --type User` over lockdown: the user's apps as JSON (WdaBundles.Pick reads it).</summary>
+        public static Task<CommandResult> UserAppsAsync(string udid) => Task.Run(() => Run(udid, ListTimeout, "apps", "list", "--type", "User"));
+
+        /// <summary>`provision list` over lockdown: the installed provisioning profiles as JSON (ProvisionProfiles reads it).</summary>
+        public static Task<CommandResult> ProfilesAsync(string udid) => Task.Run(() => Run(udid, ListTimeout, "provision", "list"));
+
         /// <summary>RemotePairing pair-setup over the trusted cable: no dialog on the device; writes remote_&lt;UDID&gt;.plist.</summary>
         public static Task<CommandResult> RemotePairAsync(string udid) => Task.Run(() => Run(udid, ShortTimeout, "lockdown", "remotepairing", "--pair"));
 

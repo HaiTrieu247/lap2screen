@@ -61,6 +61,8 @@ namespace MacExtend.Services
         /// <summary>uxplay's process id while it runs, 0 otherwise.</summary>
         public int ProcessId => _host.ProcessId;
         public string ClientName => _tracker.ClientName;
+        /// <summary>The connected device's model ("iPhone12,1"); null while nothing is connected.</summary>
+        public string ClientModel => _tracker.ClientModel;
         public string LastError { get; private set; }
         public string EffectiveDeviceName { get; private set; } = "";
         public RequestedVideo EffectiveVideo { get; private set; }

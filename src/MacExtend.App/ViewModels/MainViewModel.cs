@@ -9,9 +9,11 @@ using System.Windows.Input;
 using MacExtend.Core;
 using MacExtend.Core.Bluetooth;
 using MacExtend.Core.CoreDevice;
+using MacExtend.Core.Wda;
 using MacExtend.Services;
 using MacExtend.Services.Bluetooth;
 using MacExtend.Services.CoreDevice;
+using MacExtend.Services.Wda;
 
 namespace MacExtend.ViewModels
 {
@@ -32,7 +34,11 @@ namespace MacExtend.ViewModels
             nameof(CustomHeightText), nameof(CustomRefreshText), nameof(CustomH265), nameof(IsFps30), nameof(IsFps60),
             nameof(AudioEnabled), nameof(PinEnabled), nameof(Pin), nameof(PinDisplay), nameof(StartWithWindows),
             nameof(AutoCheckUpdates), nameof(FocusOnConnect), nameof(HideCursor), nameof(Fullscreen), nameof(AlwaysOnTop),
-            nameof(BluetoothControl),
+            nameof(BluetoothControl), nameof(WdaControl),
+        };
+        private static readonly string[] WdaNames =
+        {
+            nameof(WdaText), nameof(WdaCheck), nameof(ShowWdaRetry), nameof(ShowWdaChoose), nameof(ShowWdaSetup), nameof(ShowWdaStatus),
         };
         private static readonly string[] BluetoothNames =
         {
@@ -50,6 +56,7 @@ namespace MacExtend.ViewModels
         private readonly BluetoothController _bluetooth;
         private readonly CoreDeviceService _direct;
         private readonly DirectControlUi _directUi;
+        private readonly WdaController _wda;
         private readonly SettingsService _settings;
         private CheckState _firewallState = CheckState.Checking;
         private CheckState _networkState = CheckState.Checking;
@@ -63,13 +70,16 @@ namespace MacExtend.ViewModels
 
         /// <param name="direct">The direct-control session, for its status line.</param>
         /// <param name="directUi">Opens a session or the setup window; tells when it looks for devices and when the setup window closed.</param>
+        /// <param name="wda">WDA control: its status line, retry and device choice.</param>
+        /// <param name="chooseWda">Shows the device picker for WDA control.</param>
         public MainViewModel(ReceiverController controller, BluetoothController bluetooth, CoreDeviceService direct, DirectControlUi directUi,
-                             SettingsService settings, Action<string> exitForUpdate)
+                             WdaController wda, Action chooseWda, SettingsService settings, Action<string> exitForUpdate)
         {
             _controller = controller;
             _bluetooth = bluetooth;
             _direct = direct;
             _directUi = directUi;
+            _wda = wda;
             _settings = settings;
             Update = new UpdateViewModel(() => _settings.Current.AutoCheckUpdates,
                                          () => _controller.Phase == ReceiverPhase.Connected, exitForUpdate);
@@ -85,6 +95,11 @@ namespace MacExtend.ViewModels
             // N20: the setup window closing can change "Chưa thiết lập" too, not only a session
             _direct.StateChanged += RaiseDirect;
             _directUi.Changed += RaiseDirect;
+            _wda.StateChanged += () =>
+            {
+                Raise(WdaNames);
+                CommandManager.InvalidateRequerySuggested();
+            };
 
             StartCommand = new RelayCommand(() => _controller.Start(), () => CanStart);
             StopCommand = new RelayCommand(() => _controller.StopAsync(), () => IsActive);
@@ -96,6 +111,8 @@ namespace MacExtend.ViewModels
             OpenLogsCommand = new RelayCommand(() => Process.Start("explorer.exe", "\"" + AppPaths.LogDir + "\""));
             OpenDirectCommand = new RelayCommand(() => _ = _directUi.OpenAsync(), () => !_directUi.IsOpening);
             DirectSetupCommand = new RelayCommand(_directUi.OpenSetup);
+            WdaRetryCommand = new RelayCommand(_wda.Retry, () => _wda.CanRetry);
+            WdaChooseCommand = new RelayCommand(chooseWda, () => _wda.View.Phase == WdaPhase.Choose);
 
             VersionText = BuildVersionText();
         }
@@ -110,6 +127,8 @@ namespace MacExtend.ViewModels
         public ICommand OpenLogsCommand { get; }
         public ICommand OpenDirectCommand { get; }
         public ICommand DirectSetupCommand { get; }
+        public ICommand WdaRetryCommand { get; }
+        public ICommand WdaChooseCommand { get; }
 
         public UpdateViewModel Update { get; }
 
@@ -395,6 +414,41 @@ namespace MacExtend.ViewModels
             {
             }
         }
+
+        // ---- WDA control --------------------------------------------------------------------
+
+        /// <summary>Control the mirroring iPhone or iPad through WebDriverAgent. Applies at once.</summary>
+        public bool WdaControl
+        {
+            get => _settings.Current.WdaControl;
+            set => Change(s => s.WdaControl = value);
+        }
+
+        public string WdaText => _wda.StatusText;
+
+        public bool ShowWdaStatus => WdaText.Length > 0;
+
+        public CheckState WdaCheck
+        {
+            get
+            {
+                switch (_wda.View.Phase)
+                {
+                    case WdaPhase.Ready:
+                        return CheckState.Ok;
+                    case WdaPhase.Failed:
+                        return CheckState.Problem;
+                    default:
+                        return CheckState.Checking;
+                }
+            }
+        }
+
+        public bool ShowWdaRetry => _wda.View.Phase == WdaPhase.Failed;
+
+        public bool ShowWdaChoose => _wda.View.Phase == WdaPhase.Choose;
+
+        public bool ShowWdaSetup => _wda.NeedsSetup;
 
         // ---- direct control -----------------------------------------------------------------
 

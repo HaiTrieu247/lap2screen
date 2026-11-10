@@ -53,6 +53,10 @@ namespace MacExtend.Core
         public string DirectWindowBounds { get; set; } = "";
         /// <summary>Keep the direct-control window above other apps while it is not full screen (its toolbar's pin).</summary>
         public bool DirectOnTop { get; set; }
+        /// <summary>Control the mirroring iPhone or iPad through WebDriverAgent, started by itself while one mirrors.</summary>
+        public bool WdaControl { get; set; }
+        /// <summary>The cable device picked for each AirPlay name, as WdaChoices keeps it.</summary>
+        public string WdaDevices { get; set; } = "";
 
         public IReadOnlyList<string> WifiDevices() =>
             (DirectWifiDevices ?? "").Split(';').Where(CoreDevice.CoreDeviceOptions.IsValidUdid).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -73,6 +77,7 @@ namespace MacExtend.Core
             DirectWifiDevices = string.Join(";", WifiDevices());
             DirectLastDevice = CoreDevice.CoreDeviceOptions.IsValidUdid(DirectLastDevice) ? DirectLastDevice : "";
             DirectWindowBounds = DirectWindowBounds ?? "";
+            WdaDevices = Wda.WdaChoices.Parse(WdaDevices).Count == 0 ? "" : WdaDevices;
             if (!Enum.IsDefined(typeof(ResolutionMode), ResolutionMode)) ResolutionMode = ResolutionMode.Auto;
             CustomWidth = Math.Min(MaxWidth, Math.Max(MinWidth, CustomWidth));
             CustomHeight = Math.Min(MaxHeight, Math.Max(MinHeight, CustomHeight));

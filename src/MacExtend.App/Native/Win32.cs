@@ -189,6 +189,13 @@ namespace MacExtend.Native
                                           uint eventThread, uint eventTime);
 
         public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        public const uint EVENT_SYSTEM_MINIMIZESTART = 0x0016;
+        public const uint EVENT_SYSTEM_MINIMIZEEND = 0x0017;
+        public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
+        public const int OBJID_WINDOW = 0;
+        public static readonly IntPtr HWND_TOP = IntPtr.Zero;
+        public const int WM_MOUSEHWHEEL = 0x020E;
+        public const byte VK_RETURN = 0x0D;
         public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
         public const uint MONITOR_DEFAULTTONEAREST = 2;
         public const int GWL_STYLE = -16;
@@ -279,6 +286,11 @@ namespace MacExtend.Native
 
         [DllImport("user32.dll")]
         public static extern bool UnhookWinEvent(IntPtr hook);
+
+        public const uint GW_HWNDPREV = 3;
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetWindow(IntPtr hwnd, uint command);
 
         // ---- user32: keyboard and mouse while the laptop controls an Apple device ------------
 

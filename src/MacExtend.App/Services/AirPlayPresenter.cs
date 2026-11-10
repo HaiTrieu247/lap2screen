@@ -12,7 +12,7 @@ namespace MacExtend.Services
     /// asked for that, and hides the Windows pointer while that window is full screen and in front. As soon
     /// as the user switches away (Alt+Tab, Start, another app) or leaves full screen, the pointer comes back.
     /// While the laptop controls the device over Bluetooth the pointer stays hidden over the video in a normal
-    /// window too.
+    /// window too. While WDA control takes touches on the video, the pointer is never hidden there: the user points.
     /// </summary>
     internal sealed class AirPlayPresenter : IDisposable
     {
@@ -32,6 +32,7 @@ namespace MacExtend.Services
         private PixelRect _fitBounds;
         private bool _pinned;
         private IntPtr _controlled;
+        private IntPtr _touch;
 
         public AirPlayPresenter(ReceiverController controller, Func<AppSettings> settings, Dispatcher ui)
         {
@@ -67,6 +68,14 @@ namespace MacExtend.Services
         public void SetControlled(IntPtr video)
         {
             _controlled = video;
+            UpdateShield();
+        }
+
+        /// <summary>WDA control takes touches on this video window (no pointer shield over it); IntPtr.Zero ends that.</summary>
+        public void SetTouch(IntPtr video)
+        {
+            if (_touch == video) return;
+            _touch = video;
             UpdateShield();
         }
 
@@ -203,6 +212,12 @@ namespace MacExtend.Services
 
         private void UpdateShield()
         {
+            if (_touch != IntPtr.Zero && _touch == _video)
+            {
+                // the WDA overlay is over the picture and the pointer is how the user aims
+                _shield?.Uncover();
+                return;
+            }
             var controlled = _controlled != IntPtr.Zero && _controlled == _video && VideoWindow.IsAlive(_video);
             if ((controlled || _settings().HideCursor) && VideoWindow.IsInFront(_video) && VideoWindow.IsFullscreen(_video))
             {

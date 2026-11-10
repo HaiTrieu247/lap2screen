@@ -96,7 +96,22 @@ namespace MacExtend.Services.Bluetooth
         public bool IsControlling => _controlling;
 
         /// <summary>A click on the picture, or the tray menu, would start controlling now.</summary>
-        public bool CanControl => !_controlling && State == BluetoothState.Connected && _presenter.HasVideoWindow;
+        public bool CanControl => !_controlling && State == BluetoothState.Connected && _presenter.HasVideoWindow && !TouchControlled;
+
+        /// <summary>
+        /// The video window currently taking touches through WDA control, or IntPtr.Zero. A click there is a tap: it never
+        /// starts a Bluetooth session, and one running ends when WDA takes over.
+        /// </summary>
+        public Func<IntPtr> TouchVideo { get; set; }
+
+        private bool TouchControlled
+        {
+            get
+            {
+                var touch = TouchVideo?.Invoke() ?? IntPtr.Zero;
+                return touch != IntPtr.Zero && touch == _presenter.Video;
+            }
+        }
 
         private bool Enabled => _settings().BluetoothControl;
 
@@ -134,6 +149,7 @@ namespace MacExtend.Services.Bluetooth
             if (_peripheral != null) _peripheral.TargetId = _target.HostId;
 
             if (_controlling && (!mirroring || TargetName == null || _presenter.Video != _controlledVideo)) End(StopReason.Disconnected);
+            else if (_controlling && TouchControlled) End(StopReason.Request);
             _capture?.Watch(CanControl ? _presenter.Video : IntPtr.Zero);
             StateChanged?.Invoke();
         }

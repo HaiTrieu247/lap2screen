@@ -470,6 +470,58 @@
                                 </StackPanel>
                             </StackPanel>
                             <Border Style="{StaticResource Hairline}" />
+                            <!-- WDA control: WebDriverAgent touches on the AirPlay picture, started by itself while an iPhone or iPad mirrors -->
+                            <Grid Style="{StaticResource Row}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Điều khiển bằng WDA" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Chạm trực tiếp lên hình AirPlay qua WebDriverAgent, tự bật khi iPhone hoặc iPad đang phản chiếu và cắm cáp. Bấm để chạm, kéo để vuốt, lăn chuột để cuộn, gõ phím để nhập chữ, nhấp chuột phải là Home." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding WdaControl}" />
+                            </Grid>
+                            <StackPanel Visibility="{Binding WdaControl, Converter={StaticResource Visible}}">
+                                <Border Style="{StaticResource Hairline}" />
+                                <Grid Style="{StaticResource Row}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource CheckGlyph}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding WdaCheck}" Value="Ok">
+                                                        <Setter Property="Text" Value="&#xE73E;" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource Status.Connected}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding WdaCheck}" Value="Problem">
+                                                        <Setter Property="Text" Value="&#xE7BA;" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource Status.Error}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="WebDriverAgent" Style="{StaticResource Text.Label}" />
+                                        <TextBlock Text="{Binding WdaText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0"
+                                                   Visibility="{Binding ShowWdaStatus, Converter={StaticResource Visible}}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                                        <Button Content="Thiết lập..." Style="{StaticResource Button.Secondary}" Command="{Binding DirectSetupCommand}"
+                                                Padding="12,6" Margin="0,0,8,0" Visibility="{Binding ShowWdaSetup, Converter={StaticResource Visible}}" />
+                                        <Button Content="Chọn thiết bị..." Style="{StaticResource Button.Primary}" Command="{Binding WdaChooseCommand}"
+                                                Padding="12,6" Visibility="{Binding ShowWdaChoose, Converter={StaticResource Visible}}" />
+                                        <Button Content="Thử lại" Style="{StaticResource Button.Primary}" Command="{Binding WdaRetryCommand}"
+                                                Padding="12,6" Visibility="{Binding ShowWdaRetry, Converter={StaticResource Visible}}" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                            <Border Style="{StaticResource Hairline}" />
                             <!-- direct control: CoreDevice over the cable or Wi-Fi, its own window, independent of AirPlay -->
                             <Grid Style="{StaticResource Row}">
                                 <Grid.ColumnDefinitions>

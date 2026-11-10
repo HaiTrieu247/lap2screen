@@ -7,6 +7,7 @@ using MacExtend.Native;
 using MacExtend.Services;
 using MacExtend.Services.Bluetooth;
 using MacExtend.Services.CoreDevice;
+using MacExtend.Services.Wda;
 using MacExtend.Themes;
 using MacExtend.Tray;
 using MacExtend.ViewModels;
@@ -21,6 +22,8 @@ namespace MacExtend
         // N5: exit waits this long for the direct-control session's stop: touch released, serve-web's cleanup (up to 40 s),
         // then a tunneld the session started. After that the job objects end serve-web with the process.
         private static readonly TimeSpan DirectStopBound = TimeSpan.FromSeconds(70);
+        // the WDA runner gets one Ctrl+C and 10 s, then its job is killed
+        private static readonly TimeSpan WdaStopBound = TimeSpan.FromSeconds(15);
 
         private Mutex _singleInstance;
         private EventWaitHandle _showRequest;
@@ -35,6 +38,7 @@ namespace MacExtend
         // one direct-control service (and its Wi-Fi TunnelController) for the app's lifetime
         private CoreDeviceService _direct;
         private DirectControlUi _directUi;
+        private WdaController _wda;
         private bool _exiting;
         private bool _crashing;
 
@@ -91,7 +95,12 @@ namespace MacExtend
             _bluetooth.Refresh();
             _direct = new CoreDeviceService(Dispatcher);
             _directUi = new DirectControlUi(_direct, _settings);
-            _vm = new MainViewModel(_controller, _bluetooth, _direct, _directUi, _settings, ExitForUpdate);
+            _wda = new WdaController(() => _settings.Current, _settings.ScheduleSave, _controller, _presenter, Dispatcher);
+            // a click on a picture that takes touches is a tap, never the start of a Bluetooth session
+            _bluetooth.TouchVideo = () => _wda.TouchVideo;
+            _wda.StateChanged += _bluetooth.Refresh;
+            _wda.Refresh();
+            _vm = new MainViewModel(_controller, _bluetooth, _direct, _directUi, _wda, ChooseWdaDevice, _settings, ExitForUpdate);
             _vm.SyncAutoStart();
             _controller.RefreshPreview();
 
@@ -102,8 +111,9 @@ namespace MacExtend
                     _presenter.SettingsChanged();
                 }
                 if (args.PropertyName == nameof(MainViewModel.BluetoothControl)) _bluetooth.Refresh();
+                if (args.PropertyName == nameof(MainViewModel.WdaControl)) _wda.Refresh();
             };
-            _tray = new TrayIcon(_controller, _bluetooth, _direct, _directUi.Toggle, ShowMainWindow, ExitApp, () => _presenter.HasVideoWindow,
+            _tray = new TrayIcon(_controller, _bluetooth, _direct, _directUi.Toggle, _wda, ChooseWdaDevice, ShowMainWindow, ExitApp, () => _presenter.HasVideoWindow,
                                  () => _presenter.ShowAirPlay(), () => _vm.AlwaysOnTop, onTop => _vm.AlwaysOnTop = onTop);
             _vm.Update.NewVersionFound += version => _tray?.ShowUpdate(version, () =>
             {
@@ -129,6 +139,7 @@ namespace MacExtend
             // Windows is logging off or shutting down: stop uxplay now, the UI thread may not get another turn. The
             // direct-control session is asked to stop (serve-web's Ctrl+C) and runs on without the UI thread.
             _direct?.Dispose();
+            _wda?.Dispose();
             _controller?.ShutdownNow();
             _settings?.Flush();
             base.OnSessionEnding(e);
@@ -139,6 +150,7 @@ namespace MacExtend
             _showWait?.Unregister(null);
             _tray?.Dispose();
             _direct?.Dispose();
+            _wda?.Dispose();
             _bluetooth?.Dispose();
             _controller?.Dispose();
             _singleInstance?.Dispose();
@@ -200,6 +212,8 @@ namespace MacExtend
             // the helper waits only 30 s for this process to end, and a new runtime replaces serve-web's files: a
             // direct-control session is stopped first (N5), its window saying "Đang dừng..." meanwhile
             if (_direct.IsActive) await Task.WhenAny(_direct.StopAsync(), Task.Delay(DirectStopBound));
+            // the WDA runner is the runtime's python.exe too
+            await Task.WhenAny(_wda.StopAsync(), Task.Delay(WdaStopBound));
             try
             {
                 UpdateHelper.Launch(stagingDir);
@@ -208,9 +222,25 @@ namespace MacExtend
                                           error is UnauthorizedAccessException)
             {
                 _vm.Update.ReportLaunchFailure(error.Message);
+                _wda.Resume();
                 return;
             }
             ExitApp();
+        }
+
+        /// <summary>Several devices on the cable for WDA control: the user picks the one mirroring; it is remembered for that AirPlay name.</summary>
+        private void ChooseWdaDevice()
+        {
+            if (_exiting || _wda.View.Phase != Core.Wda.WdaPhase.Choose || _wda.Choices.Count == 0) return;
+            var choices = _wda.Choices.Select(u => new Core.CoreDevice.DeviceChoice(u, Core.CoreDevice.CoreDeviceRoute.Usb)).ToList();
+            var picker = new Views.DevicePickerWindow(choices);
+            var owner = Windows.OfType<Window>().FirstOrDefault(w => w.IsActive && w.IsVisible && w != picker);
+            if (owner != null)
+            {
+                picker.Owner = owner;
+                picker.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
+            if (picker.ShowDialog() == true && picker.Chosen != null) _wda.Choose(picker.Chosen.Udid);
         }
 
         private void ShowMainWindow()
@@ -234,8 +264,9 @@ namespace MacExtend
             // the device's camera and microphone back; its window, the setup window and a dialog close now
             _directUi.CloseForExit();
             var directStop = _direct.StopAsync();
+            var wdaStop = _wda.StopAsync();
             var bound = Task.Delay(DirectStopBound);
-            if (directStop.IsCompleted)
+            if (directStop.IsCompleted && wdaStop.IsCompleted)
             {
                 _tray.Dispose();
                 _tray = null;
@@ -247,7 +278,8 @@ namespace MacExtend
             _bluetooth?.Dispose();
             _presenter?.Dispose();
             await _controller.StopAsync();
-            await Task.WhenAny(directStop, bound);
+            await Task.WhenAny(Task.WhenAll(directStop, Task.WhenAny(wdaStop, Task.Delay(WdaStopBound))), bound);
+            _wda.Dispose();
             _tray?.Dispose();
             _tray = null;
             Shutdown();

@@ -48,6 +48,8 @@ namespace MacExtend.Core
             Line(sb, "DirectHintDismissed", Bool(s.DirectHintDismissed));
             Line(sb, "DirectWindowBounds", s.DirectWindowBounds);
             Line(sb, "DirectOnTop", Bool(s.DirectOnTop));
+            Line(sb, "WdaControl", Bool(s.WdaControl));
+            Line(sb, "WdaDevices", s.WdaDevices);
             return sb.ToString();
         }
 
@@ -124,6 +126,8 @@ namespace MacExtend.Core
                 case "directhintdismissed": if (TryBool(value, out var hint)) s.DirectHintDismissed = hint; break;
                 case "directwindowbounds": s.DirectWindowBounds = value; break;
                 case "directontop": if (TryBool(value, out var directOnTop)) s.DirectOnTop = directOnTop; break;
+                case "wdacontrol": if (TryBool(value, out var wda)) s.WdaControl = wda; break;
+                case "wdadevices": s.WdaDevices = value; break;
             }
         }
 

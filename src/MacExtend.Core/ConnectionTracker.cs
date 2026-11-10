@@ -21,6 +21,8 @@ namespace MacExtend.Core
         private int _zeroSamples;
 
         public string ClientName { get; private set; }
+        /// <summary>The model uxplay reported with the name ("iPhone12,1", "MacBookPro18,3"); null while nothing is connected.</summary>
+        public string ClientModel { get; private set; }
         public bool IsConnected { get; private set; }
 
         /// <returns>true if <see cref="IsConnected"/> or <see cref="ClientName"/> changed.</returns>
@@ -29,9 +31,10 @@ namespace MacExtend.Core
             switch (e.Kind)
             {
                 case LogEventKind.ClientConnecting:
-                    var changed = !IsConnected || ClientName != e.ClientName;
+                    var changed = !IsConnected || ClientName != e.ClientName || ClientModel != e.ClientModel;
                     IsConnected = true;
                     ClientName = e.ClientName;
+                    ClientModel = e.ClientModel;
                     _zeroSamples = 0;
                     return changed;
                 case LogEventKind.ConnectionLost:
@@ -61,6 +64,7 @@ namespace MacExtend.Core
             var changed = IsConnected;
             IsConnected = false;
             ClientName = null;
+            ClientModel = null;
             _zeroSamples = 0;
             return changed;
         }
