@@ -99,8 +99,8 @@ namespace MacExtend.Services.Bluetooth
         public bool CanControl => !_controlling && State == BluetoothState.Connected && _presenter.HasVideoWindow && !TouchControlled;
 
         /// <summary>
-        /// The video window currently taking touches through WDA control, or IntPtr.Zero. A click there is a tap: it never
-        /// starts a Bluetooth session, and one running ends when WDA takes over.
+        /// The video window currently taking touches through direct control, or IntPtr.Zero. A click there is a touch: it
+        /// never starts a Bluetooth session, and one running ends when direct control takes over.
         /// </summary>
         public Func<IntPtr> TouchVideo { get; set; }
 

@@ -57,12 +57,22 @@ namespace MacExtend.Core.CoreDevice
         }
 
         /// <summary>A straight line from (x1, y1) to (x2, y2): one move per <see cref="DragFrame"/> on the clock, the last one at the end point.</summary>
-        public static Task<GestureResult> DragAsync(CoreDeviceClient client, int x1, int y1, int x2, int y2, TimeSpan duration, TimeSpan releaseDeadline, CancellationToken token)
+        public static Task<GestureResult> DragAsync(CoreDeviceClient client, int x1, int y1, int x2, int y2, TimeSpan duration, TimeSpan releaseDeadline, CancellationToken token) =>
+            DragAsync(client, x1, y1, x2, y2, duration, TimeSpan.Zero, releaseDeadline, token);
+
+        /// <summary>
+        /// The same drag, with the finger kept at the end point for <paramref name="rest"/> before it lifts: a list
+        /// scrolled that way stops where it was dragged to instead of flinging on. The rest is always whole, after the
+        /// last move; it counts towards the longest gesture allowed and towards the deadline.
+        /// </summary>
+        public static Task<GestureResult> DragAsync(CoreDeviceClient client, int x1, int y1, int x2, int y2, TimeSpan duration, TimeSpan rest, TimeSpan releaseDeadline, CancellationToken token)
         {
-            Check(client, duration);
+            if (rest < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(rest));
+            Check(client, duration + rest);
+            if (duration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(duration));
             CoreDeviceClient.CheckCoordinates(x1, y1);
             CoreDeviceClient.CheckCoordinates(x2, y2);
-            return RunAsync(client, duration, releaseDeadline, token, async (clock, limit) =>
+            return RunAsync(client, duration + rest, releaseDeadline, token, async (clock, limit) =>
             {
                 await client.ContactAsync(x1, y1, limit).ConfigureAwait(false);
                 var total = duration.Ticks;
@@ -77,6 +87,9 @@ namespace MacExtend.Core.CoreDevice
                     if (wait > 0) await Task.Delay(TimeSpan.FromTicks(wait), limit).ConfigureAwait(false);
                     await client.ContactAsync(Along(x1, x2, due, total), Along(y1, y2, due, total), limit).ConfigureAwait(false);
                 }
+                // the rest is counted from the last move, however late a slow answer made it: a rest eaten by a stall
+                // would lift the finger mid-move and let the list fling on
+                if (rest > TimeSpan.Zero) await Task.Delay(rest, limit).ConfigureAwait(false);
                 await client.ReleaseContactAsync(x2, y2, limit).ConfigureAwait(false);
             });
         }

@@ -8,7 +8,7 @@ using MacExtend.Themes;
 
 namespace MacExtend.Views
 {
-    /// <summary>"Mở điều khiển" found several devices: the user picks one. Cable devices come first; the first is chosen.</summary>
+    /// <summary>Direct control found several devices and none known for the one mirroring: the user picks one. Cable devices come first; the first is chosen.</summary>
     internal partial class DevicePickerWindow : Window
     {
         public DevicePickerWindow(IReadOnlyList<DeviceChoice> choices)

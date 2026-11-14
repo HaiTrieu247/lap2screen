@@ -470,19 +470,19 @@
                                 </StackPanel>
                             </StackPanel>
                             <Border Style="{StaticResource Hairline}" />
-                            <!-- WDA control: WebDriverAgent touches on the AirPlay picture, started by itself while an iPhone or iPad mirrors -->
+                            <!-- direct control: a CoreDevice session started by itself while an iPhone or iPad mirrors; the AirPlay picture takes the mouse and keys -->
                             <Grid Style="{StaticResource Row}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Điều khiển bằng WDA" Style="{StaticResource Text.Label}" />
-                                    <TextBlock Text="Chạm trực tiếp lên hình AirPlay qua WebDriverAgent, tự bật khi iPhone hoặc iPad đang phản chiếu và cắm cáp. Bấm để chạm, kéo để vuốt, lăn chuột để cuộn, gõ phím để nhập chữ, nhấp chuột phải là Home." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                                    <TextBlock Text="Điều khiển trực tiếp" Style="{StaticResource Text.Label}" />
+                                    <TextBlock Text="Khi iPhone hoặc iPad phản chiếu, bấm thẳng lên hình AirPlay để chạm, giữ để nhấn giữ, kéo để vuốt, lăn chuột để cuộn và gõ phím để nhập. Nhấp chuột phải là Home. Qua cáp, hoặc Wi-Fi nếu đã bật trong Thiết lập." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                                 </StackPanel>
-                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding WdaControl}" />
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding DirectControl}" />
                             </Grid>
-                            <StackPanel Visibility="{Binding WdaControl, Converter={StaticResource Visible}}">
+                            <StackPanel Visibility="{Binding DirectControl, Converter={StaticResource Visible}}">
                                 <Border Style="{StaticResource Hairline}" />
                                 <Grid Style="{StaticResource Row}">
                                     <Grid.ColumnDefinitions>
@@ -494,11 +494,11 @@
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource CheckGlyph}">
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding WdaCheck}" Value="Ok">
+                                                    <DataTrigger Binding="{Binding DirectCheck}" Value="Ok">
                                                         <Setter Property="Text" Value="&#xE73E;" />
                                                         <Setter Property="Foreground" Value="{DynamicResource Status.Connected}" />
                                                     </DataTrigger>
-                                                    <DataTrigger Binding="{Binding WdaCheck}" Value="Problem">
+                                                    <DataTrigger Binding="{Binding DirectCheck}" Value="Problem">
                                                         <Setter Property="Text" Value="&#xE7BA;" />
                                                         <Setter Property="Foreground" Value="{DynamicResource Status.Error}" />
                                                     </DataTrigger>
@@ -507,39 +507,20 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="WebDriverAgent" Style="{StaticResource Text.Label}" />
-                                        <TextBlock Text="{Binding WdaText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0"
-                                                   Visibility="{Binding ShowWdaStatus, Converter={StaticResource Visible}}" />
+                                        <TextBlock Text="Trạng thái" Style="{StaticResource Text.Label}" />
+                                        <TextBlock Text="{Binding DirectText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0"
+                                                   Visibility="{Binding ShowDirectStatus, Converter={StaticResource Visible}}" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
                                         <Button Content="Thiết lập..." Style="{StaticResource Button.Secondary}" Command="{Binding DirectSetupCommand}"
-                                                Padding="12,6" Margin="0,0,8,0" Visibility="{Binding ShowWdaSetup, Converter={StaticResource Visible}}" />
-                                        <Button Content="Chọn thiết bị..." Style="{StaticResource Button.Primary}" Command="{Binding WdaChooseCommand}"
-                                                Padding="12,6" Visibility="{Binding ShowWdaChoose, Converter={StaticResource Visible}}" />
-                                        <Button Content="Thử lại" Style="{StaticResource Button.Primary}" Command="{Binding WdaRetryCommand}"
-                                                Padding="12,6" Visibility="{Binding ShowWdaRetry, Converter={StaticResource Visible}}" />
+                                                Padding="12,6" />
+                                        <Button Content="Chọn thiết bị..." Style="{StaticResource Button.Primary}" Command="{Binding DirectChooseCommand}"
+                                                Padding="12,6" Margin="8,0,0,0" Visibility="{Binding ShowDirectChoose, Converter={StaticResource Visible}}" />
+                                        <Button Content="Thử lại" Style="{StaticResource Button.Primary}" Command="{Binding DirectRetryCommand}"
+                                                Padding="12,6" Margin="8,0,0,0" Visibility="{Binding ShowDirectRetry, Converter={StaticResource Visible}}" />
                                     </StackPanel>
                                 </Grid>
                             </StackPanel>
-                            <Border Style="{StaticResource Hairline}" />
-                            <!-- direct control: CoreDevice over the cable or Wi-Fi, its own window, independent of AirPlay -->
-                            <Grid Style="{StaticResource Row}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Điều khiển trực tiếp" Style="{StaticResource Text.Label}" />
-                                    <TextBlock Text="Qua cáp hoặc Wi-Fi, trong cửa sổ riêng, không cần AirPlay. Bấm đúng điểm, giữ, kéo và gõ phím trên iPhone, iPad." Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
-                                    <TextBlock Text="{Binding DirectControlText}" Style="{StaticResource Text.Caption}" Margin="0,6,0,0" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button Content="Thiết lập..." Style="{StaticResource Button.Secondary}" Command="{Binding DirectSetupCommand}"
-                                            Padding="12,6" Margin="0,0,8,0" />
-                                    <Button Content="Mở điều khiển" Style="{StaticResource Button.Primary}" Command="{Binding OpenDirectCommand}"
-                                            Padding="12,6" />
-                                </StackPanel>
-                            </Grid>
 
                             <Border Style="{StaticResource Hairline}" Margin="0,6,0,0" />
 

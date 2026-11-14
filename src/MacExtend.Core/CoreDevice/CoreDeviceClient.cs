@@ -18,6 +18,14 @@ namespace MacExtend.Core.CoreDevice
         Unconfirmed,
     }
 
+    /// <summary>The device's buttons serve-web's /button presses (it also knows lock, mute and siri, which nothing here sends).</summary>
+    public enum DeviceButton
+    {
+        Home,
+        VolumeUp,
+        VolumeDown,
+    }
+
     public sealed class CoreDeviceClientException : Exception
     {
         public CoreDeviceClientException(string message, Exception inner = null) : base(message, inner)
@@ -140,8 +148,21 @@ namespace MacExtend.Core.CoreDevice
             return SendAsync("key", Keys(set), cleanup: false, token, before: () => _keysHeld |= held, after: () => _keysHeld = held);
         }
 
-        public Task HomeAsync(CancellationToken token) =>
-            SendAsync("button", "{\"name\":\"home\",\"state\":\"press\"}", cleanup: false, token, before: null, after: null);
+        public Task HomeAsync(CancellationToken token) => PressAsync(DeviceButton.Home, token);
+
+        /// <summary>A press: serve-web holds the button down for as long as that button needs, then lets it go.</summary>
+        public Task PressAsync(DeviceButton button, CancellationToken token)
+        {
+            string name;
+            switch (button)
+            {
+                case DeviceButton.Home: name = "home"; break;
+                case DeviceButton.VolumeUp: name = "volume-up"; break;
+                case DeviceButton.VolumeDown: name = "volume-down"; break;
+                default: throw new ArgumentOutOfRangeException(nameof(button));
+            }
+            return SendAsync("button", "{\"name\":\"" + name + "\",\"state\":\"press\"}", cleanup: false, token, before: null, after: null);
+        }
 
         /// <summary>Takes no new input from now on. Queued requests still run; cleanup is still allowed.</summary>
         public void Close()

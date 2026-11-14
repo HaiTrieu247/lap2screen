@@ -43,13 +43,11 @@ namespace MacExtend
         public static string LogFile => Path.Combine(LogDir, "uxplay.log");
         /// <summary>Bluetooth state changes only; never what was typed.</summary>
         public static string BluetoothLog => Path.Combine(LogDir, "bluetooth.log");
-        public static string WdaLog => Path.Combine(LogDir, "wda.log");
         public static string GstRegistry => Path.Combine(LocalDir, "gst-registry.bin");
         public static string UpdatesDir => Path.Combine(LocalDir, "updates");
         public static string UpdateLog => Path.Combine(LogDir, "update.log");
         /// <summary>Classified session and setup status lines only; never keys, clipboard, full UDIDs or raw Python output.</summary>
         public static string CoreDeviceLog => Path.Combine(LogDir, "coredevice.log");
-        public static string WebViewDataDir => Path.Combine(LocalDir, "WebView2");
         /// <summary>pymobiledevice3's own folder (pair records, RemotePairing records, DDI cache): Path.home() on Windows.</summary>
         public static string PymobiledeviceHome =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".pymobiledevice3");

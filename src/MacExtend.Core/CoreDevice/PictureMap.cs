@@ -1,10 +1,10 @@
 using System;
 
-namespace MacExtend.Core.Wda
+namespace MacExtend.Core.CoreDevice
 {
     /// <summary>
     /// Where the device's screen is inside uxplay's video window. d3d11videosink keeps the picture's aspect ratio, so the
-    /// screen is the largest rectangle with the device's aspect (from WDA's window size, in the current orientation)
+    /// screen is the largest rectangle with the picture's aspect (from the size uxplay logs, in the current orientation)
     /// centred in the client area; the rest is black bars that belong to nothing.
     /// </summary>
     public static class PictureMap

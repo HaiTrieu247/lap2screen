@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -13,8 +12,6 @@ namespace MacExtend.Core.CoreDevice
         DeveloperMode,
         DiskImage,
         Wifi,
-        /// <summary>WebDriverAgent on the device, for "Điều khiển bằng WDA"; shown right after the disk image.</summary>
-        Wda,
     }
 
     public enum SetupStatus
@@ -50,13 +47,6 @@ namespace MacExtend.Core.CoreDevice
         /// has no RemotePairing records), the cable only.
         /// </summary>
         public bool StandardAccount;
-        /// <summary>"Điều khiển bằng WDA" is on: its step is to do until WebDriverAgent is on the device and signed for a day more.</summary>
-        public bool WdaWanted;
-        /// <summary>The WebDriverAgent runner found on the cable device; null when none is there or it was not looked for.</summary>
-        public string WdaBundle;
-        /// <summary>When the profile WebDriverAgent was signed with expires, if the device said.</summary>
-        public DateTime? WdaExpiresUtc;
-        public DateTime NowUtc = DateTime.UtcNow;
     }
 
     public sealed class SetupStep
@@ -95,10 +85,8 @@ namespace MacExtend.Core.CoreDevice
         public const string Pair = "Ghép nối";
         /// <summary>A runtime zip from a CI artifact, for a beta build without a release.</summary>
         public const string PickZip = "Chọn tệp runtime...";
-        /// <summary>Saves WebDriverAgentRunner.ipa in the Downloads folder, for Sideloadly.</summary>
-        public const string GetWda = "Tải WDA";
 
-        public static IReadOnlyList<string> All { get; } = new[] { Install, Reinstall, Refresh, Connect, Reveal, Mount, Pair, PickZip, GetWda };
+        public static IReadOnlyList<string> All { get; } = new[] { Install, Reinstall, Refresh, Connect, Reveal, Mount, Pair, PickZip };
     }
 
     public static class SetupSteps
@@ -137,9 +125,6 @@ namespace MacExtend.Core.CoreDevice
                     f.DiskImageMounted ? "Đã gắn. App tự gắn lại trước mỗi phiên."
                         : "Bấm " + SetupActions.Mount + " để gắn ngay. App cũng tự gắn trước mỗi phiên; lần đầu cần Internet.",
                     SetupActions.Mount),
-                Make(SetupStepId.Wda,
-                    !f.WdaWanted ? SetupStatus.Optional : !trusted ? SetupStatus.Waiting : WdaDone(f) ? SetupStatus.Done : SetupStatus.Todo,
-                    "WebDriverAgent", WdaDetail(f), SetupActions.GetWda),
                 Make(SetupStepId.Wifi,
                     !wifiWanted ? SetupStatus.Optional : !trusted ? SetupStatus.Waiting : f.WifiPaired ? SetupStatus.Done : SetupStatus.Todo,
                     "Điều khiển qua Wi-Fi",
@@ -155,32 +140,11 @@ namespace MacExtend.Core.CoreDevice
         /// <summary>
         /// Every step done or optional. The DDI step does not hold readiness back once Developer Mode is on (it is to do
         /// only then): every session runs auto-mount before serve-web, and from iOS 27 the image mounter may not list the
-        /// cryptex DDI at all. The WebDriverAgent step is for WDA control only: direct control is ready without it.
+        /// cryptex DDI at all.
         /// </summary>
         public static bool Ready(IEnumerable<SetupStep> steps) =>
-            steps.All(s => s.Status == SetupStatus.Done || s.Status == SetupStatus.Optional || s.Id == SetupStepId.Wda
+            steps.All(s => s.Status == SetupStatus.Done || s.Status == SetupStatus.Optional
                            || (s.Id == SetupStepId.DiskImage && s.Status == SetupStatus.Todo));
-
-        private static bool WdaDone(SetupFacts f) => f.WdaBundle != null && !Wda.ProvisionProfiles.ExpiresSoon(f.WdaExpiresUtc, f.NowUtc);
-
-        private static string WdaDetail(SetupFacts f)
-        {
-            if (!f.WdaWanted) return "Tùy chọn: cho Điều khiển bằng WDA. Bật mục đó ở cửa sổ chính rồi quay lại đây.";
-            if (WdaDone(f))
-            {
-                var expiry = f.WdaExpiresUtc == null ? ""
-                    : " Chữ ký hết hạn ngày " + f.WdaExpiresUtc.Value.ToLocalTime().ToString("dd/MM", System.Globalization.CultureInfo.InvariantCulture)
-                      + "; với Apple ID miễn phí, cài lại mỗi 7 ngày.";
-                return "Đã cài trên thiết bị." + expiry;
-            }
-            if (f.WdaBundle != null)
-            {
-                return (Wda.ProvisionProfiles.IsExpired(f.WdaExpiresUtc, f.NowUtc) ? "Chữ ký WebDriverAgent đã hết hạn." : "Chữ ký WebDriverAgent hết hạn trong vòng 24 giờ.")
-                       + " Cài lại WebDriverAgentRunner.ipa bằng Sideloadly (bấm " + SetupActions.GetWda + " nếu chưa có tệp), rồi bấm " + SetupActions.Refresh + ".";
-            }
-            return "Bấm " + SetupActions.GetWda + ": app lưu WebDriverAgentRunner.ipa vào thư mục Tải về. Cài tệp đó bằng Sideloadly (sideloadly.io) với Apple ID của bạn, "
-                   + "rồi trên thiết bị vào Cài đặt > Cài đặt chung > Quản lý VPN & thiết bị, chọn Apple ID đó và chọn Tin cậy. Xong bấm " + SetupActions.Refresh + ".";
-        }
 
         /// <summary>The chip beside a step's title; a step whose action runs now is "Đang làm" whatever its status.</summary>
         public static string StatusText(SetupStatus status, bool running)

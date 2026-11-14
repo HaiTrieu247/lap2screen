@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -10,58 +10,67 @@ using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using MacExtend.Core;
-using MacExtend.Core.Wda;
+using MacExtend.Core.CoreDevice;
 using MacExtend.Native;
 using MacExtend.Services;
+using MacExtend.Services.CoreDevice;
 
 namespace MacExtend.Views
 {
     /// <summary>
-    /// A nearly transparent window laid exactly over the picture area of uxplay's video window while WDA control is ready.
-    /// It sits right above the video in the z-order (never owned by it: an owner in another process would tie the two
-    /// processes' input together) and follows it as it moves, resizes, goes full screen or is minimized; the video's own
-    /// title bar and frame stay uncovered. Clicks become taps, holding becomes a long press, a drag is replayed on the
-    /// device when the button comes up, the wheel scrolls, typed text (UniKey's included) is typed on the device, and
-    /// a right click is Home. Alt+Enter goes to the video window. Nothing typed is kept or logged.
+    /// A nearly transparent window laid exactly over the picture area of uxplay's video window while direct control is
+    /// ready. It sits right above the video in the z-order (never owned by it: an owner in another process would tie the
+    /// two processes' input together) and follows it as it moves, resizes, goes full screen or is minimized; the video's
+    /// own title bar and frame stay uncovered. The mouse is a finger, live: press, hold, drag and lift go to the device as
+    /// they happen. The wheel scrolls, keys are the device's keyboard (Ctrl as Command), a right click is Home. Alt+Enter
+    /// and Alt+F4 go to the video window. Nothing typed is kept or logged.
     /// </summary>
-    internal sealed class WdaOverlay : Window
+    internal sealed class DirectOverlay : Window
     {
-        private static readonly TimeSpan LongPress = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan WheelBatch = TimeSpan.FromMilliseconds(100);
-        private static readonly TimeSpan HintVisible = TimeSpan.FromSeconds(3);
-        /// <summary>Physical pixels the pointer may wander before a press becomes a drag.</summary>
+        private static readonly TimeSpan HintVisible = TimeSpan.FromSeconds(4);
+        /// <summary>Physical pixels the pointer may wander before a press shows its trail.</summary>
         private const int DragSlop = 8;
+        private const int CommandLeft = 0xE3;
+        private const int CommandRight = 0xE7;
+        private const int OptionLeft = 0xE2;
+        private const int OptionRight = 0xE6;
+        private const int VkV = 0x56;
+        private const int VkH = 0x48;
+        private const int VkUp = 0x26;
+        private const int VkDown = 0x28;
 
         private readonly Canvas _effects = new Canvas { IsHitTestVisible = false };
         private readonly Border _hint;
         private readonly TextBlock _hintText;
-        private readonly DispatcherTimer _longPress;
         private readonly DispatcherTimer _wheel;
         private readonly DispatcherTimer _follow;
         private readonly DispatcherTimer _hintTimer;
-        private readonly Stopwatch _clock = new Stopwatch();
         // kept in fields: the native hooks call them for as long as they live
         private readonly Win32.WinEventProc _onLocation;
         private readonly Win32.WinEventProc _onSystem;
+        private readonly HashSet<int> _held = new HashSet<int>();
+        // virtual keys whose press became a shortcut: their release is not the device's either
+        private readonly HashSet<int> _shortcut = new HashSet<int>();
         private IntPtr _locationHook;
         private IntPtr _systemHook;
         private IntPtr _video;
-        private WdaDriver _driver;
+        private DirectInput _input;
         private IntPtr _hwnd;
+        private int _pictureWidth;
+        private int _pictureHeight;
 
         // the press in progress
         private bool _pressing;
         private bool _dragging;
-        private bool _longPressed;
         private Win32.POINT _downAt;
-        private readonly List<PathSample> _samples = new List<PathSample>();
         private Polyline _trail;
         private double _wheelV;
         private double _wheelH;
         private double _wheelX;
         private double _wheelY;
 
-        public WdaOverlay()
+        public DirectOverlay()
         {
             Title = "MacExtend";
             WindowStyle = WindowStyle.None;
@@ -82,7 +91,6 @@ namespace MacExtend.Views
             var font = TryFindResource("Font.Sans") as FontFamily;
             _hintText = new TextBlock
             {
-                Text = "Điều khiển bằng WDA. Nhấp chuột phải: Home. Ctrl+V: dán chữ.",
                 Foreground = Brushes.White,
                 FontSize = 12.5,
                 TextWrapping = TextWrapping.Wrap,
@@ -108,8 +116,6 @@ namespace MacExtend.Views
             root.Children.Add(_hint);
             Content = root;
 
-            _longPress = new DispatcherTimer(LongPress, DispatcherPriority.Input, (_, __) => OnLongPress(), Dispatcher);
-            _longPress.Stop();
             _wheel = new DispatcherTimer(WheelBatch, DispatcherPriority.Input, (_, __) => FlushWheel(), Dispatcher);
             _wheel.Stop();
             // the hooks catch every move; this catches what they cannot see (a style change, a topmost pin)
@@ -136,13 +142,18 @@ namespace MacExtend.Views
                 HwndSource.FromHwnd(_hwnd)?.AddHook(WndProc);
             };
             Activated += (_, __) => Keyboard.Focus(this);
+            Deactivated += (_, __) => LetGo();
         }
 
-        /// <summary>Lays the overlay over <paramref name="video"/> and sends its gestures to <paramref name="driver"/>.</summary>
-        public void Attach(IntPtr video, WdaDriver driver, string device)
+        /// <summary>A press began on the picture; the controller may ask the device how it is turned.</summary>
+        public event Action Pressed;
+
+        /// <summary>Lays the overlay over <paramref name="video"/> and sends what happens on it to <paramref name="input"/>.</summary>
+        public void Attach(IntPtr video, DirectInput input, string device)
         {
-            var again = video == _video && driver == _driver;
-            _driver = driver;
+            var again = video == _video && input == _input;
+            if (input != _input) LetGo();
+            _input = input;
             if (!again)
             {
                 Unhook();
@@ -152,8 +163,7 @@ namespace MacExtend.Views
                                                       _onLocation, pid, 0, Win32.WINEVENT_OUTOFCONTEXT);
                 _systemHook = Win32.SetWinEventHook(Win32.EVENT_SYSTEM_FOREGROUND, Win32.EVENT_SYSTEM_MINIMIZEEND, IntPtr.Zero,
                                                     _onSystem, 0, 0, Win32.WINEVENT_OUTOFCONTEXT);
-                _hintText.Text = "Điều khiển " + (string.IsNullOrEmpty(device) ? "thiết bị" : device)
-                                 + " bằng WDA. Nhấp chuột phải: Home. Ctrl+V: dán chữ.";
+                _hintText.Text = "Điều khiển " + (string.IsNullOrEmpty(device) ? "thiết bị" : device) + ". " + DirectControlTexts.Hint;
                 ShowHint();
             }
             _follow.Start();
@@ -162,18 +172,24 @@ namespace MacExtend.Views
 
         public void Detach()
         {
-            CancelPress();
+            LetGo();
             Unhook();
             _follow.Stop();
             _wheel.Stop();
             _wheelV = _wheelH = 0;
             _video = IntPtr.Zero;
-            _driver = null;
+            _input = null;
             if (IsVisible) Hide();
         }
 
-        /// <summary>The screen size changed (the device rotated): the picture inside the window moved.</summary>
-        public void Relayout() => Sync();
+        /// <summary>The picture's size uxplay logged (0 while unknown): where the device screen is inside the window.</summary>
+        public void SetPicture(int width, int height)
+        {
+            if (width == _pictureWidth && height == _pictureHeight) return;
+            _pictureWidth = width;
+            _pictureHeight = height;
+            Sync();
+        }
 
         protected override void OnClosed(EventArgs e)
         {
@@ -187,7 +203,7 @@ namespace MacExtend.Views
         {
             if (_video == IntPtr.Zero || !VideoWindow.IsAlive(_video) || Win32.IsIconic(_video) || !VideoWindow.TryGetClientBounds(_video, out var client))
             {
-                CancelPress();
+                LetGo();
                 if (IsVisible) Hide();
                 return;
             }
@@ -238,9 +254,8 @@ namespace MacExtend.Views
         private bool TryPicture(out PixelRect picture)
         {
             picture = default(PixelRect);
-            if (_driver == null || !VideoWindow.TryGetClientBounds(_video, out var client)) return false;
-            var size = _driver.Size;
-            picture = PictureMap.Picture(client, size.Width, size.Height);
+            if (_input == null || !VideoWindow.TryGetClientBounds(_video, out var client)) return false;
+            picture = PictureMap.Picture(client, _pictureWidth, _pictureHeight);
             return true;
         }
 
@@ -257,32 +272,29 @@ namespace MacExtend.Views
             base.OnMouseLeftButtonDown(e);
             e.Handled = true;
             Activate();
-            if (_driver == null || !TryPicture(out var picture)) return;
+            if (_input == null || _pressing || !TryPicture(out var picture)) return;
             var at = CursorNow();
             if (!PictureMap.ToFraction(picture, at.X, at.Y, out var xf, out var yf)) return;
             _pressing = true;
             _dragging = false;
-            _longPressed = false;
             _downAt = at;
-            _samples.Clear();
-            _clock.Restart();
-            _samples.Add(new PathSample(0, xf, yf));
             CaptureMouse();
-            _longPress.Stop();
-            _longPress.Start();
+            _input.Down(xf, yf);
+            Ripple(e.GetPosition(this));
+            Pressed?.Invoke();
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            if (!_pressing || _longPressed || !TryPicture(out var picture)) return;
+            if (!_pressing || _input == null || !TryPicture(out var picture)) return;
             var at = CursorNow();
+            // a drag that leaves the picture goes on along its edge
             PictureMap.ToFraction(picture, at.X, at.Y, out var xf, out var yf);
-            _samples.Add(new PathSample((int)_clock.ElapsedMilliseconds, xf, yf));
+            _input.Move(xf, yf);
             if (!_dragging && (Math.Abs(at.X - _downAt.X) > DragSlop || Math.Abs(at.Y - _downAt.Y) > DragSlop))
             {
                 _dragging = true;
-                _longPress.Stop();
                 _trail = Trail(e.GetPosition(this));
             }
             if (_dragging && _trail != null) _trail.Points.Add(e.GetPosition(this));
@@ -293,28 +305,25 @@ namespace MacExtend.Views
             base.OnMouseLeftButtonUp(e);
             e.Handled = true;
             if (!_pressing) return;
-            var released = (int)_clock.ElapsedMilliseconds;
-            var first = _samples[0];
-            var dragging = _dragging;
-            var longPressed = _longPressed;
-            var samples = new List<PathSample>(_samples);
+            if (_input != null && TryPicture(out var picture))
+            {
+                var at = CursorNow();
+                PictureMap.ToFraction(picture, at.X, at.Y, out var xf, out var yf);
+                _input.Up(xf, yf);
+            }
+            else
+            {
+                _input?.Cancel();
+            }
             var trail = _trail;
             EndPress();
-            if (_driver == null || longPressed) return;
-            if (dragging)
-            {
-                _driver.Drag(samples, released);
-                if (trail != null) FadeOut(trail, 450);
-                return;
-            }
-            _driver.Tap(first.X, first.Y);
-            Ripple(e.GetPosition(this), false);
+            if (trail != null) FadeOut(trail, 450);
         }
 
         protected override void OnLostMouseCapture(MouseEventArgs e)
         {
             base.OnLostMouseCapture(e);
-            // Alt+Tab, a dialog, the window hidden: nothing half done is sent
+            // Alt+Tab, a dialog, the window hidden: the finger lifts where it was
             if (_pressing) CancelPress();
         }
 
@@ -322,7 +331,7 @@ namespace MacExtend.Views
         {
             base.OnMouseRightButtonUp(e);
             e.Handled = true;
-            _driver?.Home();
+            if (!_pressing) _input?.Press(DeviceButton.Home);
         }
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)
@@ -332,22 +341,9 @@ namespace MacExtend.Views
             AddWheel(e.Delta, false, CursorNow());
         }
 
-        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-        {
-            if (msg == Win32.WM_MOUSEHWHEEL)
-            {
-                var delta = (short)((wParam.ToInt64() >> 16) & 0xFFFF);
-                var point = new Win32.POINT { X = (short)(lParam.ToInt64() & 0xFFFF), Y = (short)((lParam.ToInt64() >> 16) & 0xFFFF) };
-                AddWheel(delta, true, point);
-                handled = true;
-                return new IntPtr(1);
-            }
-            return IntPtr.Zero;
-        }
-
         private void AddWheel(int delta, bool horizontal, Win32.POINT at)
         {
-            if (_driver == null || _pressing || !TryPicture(out var picture)) return;
+            if (_input == null || _pressing || !TryPicture(out var picture)) return;
             if (!PictureMap.ToFraction(picture, at.X, at.Y, out var xf, out var yf)) return;
             // the Windows setting: lines per notch (3 by default; a page counts as 3)
             var lines = SystemParameters.WheelScrollLines;
@@ -363,111 +359,125 @@ namespace MacExtend.Views
         private void FlushWheel()
         {
             _wheel.Stop();
-            if (_driver == null) return;
-            if (_wheelV != 0) _driver.Scroll(_wheelX, _wheelY, _wheelV, false);
-            if (_wheelH != 0) _driver.Scroll(_wheelX, _wheelY, _wheelH, true);
+            if (_input == null) return;
+            if (_wheelV != 0) _input.Scroll(_wheelX, _wheelY, _wheelV, false);
+            if (_wheelH != 0) _input.Scroll(_wheelX, _wheelY, _wheelH, true);
             _wheelV = _wheelH = 0;
-        }
-
-        private void OnLongPress()
-        {
-            _longPress.Stop();
-            if (!_pressing || _dragging || _driver == null) return;
-            _longPressed = true;
-            var first = _samples[0];
-            _driver.LongPress(first.X, first.Y);
-            Ripple(Mouse.GetPosition(this), true);
         }
 
         private void EndPress()
         {
             _pressing = false;
             _dragging = false;
-            _longPressed = false;
-            _longPress.Stop();
             _trail = null;
             if (IsMouseCaptured) ReleaseMouseCapture();
         }
 
         private void CancelPress()
         {
+            _input?.Cancel();
             var trail = _trail;
             EndPress();
             if (trail != null) _effects.Children.Remove(trail);
         }
 
+        /// <summary>The overlay loses the keyboard or the picture: no finger and no key stays down on the device.</summary>
+        private void LetGo()
+        {
+            if (_pressing) CancelPress();
+            _shortcut.Clear();
+            if (_held.Count == 0) return;
+            _held.Clear();
+            _input?.Keys(_held);
+        }
+
         // ---- keyboard ------------------------------------------------------------------------
 
-        protected override void OnPreviewKeyDown(KeyEventArgs e)
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            base.OnPreviewKeyDown(e);
-            if (_driver == null) return;
-            var key = e.Key == Key.System ? e.SystemKey : e.Key;
-            var mods = Keyboard.Modifiers;
-            if (key == Key.Enter && mods == ModifierKeys.Alt)
+            switch (msg)
             {
-                e.Handled = true;
-                FullscreenToggle();
-                return;
-            }
-            if (mods == ModifierKeys.Control)
-            {
-                switch (key)
+                case Win32.WM_MOUSEHWHEEL:
                 {
-                    case Key.V:
-                        e.Handled = true;
-                        _driver.Paste(ClipboardText());
-                        return;
-                    case Key.H:
-                        e.Handled = true;
-                        _driver.Home();
-                        return;
-                    case Key.J:
-                        e.Handled = true;
-                        _driver.AppSwitcher();
-                        return;
-                    case Key.Up:
-                        e.Handled = true;
-                        _driver.Volume(true);
-                        return;
-                    case Key.Down:
-                        e.Handled = true;
-                        _driver.Volume(false);
-                        return;
+                    var delta = (short)((wParam.ToInt64() >> 16) & 0xFFFF);
+                    var point = new Win32.POINT { X = (short)(lParam.ToInt64() & 0xFFFF), Y = (short)((lParam.ToInt64() >> 16) & 0xFFFF) };
+                    AddWheel(delta, true, point);
+                    handled = true;
+                    return new IntPtr(1);
+                }
+                case Win32.WM_KEYDOWN:
+                case Win32.WM_SYSKEYDOWN:
+                    handled = true;
+                    OnKeyMessageDown((int)wParam.ToInt64(), lParam.ToInt64());
+                    return IntPtr.Zero;
+                case Win32.WM_KEYUP:
+                case Win32.WM_SYSKEYUP:
+                    handled = true;
+                    OnKeyMessageUp((int)wParam.ToInt64(), lParam.ToInt64());
+                    return IntPtr.Zero;
+                case Win32.WM_KILLFOCUS:
+                    LetGo();
+                    return IntPtr.Zero;
+            }
+            return IntPtr.Zero;
+        }
+
+        private void OnKeyMessageDown(int vk, long lParam)
+        {
+            if (_input == null) return;
+            var scan = (uint)((lParam >> 16) & 0xFF);
+            var extended = ((lParam >> 24) & 1) != 0;
+            var repeat = ((lParam >> 30) & 1) != 0;
+            var command = _held.Contains(CommandLeft) || _held.Contains(CommandRight);
+            var option = _held.Contains(OptionLeft) || _held.Contains(OptionRight);
+
+            // the video window's own keys: full screen, and closing it
+            if (option && !command && (vk == Win32.VK_RETURN || vk == Win32.VK_F4))
+            {
+                if (!repeat)
+                {
+                    LetGo();
+                    if (vk == Win32.VK_RETURN) FullscreenToggle();
+                    else Win32.PostMessage(_video, Win32.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
                 }
                 return;
             }
-            if (mods != ModifierKeys.None && mods != ModifierKeys.Shift) return;
-            switch (key)
+            if (command && (vk == VkV || vk == VkH || vk == VkUp || vk == VkDown))
             {
-                case Key.Back:
-                    e.Handled = true;
-                    _driver.Type("\b");
-                    break;
-                case Key.Enter:
-                    e.Handled = true;
-                    _driver.Type("\n");
-                    break;
-                case Key.Tab:
-                    e.Handled = true;
-                    _driver.Type("\t");
-                    break;
+                if (!repeat || vk == VkUp || vk == VkDown) Shortcut(vk);
+                _shortcut.Add(vk);
+                return;
             }
+            // the device repeats a held key itself
+            if (repeat) return;
+            if (DirectKeys.TryGetUsage(vk, scan, extended, out var usage) && _held.Add(usage)) _input.Keys(_held);
         }
 
-        protected override void OnTextInput(TextCompositionEventArgs e)
+        private void OnKeyMessageUp(int vk, long lParam)
         {
-            base.OnTextInput(e);
-            if (_driver == null || string.IsNullOrEmpty(e.Text)) return;
-            // control characters (Enter, Backspace, Ctrl+letter) are handled as keys above, or not at all
-            var text = new System.Text.StringBuilder(e.Text.Length);
-            foreach (var c in e.Text)
+            if (_shortcut.Remove(vk) || _input == null) return;
+            var scan = (uint)((lParam >> 16) & 0xFF);
+            var extended = ((lParam >> 24) & 1) != 0;
+            if (DirectKeys.TryGetUsage(vk, scan, extended, out var usage) && _held.Remove(usage)) _input.Keys(_held);
+        }
+
+        private void Shortcut(int vk)
+        {
+            switch (vk)
             {
-                if (c >= 0x20 && c != 0x7F) text.Append(c);
+                case VkV:
+                    _input.Paste(ClipboardText(), _held.ToList());
+                    break;
+                case VkH:
+                    _input.Press(DeviceButton.Home);
+                    break;
+                case VkUp:
+                    _input.Press(DeviceButton.VolumeUp);
+                    break;
+                case VkDown:
+                    _input.Press(DeviceButton.VolumeDown);
+                    break;
             }
-            if (text.Length == 0) return;
-            e.Handled = true;
-            _driver.Type(text.ToString());
         }
 
         private static string ClipboardText()
@@ -478,7 +488,7 @@ namespace MacExtend.Views
             }
             catch (System.Runtime.InteropServices.ExternalException)
             {
-                // another app holds the clipboard
+                // another app holds the clipboard: the device's own clipboard is pasted
                 return "";
             }
         }
@@ -497,9 +507,9 @@ namespace MacExtend.Views
 
         // ---- feedback ------------------------------------------------------------------------
 
-        private void Ripple(Point at, bool large)
+        private void Ripple(Point at)
         {
-            var size = large ? 56.0 : 40.0;
+            const double size = 40.0;
             var ring = new Ellipse
             {
                 Width = size,
@@ -509,7 +519,6 @@ namespace MacExtend.Views
                 StrokeThickness = 2,
                 RenderTransformOrigin = new Point(0.5, 0.5),
                 RenderTransform = new ScaleTransform(0.6, 0.6),
-                Effect = null,
             };
             var halo = new Ellipse
             {
@@ -524,10 +533,10 @@ namespace MacExtend.Views
             Place(ring, at, size);
             foreach (var e in new[] { halo, ring })
             {
-                var grow = new DoubleAnimation(0.6, 1.0, TimeSpan.FromMilliseconds(large ? 500 : 320)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
+                var grow = new DoubleAnimation(0.6, 1.0, TimeSpan.FromMilliseconds(320)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
                 ((ScaleTransform)e.RenderTransform).BeginAnimation(ScaleTransform.ScaleXProperty, grow);
                 ((ScaleTransform)e.RenderTransform).BeginAnimation(ScaleTransform.ScaleYProperty, grow);
-                FadeOut(e, large ? 600 : 380);
+                FadeOut(e, 380);
             }
         }
 

@@ -37,7 +37,7 @@ namespace MacExtend.Core.CoreDevice
         public string RouteText => CoreDeviceMessages.Route(Route);
     }
 
-    /// <summary>What "Mở điều khiển" does next. Compared by what it would do, so two plans can be told apart.</summary>
+    /// <summary>What a direct-control session starts on next. Compared by what it would do, so two plans can be told apart.</summary>
     public sealed class DirectOpenPlan : IEquatable<DirectOpenPlan>
     {
         public static readonly DirectOpenPlan Setup = new DirectOpenPlan(DirectOpenStep.Setup, SessionFailure.None, null, CoreDeviceRoute.None, new DeviceChoice[0]);
@@ -88,7 +88,7 @@ namespace MacExtend.Core.CoreDevice
     }
 
     /// <summary>
-    /// "Mở điều khiển" from the settings page or the tray: the setup window while nothing could work yet; otherwise the
+    /// The devices a direct-control session can start on: the setup window while nothing could work yet; otherwise the
     /// only device, or the user's pick among several, and its route, the cable first.
     /// </summary>
     public static class DirectOpen

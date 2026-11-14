@@ -98,4 +98,44 @@ public class UxPlayLogParserTests
     {
         Assert.Equal(LogEventKind.None, UxPlayLogParser.Parse(line).Kind);
     }
+
+    [Fact]
+    public void ThePictureSizeLineGivesTheEncodedSize()
+    {
+        // lib/raop_rtp_mirror.c, raised to info by native/build-uxplay.sh
+        var e = UxPlayLogParser.Parse("raop_rtp_mirror width_source = 828.000000 height_source = 1792.000000 x_offset = 0.000000 y_offset = 0.000000 width = 498.000000 height = 1080.000000");
+
+        Assert.Equal(LogEventKind.PictureSize, e.Kind);
+        Assert.Equal(498, e.PictureWidth);
+        Assert.Equal(1080, e.PictureHeight);
+    }
+
+    [Fact]
+    public void ThePictureSizeFallsBackToTheSourceWhenTheEncodedSizeIsZero()
+    {
+        var e = UxPlayLogParser.Parse("raop_rtp_mirror width_source = 1792.000000 height_source = 828.000000 x_offset = 0.000000 y_offset = 0.000000 width = 0.000000 height = 0.000000");
+
+        Assert.Equal(LogEventKind.PictureSize, e.Kind);
+        Assert.Equal(1792, e.PictureWidth);
+        Assert.Equal(828, e.PictureHeight);
+    }
+
+    [Theory]
+    [InlineData("raop_rtp_mirror width_source = 0.000000 height_source = 0.000000 x_offset = 0.000000 y_offset = 0.000000 width = 0.000000 height = 0.000000")]
+    [InlineData("raop_rtp_mirror width_source = 828.000000 height_source = 1792.000000")]
+    [InlineData("raop_rtp_mirror: Unexpected : data  828.000000, 1792.000000 != width_source = 1.000000, height_source = 2.000000")]
+    [InlineData("raop_rtp_mirror width_source = 99999.000000 height_source = 1792.000000 x_offset = 0.000000 y_offset = 0.000000 width = 99999.000000 height = 1792.000000")]
+    public void OtherOrUselessSizeLinesStayNone(string line)
+    {
+        Assert.Equal(LogEventKind.None, UxPlayLogParser.Parse(line).Kind);
+    }
+
+    [Fact]
+    public void OnlyThePictureSizeLineCarriesASize()
+    {
+        var e = UxPlayLogParser.Parse("connection request from iPad (iPad13,4) with deviceID = 11");
+
+        Assert.Equal(0, e.PictureWidth);
+        Assert.Equal(0, e.PictureHeight);
+    }
 }

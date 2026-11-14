@@ -149,6 +149,30 @@ public class CoreDeviceClientTests
     }
 
     [Theory]
+    [InlineData(DeviceButton.VolumeUp, "volume-up")]
+    [InlineData(DeviceButton.VolumeDown, "volume-down")]
+    [InlineData(DeviceButton.Home, "home")]
+    public async Task ButtonsArePressedByServeWebsName(DeviceButton button, string name)
+    {
+        var (client, handler) = Create();
+
+        await client.PressAsync(button, CancellationToken.None);
+
+        var sent = Assert.Single(handler.Requests);
+        Assert.Equal("/button", sent.Path);
+        Assert.Equal("{\"name\":\"" + name + "\",\"state\":\"press\"}", sent.Body);
+    }
+
+    [Fact]
+    public async Task AButtonThatIsNotOneIsRefusedBeforeSending()
+    {
+        var (client, handler) = Create();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.PressAsync((DeviceButton)99, CancellationToken.None));
+        Assert.Empty(handler.Requests);
+    }
+
+    [Theory]
     [InlineData(-1, 0)]
     [InlineData(0, -1)]
     [InlineData(65536, 0)]

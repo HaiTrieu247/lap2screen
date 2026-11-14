@@ -29,8 +29,7 @@ public class SetupStepsTests
 
         Assert.True(SetupSteps.Ready(steps));
         Assert.Equal(SetupStatus.Optional, steps.Single(s => s.Id == SetupStepId.Wifi).Status);
-        Assert.Equal(SetupStatus.Optional, steps.Single(s => s.Id == SetupStepId.Wda).Status);
-        Assert.Equal(8, steps.Count);
+        Assert.Equal(7, steps.Count);
     }
 
     [Fact]
@@ -133,19 +132,6 @@ public class SetupStepsTests
         wifiWithoutTask.WifiWanted = true;
         wifiWithoutTask.WithoutTask = true;
         yield return wifiWithoutTask;
-        var wda = AllDone();
-        wda.WdaWanted = true;
-        yield return wda;
-        var wdaExpiring = AllDone();
-        wdaExpiring.WdaWanted = true;
-        wdaExpiring.WdaBundle = "com.facebook.WebDriverAgentRunner.xctrunner";
-        wdaExpiring.WdaExpiresUtc = wdaExpiring.NowUtc.AddHours(2);
-        yield return wdaExpiring;
-        var wdaExpired = AllDone();
-        wdaExpired.WdaWanted = true;
-        wdaExpired.WdaBundle = "com.facebook.WebDriverAgentRunner.xctrunner";
-        wdaExpired.WdaExpiresUtc = wdaExpired.NowUtc.AddHours(-2);
-        yield return wdaExpired;
     }
 
     private static IEnumerable<SetupFacts> AnyFacts()
@@ -162,17 +148,6 @@ public class SetupStepsTests
         standard.StandardAccount = true;
         standard.WifiWanted = true;
         yield return standard;
-        var wda = AllDone();
-        wda.WdaWanted = true;
-        wda.WdaBundle = "com.facebook.WebDriverAgentRunner.xctrunner";
-        wda.WdaExpiresUtc = wda.NowUtc.AddDays(5);
-        yield return wda;
-        wda.WdaExpiresUtc = null;
-        yield return wda;
-        var wdaUntrusted = AllDone();
-        wdaUntrusted.WdaWanted = true;
-        wdaUntrusted.Trusted = false;
-        yield return wdaUntrusted;
     }
 
     [Fact]
@@ -220,8 +195,7 @@ public class SetupStepsTests
         Assert.Equal("Gắn ảnh", SetupActions.Mount);
         Assert.Equal("Ghép nối", SetupActions.Pair);
         Assert.Equal("Chọn tệp runtime...", SetupActions.PickZip);
-        Assert.Equal("Tải WDA", SetupActions.GetWda);
-        Assert.Equal(9, SetupActions.All.Count);
+        Assert.Equal(8, SetupActions.All.Count);
     }
 
     [Fact]
@@ -290,41 +264,5 @@ public class SetupStepsTests
     public void EachStatusHasAChip(SetupStatus status, bool running, string expected)
     {
         Assert.Equal(expected, SetupSteps.StatusText(status, running));
-    }
-
-    [Fact]
-    public void TheWdaStepIsOptionalUntilWdaControlIsOnAndThenWaitsForTrust()
-    {
-        var f = AllDone();
-        Assert.Equal(SetupStatus.Optional, Status(f, SetupStepId.Wda));
-        f.WdaWanted = true;
-        Assert.Equal(SetupStatus.Todo, Status(f, SetupStepId.Wda));
-        Assert.Equal(SetupActions.GetWda, Step(f, SetupStepId.Wda).ActionText);
-        f.Trusted = false;
-        Assert.Equal(SetupStatus.Waiting, Status(f, SetupStepId.Wda));
-    }
-
-    [Fact]
-    public void WdaIsDoneWhileItsSignatureLastsMoreThanADay()
-    {
-        var f = AllDone();
-        f.WdaWanted = true;
-        f.WdaBundle = "com.facebook.WebDriverAgentRunner.xctrunner";
-        f.WdaExpiresUtc = f.NowUtc.AddDays(6);
-        Assert.Equal(SetupStatus.Done, Status(f, SetupStepId.Wda));
-        Assert.Contains("hết hạn ngày", Step(f, SetupStepId.Wda).Detail);
-
-        f.WdaExpiresUtc = f.NowUtc.AddHours(3);
-        Assert.Equal(SetupStatus.Todo, Status(f, SetupStepId.Wda));
-        Assert.Contains("trong vòng 24 giờ", Step(f, SetupStepId.Wda).Detail);
-    }
-
-    [Fact]
-    public void DirectControlIsReadyWithoutWda()
-    {
-        var f = AllDone();
-        f.WdaWanted = true;
-
-        Assert.True(SetupSteps.Ready(SetupSteps.Evaluate(f)));
     }
 }

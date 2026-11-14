@@ -247,10 +247,6 @@ public class SetupMessagesTests
         yield return SetupMessages.WifiSwitchHint(false, null);
         yield return SetupMessages.WifiSwitchHint(false, Udid);
         yield return SetupMessages.Checking;
-        yield return SetupMessages.GettingWda;
-        yield return SetupMessages.WdaSaved(@"C:\Users\a\Downloads\WebDriverAgentRunner.ipa");
-        foreach (var e in new Exception[] { new InvalidDataException("x"), new System.Net.Http.HttpRequestException("x"), new IOException("x"), new TaskCanceledException(), new InvalidOperationException("x") })
-            yield return SetupMessages.WdaDownloadFailed(e);
         yield return SetupMessages.ReadingDevice;
         yield return SetupMessages.CheckingZip;
         yield return SetupMessages.StoppingSession;

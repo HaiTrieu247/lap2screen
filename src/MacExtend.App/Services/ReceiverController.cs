@@ -63,6 +63,9 @@ namespace MacExtend.Services
         public string ClientName => _tracker.ClientName;
         /// <summary>The connected device's model ("iPhone12,1"); null while nothing is connected.</summary>
         public string ClientModel => _tracker.ClientModel;
+        /// <summary>The mirrored picture's size in pixels, as uxplay last logged it; 0 while unknown or nothing is connected.</summary>
+        public int PictureWidth => _tracker.PictureWidth;
+        public int PictureHeight => _tracker.PictureHeight;
         public string LastError { get; private set; }
         public string EffectiveDeviceName { get; private set; } = "";
         public RequestedVideo EffectiveVideo { get; private set; }
@@ -310,6 +313,11 @@ namespace MacExtend.Services
                 if (e.Kind == LogEventKind.Error) _lastErrorLine = e.Text;
                 // not an error: uxplay keeps running, drops the client and opens a new window for the next session
                 if (e.Kind == LogEventKind.VideoWindowClosed) Log("video window closed by user");
+                if (e.Kind == LogEventKind.PictureSize)
+                {
+                    if (_tracker.OnPictureSize(e)) StateChanged?.Invoke();
+                    return;
+                }
                 if (_tracker.OnLog(e)) OnConnectionChanged();
             }));
         }

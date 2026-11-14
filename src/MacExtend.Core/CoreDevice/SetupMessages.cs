@@ -77,24 +77,6 @@ namespace MacExtend.Core.CoreDevice
             return "Không tải được thành phần. Bấm " + SetupActions.Install + " để thử lại.";
         }
 
-        public const string GettingWda = "Đang tải WebDriverAgent " + Wda.WdaPackage.Version + "...";
-
-        /// <summary>The .ipa is saved (and shown in Explorer): what to do with it.</summary>
-        public static string WdaSaved(string path) =>
-            "Đã lưu " + System.IO.Path.GetFileName(path ?? Wda.WdaPackage.IpaName) + " vào thư mục Tải về. Cài tệp này bằng Sideloadly, chọn Tin cậy ở "
-            + "Cài đặt > Cài đặt chung > Quản lý VPN & thiết bị, rồi bấm " + SetupActions.Refresh + ".";
-
-        /// <summary>Getting or saving WebDriverAgent failed.</summary>
-        public static string WdaDownloadFailed(Exception e)
-        {
-            if (e is InvalidDataException) return "Tệp tải về không phải WebDriverAgent " + Wda.WdaPackage.Version + ". Bấm " + SetupActions.GetWda + " để tải lại.";
-            if (e is HttpRequestException || e is OperationCanceledException)
-                return "Không tải được WebDriverAgent. Kiểm tra Internet rồi bấm " + SetupActions.GetWda + ".";
-            if (e is IOException || e is UnauthorizedAccessException)
-                return "Không lưu được tệp vào thư mục Tải về. Kiểm tra ổ đĩa còn chỗ trống rồi bấm " + SetupActions.GetWda + ".";
-            return "Không tải được WebDriverAgent. Bấm " + SetupActions.GetWda + " để thử lại.";
-        }
-
         /// <summary>A zip the user picked could not be used: not this build's package (CheckZip), or unreadable.</summary>
         public static string PickedZipFailed(Exception e) =>
             e is InvalidDataException

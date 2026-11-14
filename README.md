@@ -87,7 +87,7 @@ Con trỏ chạy theo kiểu chuột thật: bấm vào một điểm trên hìn
 
 ## Điều khiển trực tiếp (qua cáp hoặc Wi-Fi)
 
-Một cách điều khiển iPhone, iPad khác Bluetooth, trong cửa sổ riêng, không cần AirPlay: bấm đúng điểm, giữ, kéo, cuộn bằng con lăn chuột hoặc touchpad theo cài đặt cuộn của Windows (Shift + lăn để cuộn ngang) và gõ phím, kể cả tiếng Việt. Dùng dịch vụ CoreDevice dành cho lập trình viên của Apple (cộng đồng dịch ngược), qua [pymobiledevice3](https://github.com/doronz88/pymobiledevice3). Tính năng còn mới: chưa được thử trên máy thật, xem bảng D trong [docs/TESTING.md](docs/TESTING.md).
+Bấm thẳng lên hình AirPlay của iPhone, iPad để điều khiển thiết bị đó: bấm để chạm, giữ để nhấn giữ, kéo để vuốt, lăn chuột để cuộn và gõ phím để nhập. Đây là một nút bật/tắt: khi bật, mỗi lần iPhone hoặc iPad phản chiếu vào laptop, app tự mở phiên điều khiển cho thiết bị đó, không cần bấm gì thêm, và không mở cửa sổ riêng. Dùng dịch vụ CoreDevice dành cho lập trình viên của Apple (cộng đồng dịch ngược), qua [pymobiledevice3](https://github.com/doronz88/pymobiledevice3). Tính năng còn mới: chưa được thử trên máy thật, xem bảng D trong [docs/TESTING.md](docs/TESTING.md).
 
 Cần:
 - Developer Mode trên thiết bị, bật một lần. Tùy chọn này nằm ở **Cài đặt > Quyền riêng tư & Bảo mật > Chế độ nhà phát triển** và chỉ hiện sau khi cửa sổ thiết lập chạy bước *Hiện tùy chọn*. Bật nó thì thiết bị khởi động lại và hỏi xác nhận; cửa sổ thiết lập hướng dẫn từng bước này.
@@ -97,55 +97,33 @@ Cần:
 
 Cách dùng:
 
-1. Mục *Điều khiển* > *Điều khiển trực tiếp* > *Thiết lập...*, làm các bước theo thứ tự. Với bản cài vào Program Files, Windows hiện hộp thoại hỏi quyền quản trị một lần (bấm Có): lần đó cài thành phần, mở tường lửa và tạo một tác vụ để sau này bật kết nối Wi-Fi mà không hỏi lại. Bản portable và bản cài vào thư mục khác cài thành phần không cần quyền quản trị, nhưng hỏi quyền một lần để mở tường lửa và một lần mỗi phiên Wi-Fi.
-2. Muốn dùng Wi-Fi, cắm cáp rồi bật *Cho phép điều khiển qua Wi-Fi* cho thiết bị đó (ghép nối một lần qua cáp).
-3. Bấm *Mở điều khiển*, hoặc menu khay > *Điều khiển trực tiếp...*. Đang cắm cáp thì app dùng cáp; không thì dùng Wi-Fi nếu đã bật cho thiết bị đó.
+1. Mục *Điều khiển* > bật *Điều khiển trực tiếp*. Lần đầu, cửa sổ *Thiết lập...* tự mở: làm các bước theo thứ tự. Với bản cài vào Program Files, Windows hiện hộp thoại hỏi quyền quản trị một lần (bấm Có): lần đó cài thành phần, mở tường lửa và tạo một tác vụ để sau này bật kết nối Wi-Fi mà không hỏi lại. Bản portable và bản cài vào thư mục khác cài thành phần không cần quyền quản trị, nhưng hỏi quyền một lần để mở tường lửa và một lần mỗi phiên Wi-Fi.
+2. Muốn dùng Wi-Fi, cắm cáp rồi bật *Cho phép điều khiển qua Wi-Fi* cho thiết bị đó trong cửa sổ thiết lập (ghép nối một lần qua cáp).
+3. Phản chiếu iPhone hoặc iPad vào laptop như bình thường. Khi trạng thái báo *Đang điều khiển*, bấm lên hình. Đang cắm cáp thì app dùng cáp; không thì dùng Wi-Fi nếu đã bật cho thiết bị đó.
 
-Nếu danh sách có từ hai thiết bị trở lên, app hiện bảng chọn trước khi kết nối, kể cả khi đã lưu máy dùng lần cuối. Mỗi thiết bị hiện sáu ký tự cuối UDID và cách kết nối; cùng một máy có cả cáp và Wi-Fi chỉ hiện một lần và dùng cáp. Danh sách Wi-Fi dựa trên các máy đã thiết lập, chưa xác nhận máy đang có mặt.
+Thao tác trên hình:
+
+| Trên laptop | Trên thiết bị |
+|---|---|
+| Bấm, giữ, kéo chuột trái | Chạm, nhấn giữ, vuốt, theo đúng lúc tay bạn làm |
+| Lăn chuột hoặc vuốt touchpad (Shift + lăn để cuộn ngang) | Cuộn, theo cài đặt cuộn của Windows |
+| Nhấp chuột phải, hoặc Ctrl+H | Home |
+| Gõ phím | Bàn phím của thiết bị. Ctrl được gửi thành Command, nên Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+Z làm đúng việc quen thuộc. Gõ tiếng Việt: tắt UniKey/EVKey, dùng bàn phím tiếng Việt của iOS |
+| Ctrl+V | Dán chữ từ clipboard của laptop vào chỗ con trỏ trên thiết bị (gõ tiếng Việt đầy đủ theo cách này) |
+| Ctrl+mũi tên lên/xuống | Tăng/giảm âm lượng |
+| Alt+Enter, Alt+F4 | Toàn màn hình, đóng cửa sổ AirPlay |
+
+Chọn thiết bị: chỉ có một thiết bị thì app dùng luôn. Có từ hai thiết bị trở lên thì app chọn thiết bị đã chọn trước đó cho tên AirPlay này, rồi thiết bị qua cáp có cùng tên hoặc cùng model với thiết bị đang phản chiếu. Không chọn được thì trạng thái báo *Có nhiều thiết bị* và nút *Chọn thiết bị...* (ở mục cài đặt và menu khay) mở bảng chọn; lựa chọn được nhớ cho tên AirPlay đó.
+
+Phiên điều khiển dừng 10 giây sau khi hết phản chiếu (phản chiếu lại trong khoảng đó thì không phải khởi động lại), khi tắt nút, khi thiết bị khác chiếm AirPlay, hoặc khi thoát app. Rút cáp rồi cắm lại thì phiên tự nối lại. Lỗi được báo ở mục cài đặt kèm nút *Thử lại*; app không tự thử lại liên tục.
 
 Giới hạn:
-- Trong lúc điều khiển, camera và micro của thiết bị không dùng được; phiên cũng không mở được khi một ứng dụng đang giữ camera hoặc micro.
-- Màn hình thiết bị phải bật thì mới có hình. Tiếng vẫn ra loa của thiết bị, không đi về laptop.
-- Cửa sổ cần Microsoft Edge WebView2 Runtime (đã có sẵn trên hầu hết máy Windows 11).
+- Trong lúc điều khiển, camera và micro của thiết bị có thể không dùng được; phiên cũng không mở được khi một ứng dụng đang giữ camera hoặc micro.
+- Màn hình thiết bị phải bật.
+- Để chạm đúng điểm khi thiết bị nằm ngang, app hỏi thiết bị đang xoay về phía nào mỗi khi hình đổi giữa dọc và ngang, và hỏi lại khi bạn bấm lên hình ngang sau vài giây. Trong khoảng một hai giây sau khi xoay, điểm chạm có thể lệch.
+- Cùng lúc chỉ điều khiển được một thiết bị, như AirPlay chỉ nhận một thiết bị.
 
 Nhật ký ở `%LOCALAPPDATA%\MacExtend\logs\coredevice.log`, chỉ ghi trạng thái, không ghi phím hay văn bản đã gõ. Công cụ probe cho người phát triển nằm ở [tools/coredevice/README.md](tools/coredevice/README.md), kết quả thử ở [docs/research/2026-10-29-coredevice-results.md](docs/research/2026-10-29-coredevice-results.md).
-
-## Điều khiển bằng WDA (qua cáp, beta)
-
-Cách thứ ba: chạm thẳng lên hình AirPlay. Hình và tiếng vẫn đi qua AirPlay như bình thường; thao tác đi qua [WebDriverAgent](https://github.com/appium/WebDriverAgent) (WDA, công cụ kiểm thử tự động của Appium) chạy trên thiết bị, được laptop khởi chạy qua cáp. Không cần Bluetooth, camera và micro của thiết bị vẫn dùng bình thường, và gõ tiếng Việt bằng UniKey trên Windows đi thẳng sang thiết bị. Tính năng còn mới: chưa được thử trên máy thật, xem bảng W trong [docs/TESTING.md](docs/TESTING.md).
-
-Cần:
-- Mọi thứ của Điều khiển trực tiếp qua cáp: thành phần điều khiển, iTunes hoặc Apple Devices, Tin cậy, Developer Mode (cùng cửa sổ thiết lập).
-- WebDriverAgent cài trên thiết bị bằng [Sideloadly](https://sideloadly.io) và Apple ID của bạn. Apple ID miễn phí ký được 7 ngày, hết hạn thì cài lại; tài khoản nhà phát triển trả phí ký được một năm.
-- Cáp nối thiết bị với laptop trong suốt lúc điều khiển. Rút cáp là WDA dừng.
-
-Cách dùng:
-
-1. Bật **Điều khiển bằng WDA** ở mục *Điều khiển*.
-2. Mở *Thiết lập...* (cùng cửa sổ với Điều khiển trực tiếp), làm các bước đến bước *WebDriverAgent*, bấm **Tải WDA**: app lưu `WebDriverAgentRunner.ipa` vào thư mục Tải về. Mở Sideloadly, chọn thiết bị và tệp đó, đăng nhập Apple ID, bấm Start. Trên thiết bị vào **Cài đặt > Cài đặt chung > Quản lý VPN & thiết bị**, chọn Apple ID của bạn và chọn **Tin cậy**. Bấm *Kiểm tra lại*: bước đó hiện ngày hết hạn của chữ ký.
-3. Cắm cáp và phản chiếu từ iPhone hoặc iPad như bình thường. App tự khởi chạy WDA (vài giây; lần đầu sau khi thiết bị khởi động lại lâu hơn vì phải gắn ảnh DDI). Khi dòng trạng thái báo *Sẵn sàng qua cáp*, hình chạm được.
-
-| Trên hình | Trên thiết bị |
-|---|---|
-| Bấm chuột trái | Chạm |
-| Giữ chuột trái 0,5 giây, không di | Chạm và giữ |
-| Kéo | Vuốt theo đúng đường đã kéo, chạy khi nhả chuột |
-| Lăn chuột, cuộn bằng touchpad | Cuộn dưới con trỏ |
-| Chuột phải | Home |
-| Gõ phím, Backspace, Enter | Gõ vào ô đang chọn |
-| Ctrl+V | Gõ nội dung clipboard của Windows (tối đa 2000 ký tự) |
-| Ctrl+H, Ctrl+J, Ctrl+↑, Ctrl+↓ | Home, trình chuyển ứng dụng, tăng và giảm âm lượng |
-| Alt+Enter | Chuyển cửa sổ video giữa cửa sổ và toàn màn hình |
-
-Thanh tiêu đề và viền cửa sổ video vẫn kéo và đổi kích thước được. Trong lúc WDA điều khiển một cửa sổ, bấm vào hình là chạm, không bắt đầu điều khiển Bluetooth; khi WDA không chạy, Bluetooth hoạt động như cũ. Nếu có nhiều thiết bị cắm cáp, app hỏi một lần thiết bị nào ứng với tên AirPlay đang phản chiếu và nhớ lựa chọn đó.
-
-Giới hạn:
-- Mỗi thao tác là một yêu cầu tới WDA, nên thiết bị phản hồi chậm khoảng 100 đến 200 ms. Vuốt chỉ chạy khi nhả chuột, nên không kéo theo tay theo thời gian thực được (không vẽ, không kéo thả theo dõi được).
-- Bấm đúp nhanh có thể không được nhận là chạm đúp (ví dụ phóng to ảnh), vì mỗi lần chạm được gửi ngay.
-- Qua Wi-Fi chưa có: sẽ thêm sau khi thử trên máy thật.
-- Trong lúc chạy, WDA nghe ở cổng 8100 trên cả mạng Wi-Fi của thiết bị: người cùng mạng có thể gửi lệnh tới nó. Chỉ dùng trên mạng tin cậy (loại Riêng tư).
-
-Nhật ký ở `%LOCALAPPDATA%\MacExtend\logs\wda.log`, chỉ ghi trạng thái, không ghi phím, văn bản, vị trí chạm hay UDID.
 
 ## Cài đặt trong app
 
@@ -159,7 +137,7 @@ Nhật ký ở `%LOCALAPPDATA%\MacExtend\logs\wda.log`, chỉ ghi trạng thái,
 | Âm thanh | Phát tiếng của nguồn phát (Mac, iPhone, iPad) trên loa Windows hoặc tắt. |
 | Mã PIN | Chặn người khác trong cùng mạng chiếu lên máy bạn. *Quên tất cả* xóa danh sách thiết bị đã ghép nối; nếu bật PIN, thiết bị phải nhập lại mã khi ghép nối lại. |
 | Điều khiển thiết bị bằng chuột và bàn phím | *Tắt* (mặc định). *Bật*: laptop đóng vai bàn phím và chuột Bluetooth khi iPhone/iPad đang phản chiếu. Có hiệu lực ngay. Xem mục trên. |
-| Điều khiển bằng WDA | *Tắt* (mặc định). *Bật*: tự khởi chạy WebDriverAgent qua cáp khi iPhone/iPad đang phản chiếu, rồi hình AirPlay chạm được. Có hiệu lực ngay. Xem mục trên. |
+| Điều khiển trực tiếp | *Tắt* (mặc định). *Bật*: khi iPhone/iPad phản chiếu, hình AirPlay nhận chuột và bàn phím qua CoreDevice. Có hiệu lực ngay. Xem mục trên. |
 | Khởi động cùng Windows | Chạy ẩn ở khay hệ thống sau khi đăng nhập. |
 
 Cấu hình hình ảnh và âm thanh dùng chung cho mọi nguồn phát. Với iPhone và iPad, nên để Độ phân giải ở *Tự động* khi bắt đầu; *Tùy chỉnh* và H.265 trên điện thoại chưa được kiểm chứng.
@@ -251,9 +229,7 @@ Thành phần đi kèm:
 - libplist (LGPL), OpenSSL (Apache 2.0).
 - Font [Be Vietnam Pro](https://github.com/bettergui/BeVietnamPro) (SIL OFL 1.1).
 - [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) (GPL-3.0-or-later) và các gói Python đi kèm, cùng [CPython](https://www.python.org) 3.13 (PSF License): thành phần Điều khiển trực tiếp, tải riêng khi thiết lập; giấy phép của từng gói nằm trong `coredevice\python\Lib\site-packages\*.dist-info`.
-- [Microsoft Edge WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) SDK 1.0.4258.31 (giấy phép Microsoft, bản sao trong `licenses`): hiện hình của Điều khiển trực tiếp.
 - Phần bàn phím và chuột Bluetooth chuyển thể từ [windows-ble-hid](https://github.com/abhishek-raj/windows-ble-hid) (MIT), commit b33a004.
-- [WebDriverAgent](https://github.com/appium/WebDriverAgent) của Appium (BSD), bản 16.15.3: không đóng gói trong app; app chỉ tải nó về thư mục Tải về khi bạn bấm *Tải WDA*.
 
 Văn bản giấy phép của các thành phần nằm trong `uxplay/licenses` và `licenses` trong thư mục cài đặt.
 

@@ -104,6 +104,35 @@ public class CoreDeviceGesturesTests
     }
 
     [Fact]
+    public async Task ADragThatRestsKeepsTheFingerAtTheEndBeforeLifting()
+    {
+        var (client, handler) = Create();
+        var rest = TimeSpan.FromMilliseconds(150);
+
+        var result = await CoreDeviceGestures.DragAsync(client, 0, 0, 0, 65535, TimeSpan.FromMilliseconds(100), rest, ReleaseDeadline, CancellationToken.None);
+
+        Assert.Equal(GestureEnd.Completed, result.End);
+        var requests = handler.Requests;
+        Assert.Equal(Touch("contact", 0, 65535), requests[^2].Body);
+        Assert.Equal(Touch("release", 0, 65535), requests[^1].Body);
+        // only a lower bound: a slow runner makes the rest longer, never shorter; 20 ms allow a Windows timer tick early
+        var rested = requests[^1].At - requests[^2].At;
+        Assert.True(rested >= rest - TimeSpan.FromMilliseconds(20), $"rested {rested.TotalMilliseconds:0} ms");
+    }
+
+    [Fact]
+    public async Task ARestCountsTowardsTheLongestGesture()
+    {
+        var (client, handler) = Create();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            CoreDeviceGestures.DragAsync(client, 0, 0, 1, 1, CoreDeviceGestures.MaxDuration, TimeSpan.FromMilliseconds(1), ReleaseDeadline, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            CoreDeviceGestures.DragAsync(client, 0, 0, 1, 1, TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(-1), ReleaseDeadline, CancellationToken.None));
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
     public async Task HoldReleasesOnTheClockNotAfterTheAnswer()
     {
         var (client, handler) = Create();

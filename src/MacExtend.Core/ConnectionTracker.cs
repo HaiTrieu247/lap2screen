@@ -24,6 +24,9 @@ namespace MacExtend.Core
         /// <summary>The model uxplay reported with the name ("iPhone12,1", "MacBookPro18,3"); null while nothing is connected.</summary>
         public string ClientModel { get; private set; }
         public bool IsConnected { get; private set; }
+        /// <summary>The mirrored picture's size uxplay last logged, in pixels; 0 until then and after the session ends.</summary>
+        public int PictureWidth { get; private set; }
+        public int PictureHeight { get; private set; }
 
         /// <returns>true if <see cref="IsConnected"/> or <see cref="ClientName"/> changed.</returns>
         public bool OnLog(LogEvent e)
@@ -35,6 +38,9 @@ namespace MacExtend.Core
                     IsConnected = true;
                     ClientName = e.ClientName;
                     ClientModel = e.ClientModel;
+                    // the size of the previous client's picture says nothing about this one's
+                    PictureWidth = 0;
+                    PictureHeight = 0;
                     _zeroSamples = 0;
                     return changed;
                 case LogEventKind.ConnectionLost:
@@ -57,6 +63,16 @@ namespace MacExtend.Core
             return ++_zeroSamples >= ZeroSamplesToDisconnect && Disconnect();
         }
 
+        /// <returns>true if <paramref name="e"/> is a picture size that differs from the one known.</returns>
+        public bool OnPictureSize(LogEvent e)
+        {
+            if (e == null || e.Kind != LogEventKind.PictureSize) return false;
+            if (e.PictureWidth == PictureWidth && e.PictureHeight == PictureHeight) return false;
+            PictureWidth = e.PictureWidth;
+            PictureHeight = e.PictureHeight;
+            return true;
+        }
+
         public void Reset() => Disconnect();
 
         private bool Disconnect()
@@ -65,6 +81,8 @@ namespace MacExtend.Core
             IsConnected = false;
             ClientName = null;
             ClientModel = null;
+            PictureWidth = 0;
+            PictureHeight = 0;
             _zeroSamples = 0;
             return changed;
         }

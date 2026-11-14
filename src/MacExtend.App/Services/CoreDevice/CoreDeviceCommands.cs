@@ -21,6 +21,7 @@ namespace MacExtend.Services.CoreDevice
         // waits for the Trust dialog when the device is not paired yet
         private static readonly TimeSpan TrustTimeout = TimeSpan.FromSeconds(120);
         private static readonly TimeSpan ShortTimeout = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan OrientationTimeout = TimeSpan.FromSeconds(15);
         // the first mount downloads and personalizes the image
         private static readonly TimeSpan MountTimeout = TimeSpan.FromSeconds(180);
 
@@ -36,6 +37,25 @@ namespace MacExtend.Services.CoreDevice
             var r = Run(null, ListTimeout, "usbmux", "list", "--usb", "--simple");
             return r.Succeeded ? DeviceQueries.ParseUdids(r.Stdout) : (IReadOnlyList<string>)new string[0];
         });
+
+        /// <summary>
+        /// The devices on a cable with their name and model (`usbmux list --usb`, which asks lockdown on each one): what
+        /// tells the device mirroring from the others. Empty when the command fails.
+        /// </summary>
+        public static Task<IReadOnlyList<UsbDevice>> NamedUsbDevicesAsync() => Task.Run(() =>
+        {
+            var r = Run(null, ListTimeout, "usbmux", "list", "--usb");
+            return r.Succeeded ? DeviceQueries.ParseUsbDevices(r.Stdout) : (IReadOnlyList<UsbDevice>)new UsbDevice[0];
+        });
+
+        /// <summary>
+        /// SpringBoard's interface orientation (TouchMap.ParseOrientation reads it): over lockdown on the cable, through
+        /// tunneld's tunnel over Wi-Fi. Short: it runs each time the picture turns.
+        /// </summary>
+        public static Task<CommandResult> OrientationAsync(string udid, CoreDeviceRoute route) => Task.Run(() =>
+            route == CoreDeviceRoute.Wifi
+                ? Run(udid, OrientationTimeout, "springboard", "orientation", "--tunnel", udid)
+                : Run(udid, OrientationTimeout, "springboard", "orientation"));
 
         /// <summary>
         /// UDIDs of the devices on a cable, from usbmuxd's ListDevices on 127.0.0.1:27015 instead of a Python process: the
@@ -110,12 +130,6 @@ namespace MacExtend.Services.CoreDevice
         /// lockdown on the cable (pymobiledevice3 retries over a tunnel by itself where lockdown cannot serve it).
         /// </summary>
         public static Task<CommandResult> MountedImagesAsync(string udid) => Task.Run(() => Run(udid, ShortTimeout, "mounter", "list"));
-
-        /// <summary>`apps list --type User` over lockdown: the user's apps as JSON (WdaBundles.Pick reads it).</summary>
-        public static Task<CommandResult> UserAppsAsync(string udid) => Task.Run(() => Run(udid, ListTimeout, "apps", "list", "--type", "User"));
-
-        /// <summary>`provision list` over lockdown: the installed provisioning profiles as JSON (ProvisionProfiles reads it).</summary>
-        public static Task<CommandResult> ProfilesAsync(string udid) => Task.Run(() => Run(udid, ListTimeout, "provision", "list"));
 
         /// <summary>RemotePairing pair-setup over the trusted cable: no dialog on the device; writes remote_&lt;UDID&gt;.plist.</summary>
         public static Task<CommandResult> RemotePairAsync(string udid) => Task.Run(() => Run(udid, ShortTimeout, "lockdown", "remotepairing", "--pair"));

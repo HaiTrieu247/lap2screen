@@ -3,11 +3,9 @@ using System.Drawing;
 using System.Windows.Forms;
 using MacExtend.Core;
 using MacExtend.Core.CoreDevice;
-using MacExtend.Core.Wda;
 using MacExtend.Services;
 using MacExtend.Services.Bluetooth;
 using MacExtend.Services.CoreDevice;
-using MacExtend.Services.Wda;
 using MacExtend.Themes;
 
 namespace MacExtend.Tray
@@ -17,7 +15,7 @@ namespace MacExtend.Tray
     {
         private readonly ReceiverController _controller;
         private readonly BluetoothController _bluetooth;
-        private readonly CoreDeviceService _direct;
+        private readonly DirectControlController _direct;
         private readonly NotifyIcon _icon;
         private readonly ContextMenuStrip _menu;
         private readonly ToolStripMenuItem _status;
@@ -28,8 +26,7 @@ namespace MacExtend.Tray
         private readonly ToolStripMenuItem _onTop;
         private readonly ToolStripMenuItem _control;
         private readonly ToolStripMenuItem _directItem;
-        private readonly WdaController _wda;
-        private readonly ToolStripMenuItem _wdaChoose;
+        private readonly ToolStripMenuItem _directChoose;
         private Action _installUpdate;
         private bool _hintShown;
         private bool _forcedStopShown;
@@ -39,18 +36,16 @@ namespace MacExtend.Tray
         /// <param name="showMac">Brings the AirPlay display back to the front; offered while a device is connected.</param>
         /// <param name="onTop">The "always on top" setting; offered next to <paramref name="showMac"/>.</param>
         /// <param name="bluetooth">Offers to start or stop controlling the device while that is possible.</param>
-        /// <param name="direct">The direct-control session: its item says whether a click starts or stops one.</param>
-        /// <param name="toggleDirect">Opens a direct-control session, or stops the one running.</param>
-        /// <param name="wda">WDA control: its status, and the device choice it may wait for.</param>
-        /// <param name="chooseWda">Shows the device picker for WDA control.</param>
-        public TrayIcon(ReceiverController controller, BluetoothController bluetooth, CoreDeviceService direct, Action toggleDirect,
-                        WdaController wda, Action chooseWda, Action open, Action exit, Func<bool> macDisplayOpen, Action showMac,
+        /// <param name="direct">Direct control: its status, and the device choice it may wait for.</param>
+        /// <param name="chooseDirect">Shows the device picker for direct control.</param>
+        /// <param name="directOn">The "Điều khiển trực tiếp" switch; its item turns it on or off.</param>
+        public TrayIcon(ReceiverController controller, BluetoothController bluetooth, DirectControlController direct, Action chooseDirect,
+                        Func<bool> directOn, Action<bool> setDirect, Action open, Action exit, Func<bool> macDisplayOpen, Action showMac,
                         Func<bool> onTop, Action<bool> setOnTop)
         {
             _controller = controller;
             _bluetooth = bluetooth;
             _direct = direct;
-            _wda = wda;
 
             _status = new ToolStripMenuItem { Enabled = false };
             var openItem = new ToolStripMenuItem("Mở MacExtend", null, (_, __) => open());
@@ -62,16 +57,20 @@ namespace MacExtend.Tray
             _showMac = new ToolStripMenuItem("Hiện màn hình AirPlay", null, (_, __) => showMac()) { Visible = false };
             _onTop = new ToolStripMenuItem("", null, (_, __) => setOnTop(!onTop())) { Visible = false };
             _control = new ToolStripMenuItem("", null, (_, __) => ToggleControl()) { Visible = false };
-            _directItem = new ToolStripMenuItem("", null, (_, __) => toggleDirect());
-            _wdaChoose = new ToolStripMenuItem(WdaTexts.ChooseDevice + "...", null, (_, __) => chooseWda()) { Visible = false };
+            _directItem = new ToolStripMenuItem("", null, (_, __) => setDirect(!directOn()));
+            _directChoose = new ToolStripMenuItem(DirectControlTexts.ChooseDevice + "...", null, (_, __) => chooseDirect()) { Visible = false };
 
             _menu = new ContextMenuStrip { ShowImageMargin = false, Padding = new Padding(0, 4, 0, 4) };
             _menu.Items.AddRange(new ToolStripItem[]
             {
-                _status, new ToolStripSeparator(), _showMac, _onTop, _control, _wdaChoose, _directItem, openItem, _toggle, _restart, _update, new ToolStripSeparator(), exitItem,
+                _status, new ToolStripSeparator(), _showMac, _onTop, _control, _directChoose, _directItem, openItem, _toggle, _restart, _update, new ToolStripSeparator(), exitItem,
             });
             // the menu has no check margin, so the item says what a click does; the setting can also change in the window
-            _menu.Opening += (_, __) => _onTop.Text = onTop() ? "Tắt luôn ở trên cùng" : "Bật luôn ở trên cùng";
+            _menu.Opening += (_, __) =>
+            {
+                _onTop.Text = onTop() ? "Tắt luôn ở trên cùng" : "Bật luôn ở trên cùng";
+                _directItem.Text = directOn() ? "Tắt điều khiển trực tiếp" : "Bật điều khiển trực tiếp";
+            };
             foreach (ToolStripItem item in _menu.Items)
             {
                 item.Padding = new Padding(8, 5, 24, 5);
@@ -89,7 +88,6 @@ namespace MacExtend.Tray
             _controller.StateChanged += Update;
             _bluetooth.StateChanged += Update;
             _direct.StateChanged += Update;
-            _wda.StateChanged += Update;
             ThemeManager.Changed += Update;
             Update();
         }
@@ -128,7 +126,6 @@ namespace MacExtend.Tray
             _controller.StateChanged -= Update;
             _bluetooth.StateChanged -= Update;
             _direct.StateChanged -= Update;
-            _wda.StateChanged -= Update;
             ThemeManager.Changed -= Update;
             _icon.Visible = false;
             _icon.Dispose();
@@ -183,9 +180,8 @@ namespace MacExtend.Tray
             _current = next;
 
             if (_bluetooth.IsControlling) text = "Đang điều khiển " + _bluetooth.TargetName;
-            text = WdaTexts.TrayStatus(_wda.View, _controller.ClientName) ?? text;
-            var direct = _direct.View;
-            text = DirectControlTexts.TrayStatus(direct) ?? text;
+            var session = _direct.Session;
+            text = DirectControlTexts.TrayStatus(_direct.View, session, _controller.ClientName) ?? text;
             if (_exiting) text = CoreDeviceMessages.Phase(SessionPhase.Stopping);
             var tip = "MacExtend: " + text;
             _icon.Text = tip.Length > 63 ? tip.Substring(0, 62) + "…" : tip;
@@ -196,9 +192,7 @@ namespace MacExtend.Tray
             _onTop.Visible = phase == ReceiverPhase.Connected;
             _control.Visible = _bluetooth.IsControlling || _bluetooth.CanControl;
             _control.Text = _bluetooth.IsControlling ? "Dừng điều khiển" : "Điều khiển " + _bluetooth.TargetName;
-            _wdaChoose.Visible = _wda.View.Phase == WdaPhase.Choose;
-            _directItem.Text = DirectControlTexts.TrayItem(direct);
-            _directItem.Enabled = DirectControlTexts.TrayItemEnabled(direct);
+            _directChoose.Visible = _direct.View.Phase == DirectPhase.Choose;
             if (_exiting)
             {
                 // nothing to offer while the app waits for the session's stop
@@ -207,8 +201,8 @@ namespace MacExtend.Tray
             _menu.Renderer = new ModernMenuRenderer(!WindowsTheme.SystemUsesLightTheme);
 
             // once per session: a stop that had to kill serve-web may have left the camera and microphone held
-            if (direct.IsActive) _forcedStopShown = false;
-            else if (DirectControlTexts.WarnForcedStop(direct) && !_forcedStopShown)
+            if (session.IsActive) _forcedStopShown = false;
+            else if (DirectControlTexts.WarnForcedStop(session) && !_forcedStopShown)
             {
                 _forcedStopShown = true;
                 _icon.ShowBalloonTip(5000, DirectControlTexts.ForcedStopTitle, DirectControlTexts.ForcedStopText, ToolTipIcon.None);

@@ -221,6 +221,10 @@ namespace MacExtend.Native
         public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
 
         [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool PostMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
         public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
 
         [DllImport("user32.dll")]
@@ -303,7 +307,12 @@ namespace MacExtend.Native
         public const uint LLMHF_INJECTED = 0x01;
         public const int WM_QUIT = 0x0012;
         public const int WM_KEYDOWN = 0x0100;
+        public const int WM_KEYUP = 0x0101;
         public const int WM_SYSKEYDOWN = 0x0104;
+        public const int WM_SYSKEYUP = 0x0105;
+        public const int WM_KILLFOCUS = 0x0008;
+        public const int WM_CLOSE = 0x0010;
+        public const int VK_F4 = 0x73;
         public const int WM_MOUSEMOVE = 0x0200;
         public const int WM_LBUTTONDOWN = 0x0201;
         public const int WM_LBUTTONUP = 0x0202;

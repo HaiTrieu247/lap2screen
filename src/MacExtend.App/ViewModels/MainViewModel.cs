@@ -9,11 +9,9 @@ using System.Windows.Input;
 using MacExtend.Core;
 using MacExtend.Core.Bluetooth;
 using MacExtend.Core.CoreDevice;
-using MacExtend.Core.Wda;
 using MacExtend.Services;
 using MacExtend.Services.Bluetooth;
 using MacExtend.Services.CoreDevice;
-using MacExtend.Services.Wda;
 
 namespace MacExtend.ViewModels
 {
@@ -34,11 +32,11 @@ namespace MacExtend.ViewModels
             nameof(CustomHeightText), nameof(CustomRefreshText), nameof(CustomH265), nameof(IsFps30), nameof(IsFps60),
             nameof(AudioEnabled), nameof(PinEnabled), nameof(Pin), nameof(PinDisplay), nameof(StartWithWindows),
             nameof(AutoCheckUpdates), nameof(FocusOnConnect), nameof(HideCursor), nameof(Fullscreen), nameof(AlwaysOnTop),
-            nameof(BluetoothControl), nameof(WdaControl),
+            nameof(BluetoothControl), nameof(DirectControl),
         };
-        private static readonly string[] WdaNames =
+        private static readonly string[] DirectNames =
         {
-            nameof(WdaText), nameof(WdaCheck), nameof(ShowWdaRetry), nameof(ShowWdaChoose), nameof(ShowWdaSetup), nameof(ShowWdaStatus),
+            nameof(DirectText), nameof(DirectCheck), nameof(ShowDirectRetry), nameof(ShowDirectChoose), nameof(ShowDirectStatus),
         };
         private static readonly string[] BluetoothNames =
         {
@@ -54,9 +52,7 @@ namespace MacExtend.ViewModels
 
         private readonly ReceiverController _controller;
         private readonly BluetoothController _bluetooth;
-        private readonly CoreDeviceService _direct;
-        private readonly DirectControlUi _directUi;
-        private readonly WdaController _wda;
+        private readonly DirectControlController _direct;
         private readonly SettingsService _settings;
         private CheckState _firewallState = CheckState.Checking;
         private CheckState _networkState = CheckState.Checking;
@@ -68,18 +64,14 @@ namespace MacExtend.ViewModels
         private bool _fixing;
         private bool _phoneGuide;
 
-        /// <param name="direct">The direct-control session, for its status line.</param>
-        /// <param name="directUi">Opens a session or the setup window; tells when it looks for devices and when the setup window closed.</param>
-        /// <param name="wda">WDA control: its status line, retry and device choice.</param>
-        /// <param name="chooseWda">Shows the device picker for WDA control.</param>
-        public MainViewModel(ReceiverController controller, BluetoothController bluetooth, CoreDeviceService direct, DirectControlUi directUi,
-                             WdaController wda, Action chooseWda, SettingsService settings, Action<string> exitForUpdate)
+        /// <param name="direct">Direct control: its status line, retry, device choice and setup window.</param>
+        /// <param name="chooseDirect">Shows the device picker for direct control.</param>
+        public MainViewModel(ReceiverController controller, BluetoothController bluetooth, DirectControlController direct, Action chooseDirect,
+                             SettingsService settings, Action<string> exitForUpdate)
         {
             _controller = controller;
             _bluetooth = bluetooth;
             _direct = direct;
-            _directUi = directUi;
-            _wda = wda;
             _settings = settings;
             Update = new UpdateViewModel(() => _settings.Current.AutoCheckUpdates,
                                          () => _controller.Phase == ReceiverPhase.Connected, exitForUpdate);
@@ -93,11 +85,9 @@ namespace MacExtend.ViewModels
 
             _bluetooth.StateChanged += () => Raise(BluetoothNames);
             // N20: the setup window closing can change "Chưa thiết lập" too, not only a session
-            _direct.StateChanged += RaiseDirect;
-            _directUi.Changed += RaiseDirect;
-            _wda.StateChanged += () =>
+            _direct.StateChanged += () =>
             {
-                Raise(WdaNames);
+                Raise(DirectNames);
                 CommandManager.InvalidateRequerySuggested();
             };
 
@@ -109,10 +99,9 @@ namespace MacExtend.ViewModels
             FixFirewallCommand = new RelayCommand(() => _ = FixFirewallAsync(), () => FirewallState != CheckState.Ok && !_fixing);
             MakePrivateCommand = new RelayCommand(() => _ = MakePrivateAsync(), () => _publicNetwork != null && !_fixing);
             OpenLogsCommand = new RelayCommand(() => Process.Start("explorer.exe", "\"" + AppPaths.LogDir + "\""));
-            OpenDirectCommand = new RelayCommand(() => _ = _directUi.OpenAsync(), () => !_directUi.IsOpening);
-            DirectSetupCommand = new RelayCommand(_directUi.OpenSetup);
-            WdaRetryCommand = new RelayCommand(_wda.Retry, () => _wda.CanRetry);
-            WdaChooseCommand = new RelayCommand(chooseWda, () => _wda.View.Phase == WdaPhase.Choose);
+            DirectSetupCommand = new RelayCommand(_direct.OpenSetup);
+            DirectRetryCommand = new RelayCommand(_direct.Retry, () => _direct.CanRetry);
+            DirectChooseCommand = new RelayCommand(chooseDirect, () => _direct.View.Phase == DirectPhase.Choose);
 
             VersionText = BuildVersionText();
         }
@@ -125,10 +114,9 @@ namespace MacExtend.ViewModels
         public ICommand FixFirewallCommand { get; }
         public ICommand MakePrivateCommand { get; }
         public ICommand OpenLogsCommand { get; }
-        public ICommand OpenDirectCommand { get; }
         public ICommand DirectSetupCommand { get; }
-        public ICommand WdaRetryCommand { get; }
-        public ICommand WdaChooseCommand { get; }
+        public ICommand DirectRetryCommand { get; }
+        public ICommand DirectChooseCommand { get; }
 
         public UpdateViewModel Update { get; }
 
@@ -415,28 +403,33 @@ namespace MacExtend.ViewModels
             }
         }
 
-        // ---- WDA control --------------------------------------------------------------------
+        // ---- direct control -----------------------------------------------------------------
 
-        /// <summary>Control the mirroring iPhone or iPad through WebDriverAgent. Applies at once.</summary>
-        public bool WdaControl
+        /// <summary>Control the mirroring iPhone or iPad on its AirPlay picture. Applies at once.</summary>
+        public bool DirectControl
         {
-            get => _settings.Current.WdaControl;
-            set => Change(s => s.WdaControl = value);
+            get => _settings.Current.DirectControl;
+            set
+            {
+                Change(s => s.DirectControl = value);
+                // nothing could start yet: the one-time setup comes up right away
+                if (value && !CoreDeviceRuntime.IsCurrent) _direct.OpenSetup();
+            }
         }
 
-        public string WdaText => _wda.StatusText;
+        public string DirectText => _direct.StatusText;
 
-        public bool ShowWdaStatus => WdaText.Length > 0;
+        public bool ShowDirectStatus => DirectText.Length > 0;
 
-        public CheckState WdaCheck
+        public CheckState DirectCheck
         {
             get
             {
-                switch (_wda.View.Phase)
+                switch (_direct.View.Phase)
                 {
-                    case WdaPhase.Ready:
-                        return CheckState.Ok;
-                    case WdaPhase.Failed:
+                    case DirectPhase.Running:
+                        return _direct.Session.Phase == SessionPhase.Ready ? CheckState.Ok : CheckState.Checking;
+                    case DirectPhase.Failed:
                         return CheckState.Problem;
                     default:
                         return CheckState.Checking;
@@ -444,22 +437,9 @@ namespace MacExtend.ViewModels
             }
         }
 
-        public bool ShowWdaRetry => _wda.View.Phase == WdaPhase.Failed;
+        public bool ShowDirectRetry => _direct.View.Phase == DirectPhase.Failed;
 
-        public bool ShowWdaChoose => _wda.View.Phase == WdaPhase.Choose;
-
-        public bool ShowWdaSetup => _wda.NeedsSetup;
-
-        // ---- direct control -----------------------------------------------------------------
-
-        /// <summary>The session's status while one runs; otherwise whether this build's runtime is set up.</summary>
-        public string DirectControlText => DirectControlTexts.Settings(_direct.View, CoreDeviceRuntime.IsCurrent, _directUi.IsOpening);
-
-        private void RaiseDirect()
-        {
-            Raise(nameof(DirectControlText));
-            CommandManager.InvalidateRequerySuggested();
-        }
+        public bool ShowDirectChoose => _direct.View.Phase == DirectPhase.Choose;
 
         // ---- system checks ------------------------------------------------------------------
 

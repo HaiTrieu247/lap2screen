@@ -109,7 +109,7 @@ namespace MacExtend.ViewModels
         private static readonly TimeSpan SessionStopBound = TimeSpan.FromSeconds(120);
 
         /// <summary>
-        /// Shared by every setup window of this process, the "Thiết lập lại" of "Mở điều khiển" and a Wi-Fi session adding
+        /// Shared by every setup window of this process, and a Wi-Fi session adding
         /// its firewall rules: install, rules, pairing, mount and the checks never overlap, even when a window was closed
         /// while its action still runs. The windows take it on the UI thread, the session on the thread pool.
         /// </summary>
@@ -286,7 +286,6 @@ namespace MacExtend.ViewModels
                 case SetupStepId.DeveloperMode: return Command(RevealAsync);
                 case SetupStepId.DiskImage: return Command(MountAsync);
                 case SetupStepId.Wifi: return Command(PairWifiAsync);
-                case SetupStepId.Wda: return Command(GetWdaAsync);
                 // the Apple service and the cable only need a new look
                 default: return RefreshCommand;
             }
@@ -317,8 +316,6 @@ namespace MacExtend.ViewModels
                 WithoutTask = local.WithoutTask,
                 StandardAccount = !local.Admin,
                 AppleServiceReachable = local.Apple,
-                WdaWanted = _settings.Current.WdaControl,
-                NowUtc = DateTime.UtcNow,
             };
             if (next.RuntimeInstalled)
             {
@@ -343,8 +340,6 @@ namespace MacExtend.ViewModels
                     next.DeveloperMode = _facts.DeveloperMode;
                     next.DiskImageMounted = _facts.DiskImageMounted;
                     next.WifiPaired = _facts.WifiPaired;
-                    next.WdaBundle = _facts.WdaBundle;
-                    next.WdaExpiresUtc = _facts.WdaExpiresUtc;
                 }
                 next.WifiWanted = WifiWantedFor(udid);
                 // what comes before the device is known now
@@ -373,7 +368,6 @@ namespace MacExtend.ViewModels
                     next.DiskImageMounted = false;
                 }
                 next.WifiPaired = CoreDeviceCommands.RemotePaired(udid);
-                if (next.Trusted == true && next.WdaWanted) await DetectWdaAsync(udid, next);
                 Log("developer mode status: " + Describe(status));
                 if (hint.Length == 0) hint = SetupMessages.Trust(status) ?? "";
             }
@@ -437,21 +431,6 @@ namespace MacExtend.ViewModels
             {
                 return new CommandResult(-1, "", CliError.Other, false);
             }
-        }
-
-        /// <summary>WebDriverAgent on the device (`apps list`) and when its signature runs out (`provision list`).</summary>
-        private static async Task DetectWdaAsync(string udid, SetupFacts facts)
-        {
-            var apps = await RunCommandAsync(() => CoreDeviceCommands.UserAppsAsync(udid));
-            facts.WdaBundle = apps.Succeeded ? Core.Wda.WdaBundles.Pick(apps.Stdout) : null;
-            facts.WdaExpiresUtc = null;
-            if (facts.WdaBundle != null)
-            {
-                var profiles = await RunCommandAsync(() => CoreDeviceCommands.ProfilesAsync(udid));
-                if (profiles.Succeeded) facts.WdaExpiresUtc = Core.Wda.ProvisionProfiles.Expiry(profiles.Stdout, facts.WdaBundle);
-            }
-            Log("WDA: app list " + Describe(apps) + ", " + (facts.WdaBundle == null ? "not installed" : "installed, profile "
-                + (facts.WdaExpiresUtc == null ? "unknown" : "expires " + facts.WdaExpiresUtc.Value.ToString("u"))));
         }
 
         private bool WifiWantedFor(string udid) =>
@@ -622,24 +601,6 @@ namespace MacExtend.ViewModels
                 }
             }
             Message = SetupMessages.Pair(r, paired, rules);
-        });
-
-        /// <summary>"Tải WDA": the pinned WebDriverAgent as WebDriverAgentRunner.ipa in Downloads, shown in Explorer, for Sideloadly.</summary>
-        private Task GetWdaAsync() => Run(SetupStepId.Wda, SetupMessages.GettingWda, async () =>
-        {
-            try
-            {
-                var path = await Task.Run(() => Services.Wda.WdaDownload.FetchAsync(_closed.Token));
-                Log("WDA saved to Downloads");
-                Message = SetupMessages.WdaSaved(path);
-                Services.Wda.WdaDownload.Reveal(path);
-            }
-            catch (Exception e) when (e is HttpRequestException || e is IOException || e is InvalidDataException || e is UnauthorizedAccessException
-                                      || e is OperationCanceledException)
-            {
-                Log("WDA download failed: " + e.GetType().Name);
-                Message = SetupMessages.WdaDownloadFailed(e);
-            }
         });
 
         // ---- plumbing --------------------------------------------------------------------

@@ -14,6 +14,25 @@ namespace MacExtend.Core.CoreDevice
             return list.OfType<string>().Where(CoreDeviceOptions.IsValidUdid).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
+        /// <summary>
+        /// `usbmux list --usb`: lockdown's short_info per device (Identifier, DeviceName, ProductType, ...). An entry
+        /// without a valid UDID is dropped; a name or model that is not a string is null.
+        /// </summary>
+        public static IReadOnlyList<UsbDevice> ParseUsbDevices(string stdout)
+        {
+            if (!MiniJson.TryParse((stdout ?? "").Trim(), out var value) || !(value is List<object> list)) return new UsbDevice[0];
+            var devices = new List<UsbDevice>();
+            foreach (var entry in list.OfType<Dictionary<string, object>>())
+            {
+                var udid = Text(entry, "Identifier") ?? Text(entry, "UniqueDeviceID");
+                if (!CoreDeviceOptions.IsValidUdid(udid) || devices.Any(d => string.Equals(d.Udid, udid, StringComparison.OrdinalIgnoreCase))) continue;
+                devices.Add(new UsbDevice(udid, Text(entry, "DeviceName"), Text(entry, "ProductType")));
+            }
+            return devices;
+        }
+
+        private static string Text(Dictionary<string, object> entry, string key) => entry.TryGetValue(key, out var v) ? v as string : null;
+
         /// <summary>`amfi developer-mode-status`: JSON true or false; null when the output is neither.</summary>
         public static bool? ParseBool(string stdout)
         {

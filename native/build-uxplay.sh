@@ -16,6 +16,23 @@ git init -q "$src"
 git -C "$src" fetch -q --depth 1 "$url" "$commit"
 git -C "$src" checkout -q FETCH_HEAD
 
+# Direct control maps clicks on the picture to the device's screen, so it needs the mirrored picture's size, which
+# uxplay logs only at debug level ("raop_rtp_mirror width_source = ..."), again after every rotation. That one line
+# goes up to info; the build stops if upstream moved it.
+mirror="$src/lib/raop_rtp_mirror.c"
+if ! awk '{ line[NR] = $0 }
+     END {
+       for (i = 1; i <= NR; i++) {
+         if (i < NR && index(line[i + 1], "\"raop_rtp_mirror width_source = ") && sub(/LOGGER_DEBUG,/, "LOGGER_INFO,", line[i])) n++
+         print line[i]
+       }
+       exit (n == 1 ? 0 : 1)
+     }' "$mirror" > "$mirror.new"; then
+  echo "the picture-size log line was not found in $mirror" >&2
+  exit 1
+fi
+mv "$mirror.new" "$mirror"
+
 # NO_MARCH_NATIVE: the CI CPU is not the user's CPU.
 cmake -S "$src" -B "$out" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
