@@ -64,18 +64,22 @@ public class CoreDeviceGesturesTests
         var result = await CoreDeviceGestures.DragAsync(client, 0, 1000, 65535, 1000, TimeSpan.FromMilliseconds(400), ReleaseDeadline, CancellationToken.None);
         watch.Stop();
 
+        // Completed also means the gesture beat its own deadline (duration plus slack)
         Assert.Equal(GestureEnd.Completed, result.End);
         Assert.Equal(ReleaseOutcome.NothingHeld, result.Cleanup);
-        // paced per step instead (16 ms, then a 40 ms answer, for 25 steps) it would take about 1.4 s
-        Assert.InRange(watch.Elapsed, TimeSpan.FromMilliseconds(400), TimeSpan.FromMilliseconds(1000));
+        // no upper bound on the wall clock: a shared CI runner has stalled this 400 ms drag to 1.26 s once, while its
+        // pacing was right. The request count below is what tells the clock from the answers, and a stall only lowers it.
+        Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(400), $"{watch.Elapsed.TotalMilliseconds:0} ms");
         var bodies = handler.Bodies;
         Assert.Equal(Touch("contact", 0, 1000), bodies[0]);
         Assert.Equal(Touch("contact", 65535, 1000), bodies[^2]);
         Assert.Equal(Touch("release", 65535, 1000), bodies[^1]);
         var xs = bodies.Select(X).ToList();
         Assert.Equal(xs.OrderBy(x => x), xs);
-        // slow answers drop frames rather than queue them
-        Assert.True(bodies.Count < 400 / 16 + 3, $"{bodies.Count} requests");
+        // slow answers drop frames rather than queue them: with every answer taking 40 ms, at most one frame per
+        // answer fits in 400 ms (11 requests on a quiet machine, the contact and release included). Sending all 25
+        // frames in turn would make 27, however fast or slow the machine is.
+        Assert.True(bodies.Count <= 400 / 40 + 2, $"{bodies.Count} requests");
         Assert.True(client.IsOpen);
         Assert.False(client.ContactMayBeHeld);
     }
