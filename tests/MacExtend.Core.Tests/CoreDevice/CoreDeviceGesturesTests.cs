@@ -107,15 +107,25 @@ public class CoreDeviceGesturesTests
     public async Task HoldReleasesOnTheClockNotAfterTheAnswer()
     {
         var (client, handler) = Create();
-        handler.Answer = (_, token) => Task.Delay(300, token);
+        // the contact's answer takes longer than the slack but less than the hold: 1.2 s of a 1.5 s hold
+        var answer = CoreDeviceGestures.Slack + TimeSpan.FromMilliseconds(200);
+        var duration = answer + TimeSpan.FromMilliseconds(300);
+        handler.Answer = (body, token) => body.Contains("\"contact\"") ? Task.Delay(answer, token) : Task.CompletedTask;
 
-        var result = await CoreDeviceGestures.HoldAsync(client, 10, 20, TimeSpan.FromMilliseconds(400), ReleaseDeadline, CancellationToken.None);
+        var result = await CoreDeviceGestures.HoldAsync(client, 10, 20, duration, ReleaseDeadline, CancellationToken.None);
 
+        // Waiting the whole hold after the answer would put the release at 2.7 s, past the gesture's 2.5 s deadline
+        // (duration plus slack): that hold is cut, and a slow runner only makes it later. Releasing on the clock, at
+        // 1.5 s, leaves the whole slack to spare, so there is no upper bound on the wall clock: a shared CI runner has
+        // stalled these gestures by 700 ms.
         Assert.Equal(GestureEnd.Completed, result.End);
+        Assert.Equal(ReleaseOutcome.NothingHeld, result.Cleanup);
         var requests = handler.Requests;
         Assert.Equal(new[] { Touch("contact", 10, 20), Touch("release", 10, 20) }, requests.Select(r => r.Body));
-        // waiting 400 ms after the 300 ms answer would put the release 700 ms after the contact
-        Assert.InRange(requests[1].At - requests[0].At, TimeSpan.FromMilliseconds(350), TimeSpan.FromMilliseconds(600));
+        // releasing as soon as the answer came, without the rest of the hold, would put it 1.2 s after the contact;
+        // the 50 ms under the hold allow for a Windows timer firing a tick early
+        var held = requests[1].At - requests[0].At;
+        Assert.True(held >= duration - TimeSpan.FromMilliseconds(50), $"released {held.TotalMilliseconds:0} ms after the contact");
         Assert.False(client.ContactMayBeHeld);
     }
 
