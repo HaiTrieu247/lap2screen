@@ -113,14 +113,25 @@ jobs:
       - name: Version
         id: version
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # tag vX.Y.Z builds X.Y.Z; every other build is <version.txt>.<run number>, always increasing.
-          # A tag with a suffix (v1.0.8-beta.1) is a pre-release: the app, installer and update.ini carry the
+          # The version is version.txt as it is, set with tools/set-version.sh; a tag vX.Y.Z still builds X.Y.Z.
+          # A version with a suffix (1.0.8-beta.1) is a pre-release: the app, installer and update.ini carry the
           # number (1.0.8), file names and the release carry the whole label.
-          $prefix = (Get-Content version.txt -Raw).Trim()
-          $v = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { "$prefix.$env:GITHUB_RUN_NUMBER" }
+          $v = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { (Get-Content version.txt -Raw).Trim() }
           $number = ($v -split '-', 2)[0]
-          if ($number -notmatch '^\d+\.\d+\.\d+$') { throw "version '$v' must start with X.Y.Z" }
+          if ($v -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$') { throw "version '$v' must be X.Y.Z or X.Y.Z-label: set it with tools/set-version.sh" }
+          # a run that publishes must not overwrite a release: checked now, not after the whole build
+          $publishes = ($env:GITHUB_EVENT_NAME -eq 'push' -or $env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') -and
+                       ($env:GITHUB_REF -eq 'refs/heads/main' -or $env:GITHUB_REF -like 'refs/tags/v*')
+          if ($publishes) {
+            gh release view "v$v" --repo "$env:RELEASE_REPOSITORY" --json tagName *> $null
+            if ($LASTEXITCODE -eq 0) {
+              throw "release v$v already exists in $env:RELEASE_REPOSITORY: set a new version with tools/set-version.sh, commit and push"
+            }
+            $global:LASTEXITCODE = 0
+          }
           "value=$v" >> $env:GITHUB_OUTPUT
           "number=$number" >> $env:GITHUB_OUTPUT
           "prerelease=$(if ($v -ne $number) { 'true' } else { 'false' })" >> $env:GITHUB_OUTPUT
