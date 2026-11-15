@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -22,6 +23,22 @@ public class ServeWebControlTests
             Requests.Add((request.Method.Method, request.RequestUri.AbsolutePath, body));
             return new HttpResponseMessage(Status) { Content = new StringContent(Answer) };
         }
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK, WarmResult.Open)]
+    [InlineData(HttpStatusCode.Conflict, WarmResult.MediaBusy)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, WarmResult.Failed)]
+    [InlineData(HttpStatusCode.NotFound, WarmResult.Failed)]
+    public async Task AWarmUpSaysWhetherTheStreamOpened(HttpStatusCode status, WarmResult expected)
+    {
+        var h = new Handler { Status = status };
+
+        using (var c = new ServeWebControl(8080, h, TimeSpan.FromSeconds(1)))
+        {
+            Assert.Equal(expected, await c.WarmAsync(CancellationToken.None));
+        }
+        Assert.Equal(("POST", "/warm", (string)null), h.Requests.Single());
     }
 
     [Fact]

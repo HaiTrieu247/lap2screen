@@ -23,7 +23,9 @@ namespace MacExtend.Views
     /// two processes' input together) and follows it as it moves, resizes, goes full screen or is minimized; the video's
     /// own title bar and frame stay uncovered. The mouse is a finger, live: press, hold, drag and lift go to the device as
     /// they happen. The wheel scrolls, keys are the device's keyboard (Ctrl as Command), a right click is Home. Alt+Enter
-    /// and Alt+F4 go to the video window. Nothing typed is kept or logged.
+    /// and Alt+F4 go to the video window. The pointer coming over the picture warms the device's media stream up, so
+    /// the click that follows is not kept waiting. Without input (the session still connecting) it only says so and
+    /// takes nothing. Nothing typed is kept or logged.
     /// </summary>
     internal sealed class DirectOverlay : Window
     {
@@ -148,10 +150,14 @@ namespace MacExtend.Views
         /// <summary>A press began on the picture; the controller may ask the device how it is turned.</summary>
         public event Action Pressed;
 
-        /// <summary>Lays the overlay over <paramref name="video"/> and sends what happens on it to <paramref name="input"/>.</summary>
+        /// <summary>
+        /// Lays the overlay over <paramref name="video"/> and sends what happens on it to <paramref name="input"/>; with
+        /// no input yet it says the control is connecting and takes nothing.
+        /// </summary>
         public void Attach(IntPtr video, DirectInput input, string device)
         {
             var again = video == _video && input == _input;
+            var wasConnecting = _input == null;
             if (input != _input) LetGo();
             _input = input;
             if (!again)
@@ -163,8 +169,10 @@ namespace MacExtend.Views
                                                       _onLocation, pid, 0, Win32.WINEVENT_OUTOFCONTEXT);
                 _systemHook = Win32.SetWinEventHook(Win32.EVENT_SYSTEM_FOREGROUND, Win32.EVENT_SYSTEM_MINIMIZEEND, IntPtr.Zero,
                                                     _onSystem, 0, 0, Win32.WINEVENT_OUTOFCONTEXT);
-                _hintText.Text = "Điều khiển " + (string.IsNullOrEmpty(device) ? "thiết bị" : device) + ". " + DirectControlTexts.Hint;
-                ShowHint();
+                if (input == null) ShowHint(DirectControlTexts.Connecting, stay: true);
+                else ShowHint("Điều khiển " + (string.IsNullOrEmpty(device) ? "thiết bị" : device) + ". " + DirectControlTexts.Hint, stay: false);
+                // the pointer may be over the picture already
+                if (input != null && wasConnecting && IsMouseOver) input.Warm();
             }
             _follow.Start();
             Sync();
@@ -180,6 +188,13 @@ namespace MacExtend.Views
             _video = IntPtr.Zero;
             _input = null;
             if (IsVisible) Hide();
+        }
+
+        /// <summary>A line over the picture for a few seconds, such as the device's camera being busy.</summary>
+        public void ShowNotice(string text)
+        {
+            if (_video == IntPtr.Zero) return;
+            ShowHint(text, stay: false);
         }
 
         /// <summary>The picture's size uxplay logged (0 while unknown): where the device screen is inside the window.</summary>
@@ -325,6 +340,12 @@ namespace MacExtend.Views
             base.OnLostMouseCapture(e);
             // Alt+Tab, a dialog, the window hidden: the finger lifts where it was
             if (_pressing) CancelPress();
+        }
+
+        protected override void OnMouseEnter(MouseEventArgs e)
+        {
+            base.OnMouseEnter(e);
+            _input?.Warm();
         }
 
         protected override void OnMouseRightButtonUp(MouseButtonEventArgs e)
@@ -570,12 +591,14 @@ namespace MacExtend.Views
             element.BeginAnimation(OpacityProperty, fade);
         }
 
-        private void ShowHint()
+        /// <param name="stay">Until the next hint, instead of fading after a few seconds.</param>
+        private void ShowHint(string text, bool stay)
         {
+            _hintText.Text = text;
             _hint.BeginAnimation(OpacityProperty, null);
             _hint.Opacity = 1;
             _hintTimer.Stop();
-            _hintTimer.Start();
+            if (!stay) _hintTimer.Start();
         }
 
         private void FadeHint()

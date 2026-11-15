@@ -87,8 +87,8 @@ namespace MacExtend.Services.CoreDevice
 
         public string StatusText => DirectControlTexts.Status(_view, _service.View, CoreDeviceRuntime.IsCurrent);
 
-        /// <summary>The AirPlay video window takes touches now; IntPtr.Zero otherwise.</summary>
-        public IntPtr TouchVideo => Touching ? _presenter.Video : IntPtr.Zero;
+        /// <summary>The AirPlay video window takes touches now, or will once the session is up; IntPtr.Zero otherwise.</summary>
+        public IntPtr TouchVideo => Touching || Connecting ? _presenter.Video : IntPtr.Zero;
 
         /// <summary>The devices to pick from while <see cref="DirectPhase.Choose"/>.</summary>
         public IReadOnlyList<DeviceChoice> Choices => _choices;
@@ -100,6 +100,9 @@ namespace MacExtend.Services.CoreDevice
         private bool Mobile => _receiver.Phase == ReceiverPhase.Connected && DirectLifetime.IsMobileModel(_receiver.ClientModel);
 
         private bool Touching => _view.Phase == DirectPhase.Running && _service.Phase == SessionPhase.Ready && _service.Port != 0;
+
+        /// <summary>The device mirroring is being looked for, or its session is starting: the picture says so.</summary>
+        private bool Connecting => !Touching && Enabled && Mobile && (_finding || (_view.Phase == DirectPhase.Running && _sessionFor != null));
 
         /// <summary>Re-evaluates everything after a change: the setting, the receiver, the video window, the session.</summary>
         public void Refresh()
@@ -411,23 +414,31 @@ namespace MacExtend.Services.CoreDevice
         {
             if (_disposed) return;
             var video = _presenter.Video;
-            if (!Touching || video == IntPtr.Zero)
+            var touching = Touching;
+            if (!touching) DropInput();
+            if (video == IntPtr.Zero || (!touching && !Connecting))
             {
-                if (!Touching) DropInput();
                 _overlay?.Detach();
                 _presenter.SetTouch(IntPtr.Zero);
                 return;
             }
-            var port = _service.Port;
-            if (_input == null || _input.Port != port)
+            if (touching && (_input == null || _input.Port != _service.Port))
             {
                 DropInput();
-                _input = new DirectInput(port, () => TouchMap.Effective(_reported, _shape), line => Log("input: " + line));
+                var input = new DirectInput(_service.Port, () => TouchMap.Effective(_reported, _shape), line => Log("input: " + line));
+                input.MediaBusy += () => _ui.BeginInvoke(new Action(() =>
+                {
+                    if (_input != input) return;
+                    Log("the device's camera or microphone is in use: input waits");
+                    _overlay?.ShowNotice(DirectControlTexts.MediaBusy);
+                }));
+                _input = input;
             }
             _presenter.SetTouch(video);
             var overlay = Overlay();
             overlay.SetPicture(_receiver.PictureWidth, _receiver.PictureHeight);
-            overlay.Attach(video, _input, _receiver.ClientName);
+            // while the session starts the picture says so and takes nothing
+            overlay.Attach(video, touching ? _input : null, _receiver.ClientName);
         }
 
         private void DropInput()

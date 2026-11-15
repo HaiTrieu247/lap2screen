@@ -12,6 +12,17 @@ namespace MacExtend.Core.CoreDevice
     /// The calls the window's toolbar makes besides the viewer: Home and the device clipboard. Unlike CoreDeviceClient
     /// nothing here holds a finger or a key down, so a failed call closes nothing; the next one is tried again.
     /// </summary>
+    /// <summary>What direct_input.py's /warm answered.</summary>
+    public enum WarmResult
+    {
+        /// <summary>The media stream is open: input goes through at once.</summary>
+        Open,
+        /// <summary>The device's camera or microphone is in use: no input until that app lets go.</summary>
+        MediaBusy,
+        /// <summary>The stream did not open for another reason, or no answer came; the next input tries again.</summary>
+        Failed,
+    }
+
     public sealed class ServeWebControl : IDisposable
     {
         private readonly HttpClient _http;
@@ -22,6 +33,9 @@ namespace MacExtend.Core.CoreDevice
 
         /// <summary>/clipboard goes to the device and back, which over Wi-Fi can take longer than a button.</summary>
         public static readonly TimeSpan ClipboardTimeout = TimeSpan.FromSeconds(15);
+
+        /// <summary>/warm answers once the media stream opened, which direct_input.py bounds at 15 s.</summary>
+        public static readonly TimeSpan WarmTimeout = TimeSpan.FromSeconds(20);
 
         public ServeWebControl(int port) : this(port, DefaultTimeout)
         {
@@ -47,6 +61,20 @@ namespace MacExtend.Core.CoreDevice
 
         public Task HomeAsync(CancellationToken token) => SendAsync(HttpMethod.Post, "button", "{\"name\":\"home\",\"state\":\"press\"}", token);
 
+        /// <summary>direct_input.py opens its media stream now. Up to <see cref="WarmTimeout"/> when the control was made with it.</summary>
+        public async Task<WarmResult> WarmAsync(CancellationToken token)
+        {
+            try
+            {
+                await SendAsync(HttpMethod.Post, "warm", null, token).ConfigureAwait(false);
+                return WarmResult.Open;
+            }
+            catch (CoreDeviceClientException e)
+            {
+                return e.MediaBusy ? WarmResult.MediaBusy : WarmResult.Failed;
+            }
+        }
+
         public Task SendTextAsync(string text, CancellationToken token) => SendAsync(HttpMethod.Post, "clipboard", "{\"text\":" + JsonString(text ?? "") + "}", token);
 
         /// <returns>The text on the device clipboard, or null when it holds none (an image, or nothing).</returns>
@@ -70,7 +98,11 @@ namespace MacExtend.Core.CoreDevice
                 {
                     using (var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, linked.Token).ConfigureAwait(false))
                     {
-                        if ((int)response.StatusCode != 200) throw new CoreDeviceClientException($"/{path} answered HTTP {(int)response.StatusCode}");
+                        if ((int)response.StatusCode != 200)
+                        {
+                            throw new CoreDeviceClientException($"/{path} answered HTTP {(int)response.StatusCode}", null,
+                                                                (int)response.StatusCode == CoreDeviceClient.MediaBusyStatus);
+                        }
                         return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                     }
                 }

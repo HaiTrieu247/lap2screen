@@ -115,10 +115,14 @@ Thao tác trên hình:
 
 Chọn thiết bị: chỉ có một thiết bị thì app dùng luôn. Có từ hai thiết bị trở lên thì app chọn thiết bị đã chọn trước đó cho tên AirPlay này, rồi thiết bị qua cáp có cùng tên hoặc cùng model với thiết bị đang phản chiếu. Không chọn được thì trạng thái báo *Có nhiều thiết bị* và nút *Chọn thiết bị...* (ở mục cài đặt và menu khay) mở bảng chọn; lựa chọn được nhớ cho tên AirPlay đó.
 
-Phiên điều khiển dừng 10 giây sau khi hết phản chiếu (phản chiếu lại trong khoảng đó thì không phải khởi động lại), khi tắt nút, khi thiết bị khác chiếm AirPlay, hoặc khi thoát app. Rút cáp rồi cắm lại thì phiên tự nối lại. Lỗi được báo ở mục cài đặt kèm nút *Thử lại*; app không tự thử lại liên tục.
+Trong lúc phiên đang khởi động, trên hình hiện *Đang kết nối điều khiển...*. Phiên điều khiển dừng 5 phút sau khi hết phản chiếu (phản chiếu lại trong khoảng đó thì điều khiển được ngay), khi tắt nút, khi thiết bị khác chiếm AirPlay, hoặc khi thoát app. Rút cáp rồi cắm lại thì phiên tự nối lại. Lỗi được báo ở mục cài đặt kèm nút *Thử lại*; app không tự thử lại liên tục.
+
+Camera và micro: iOS chỉ nhận chạm và phím qua CoreDevice khi đang có một luồng chiếu màn hình, và luồng đó chặn camera và micro của thiết bị (đã thử: camera đen, ghi âm câm). Vì vậy MacExtend chỉ mở luồng khi con trỏ đi vào hình AirPlay hoặc khi bạn bấm, gõ, và đóng lại 20 giây sau thao tác cuối. Ngoài lúc đó, camera và micro dùng bình thường. Khi một ứng dụng trên thiết bị đang dùng camera hoặc micro (cuộc gọi, quay phim, ghi âm), điều khiển phải chờ: trên hình hiện *Camera hoặc micro đang được dùng trên thiết bị*.
 
 Giới hạn:
-- Trong lúc điều khiển, camera và micro của thiết bị có thể không dùng được; phiên cũng không mở được khi một ứng dụng đang giữ camera hoặc micro.
+- Lần bấm đầu tiên sau một lúc không thao tác có thể chậm một chút, vì luồng phải mở lại. Thời gian mở luồng được ghi trong `coredevice.log`.
+- Trong lúc đang điều khiển và 20 giây sau đó, camera và micro của thiết bị không dùng được, và iOS hiện biểu tượng chia sẻ màn hình.
+- iOS cố ý ẩn bàn phím số của màn hình khóa khỏi AirPlay (chỉ còn các chấm). Gõ mật khẩu bằng phím số của laptop, hoặc bấm đúng chỗ các phím số.
 - Màn hình thiết bị phải bật.
 - Để chạm đúng điểm khi thiết bị nằm ngang, app hỏi thiết bị đang xoay về phía nào mỗi khi hình đổi giữa dọc và ngang, và hỏi lại khi bạn bấm lên hình ngang sau vài giây. Trong khoảng một hai giây sau khi xoay, điểm chạm có thể lệch.
 - Cùng lúc chỉ điều khiển được một thiết bị, như AirPlay chỉ nhận một thiết bị.
@@ -229,6 +233,7 @@ Thành phần đi kèm:
 - libplist (LGPL), OpenSSL (Apache 2.0).
 - Font [Be Vietnam Pro](https://github.com/bettergui/BeVietnamPro) (SIL OFL 1.1).
 - [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) (GPL-3.0-or-later) và các gói Python đi kèm, cùng [CPython](https://www.python.org) 3.13 (PSF License): thành phần Điều khiển trực tiếp, tải riêng khi thiết lập; giấy phép của từng gói nằm trong `coredevice\python\Lib\site-packages\*.dist-info`.
+- `helpers\direct_input.py` (GPL-3.0-or-later, toàn văn giấy phép ở `licenses\GPL-3.0.txt`): script nhận thao tác của Điều khiển trực tiếp, dùng pymobiledevice3, chạy trong một tiến trình riêng bằng Python của thành phần trên. MacExtend chỉ nói chuyện với nó qua HTTP trên 127.0.0.1. Mã nguồn là chính tệp đó.
 - Phần bàn phím và chuột Bluetooth chuyển thể từ [windows-ble-hid](https://github.com/abhishek-raj/windows-ble-hid) (MIT), commit b33a004.
 
 Văn bản giấy phép của các thành phần nằm trong `uxplay/licenses` và `licenses` trong thư mục cài đặt.

@@ -248,6 +248,19 @@ namespace MacExtend.Services.CoreDevice
             CommandResult result;
             try
             {
+                // over the cable lockdown says at once whether the image is mounted (it stays until the device restarts),
+                // which spares auto-mount's tunnel; anything but a clear yes mounts as before
+                if (s.Route == CoreDeviceRoute.Usb)
+                {
+                    var listed = await CoreDeviceCommands.MountedImagesAsync(s.Udid).ConfigureAwait(false);
+                    if (s.Cts.IsCancellationRequested) return;
+                    if (listed.Succeeded && DeviceQueries.ParseDeveloperImageMounted(listed.Stdout) == true)
+                    {
+                        Log(s, "image mount: already mounted");
+                        Step(s, m => m.ImageMounted(true, CliError.None));
+                        return;
+                    }
+                }
                 result = await CoreDeviceCommands.MountAsync(s.Udid, s.Route).ConfigureAwait(false);
             }
             catch (CoreDeviceHostException e)
@@ -304,7 +317,10 @@ namespace MacExtend.Services.CoreDevice
                 var run = new ServeWebRun(host, options.HttpPort);
                 // before Start, so the readers report from the first line; no RawLineHandler: lines are classified by the host
                 host.StatusLine += line => OnStatusLine(s, run, line);
-                host.Start(options.PythonPath, CoreDeviceArguments.ServeWeb(options),
+                // the app's direct_input.py, not serve-web: no viewer, and the media stream that blocks the device's
+                // camera and microphone is open only while input comes
+                if (!File.Exists(AppPaths.DirectInputScript)) throw new ArgumentException("the input helper " + AppPaths.DirectInputScript + " is missing");
+                host.Start(options.PythonPath, CoreDeviceArguments.DirectInput(options, AppPaths.DirectInputScript),
                            CoreDeviceArguments.Environment(Environment.GetEnvironmentVariables(), options), false, null);
                 return run;
             }

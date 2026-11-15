@@ -120,6 +120,36 @@ public class CoreDeviceArgumentsTests
     }
 
     [Fact]
+    public void DirectInputRunsTheAppsScriptOnLoopbackOverUserspace()
+    {
+        var args = CoreDeviceArguments.DirectInput(Options(port: 8123), @"C:\Program Files\MacExtend\helpers\direct_input.py");
+
+        Assert.Equal(new[]
+        {
+            "-I", "-X", "utf8", "-u", @"C:\Program Files\MacExtend\helpers\direct_input.py",
+            "--bind", "127.0.0.1", "--http-port", "8123", "--userspace",
+        }, args);
+    }
+
+    [Fact]
+    public void DirectInputOverTunnelNamesTheDeviceForTunneld()
+    {
+        var args = CoreDeviceArguments.DirectInput(Options(CoreDeviceTransport.Tunnel), @"C:\x\direct_input.py");
+
+        Assert.Equal(new[] { "--tunnel", Udid }, args.Skip(args.Count - 2));
+        Assert.DoesNotContain("--userspace", args);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("direct_input.py")]
+    public void DirectInputNeedsTheScriptsFullPath(string script)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => CoreDeviceArguments.DirectInput(Options(), script));
+    }
+
+    [Fact]
     public void ServeWebOverTunnelNamesTheDeviceForTunneld()
     {
         var args = CoreDeviceArguments.ServeWeb(Options(CoreDeviceTransport.Tunnel));

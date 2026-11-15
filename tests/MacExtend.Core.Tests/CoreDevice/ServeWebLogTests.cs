@@ -128,3 +128,90 @@ public class ServeWebLogTests
         Assert.Null(parsed.Detail);
     }
 }
+
+/// <summary>The lines of src/MacExtend.App/Helpers/direct_input.py, which logs in pymobiledevice3's shape under its own name.</summary>
+public class DirectInputLogTests
+{
+    private const string Prefix = "2026-11-15 10:00:00 localhost macextend.direct_input[4242] ";
+
+    [Fact]
+    public void TheListeningLineIsReadiness()
+    {
+        var line = ServeWebLog.Parse(Prefix + "INFO listening on http://127.0.0.1:50123/");
+
+        Assert.Equal(ServeWebLogKind.Listening, line.Kind);
+        Assert.Equal(50123, line.Port);
+    }
+
+    [Theory]
+    [InlineData("INFO listening on http://0.0.0.0:50123/")]
+    [InlineData("INFO listening on http://127.0.0.1:99999/")]
+    [InlineData("WARNING listening on http://127.0.0.1:50123/")]
+    public void OnlyLoopbackAtInfoIsReadiness(string rest)
+    {
+        Assert.NotEqual(ServeWebLogKind.Listening, ServeWebLog.Parse(Prefix + rest).Kind);
+    }
+
+    [Fact]
+    public void TheEndOfItsShutdownIsKnown()
+    {
+        Assert.Equal(ServeWebLogKind.ShutdownComplete, ServeWebLog.Parse(Prefix + "INFO shutdown complete").Kind);
+    }
+
+    [Fact]
+    public void TheStreamOpeningTimeIsKeptAsANumberOnly()
+    {
+        var line = ServeWebLog.Parse(Prefix + "INFO stream open after 1.37 s");
+
+        Assert.Equal(ServeWebLogKind.InputStreamOpened, line.Kind);
+        Assert.Equal("1.37", line.Detail);
+    }
+
+    [Theory]
+    [InlineData("INFO stream closed (idle) after 25 s", "idle")]
+    [InlineData("INFO stream closed (shutdown) after 3 s", "shutdown")]
+    [InlineData("INFO stream closed (failed) after 0 s", "failed")]
+    [InlineData("INFO stream closed (something else) after 3 s", null)]
+    public void AClosedStreamSaysWhyFromAFixedList(string rest, string why)
+    {
+        var line = ServeWebLog.Parse(Prefix + rest);
+
+        Assert.Equal(ServeWebLogKind.InputStreamClosed, line.Kind);
+        Assert.Equal(why, line.Detail);
+    }
+
+    [Fact]
+    public void ARefusedStreamIsNotFatal()
+    {
+        // the device's camera or microphone is busy: input waits, the session goes on
+        var line = ServeWebLog.Parse(Prefix + "INFO stream refused: camera or microphone in use");
+
+        Assert.Equal(ServeWebLogKind.InputStreamRefused, line.Kind);
+    }
+
+    [Theory]
+    [InlineData("ERROR Device not found: tunneld serves no tunnel for this device", ServeWebLogKind.DeviceNotFound)]
+    [InlineData("ERROR NoDeviceConnectedError: the device could not be reached", ServeWebLogKind.DeviceNotFound)]
+    [InlineData("ERROR pymobiledevice3 is 11.48.0, direct_input.py needs 11.47.0", ServeWebLogKind.Error)]
+    public void ItsErrorsAreFatalLikeServeWebs(string rest, ServeWebLogKind kind)
+    {
+        Assert.Equal(kind, ServeWebLog.Parse(Prefix + rest).Kind);
+    }
+
+    [Theory]
+    [InlineData("WARNING stream did not open (TimeoutError)", "TimeoutError")]
+    [InlineData("WARNING input failed (ConnectionTerminatedError); the stream is closed and opens again on the next input", "ConnectionTerminatedError")]
+    public void AFailureKeepsOnlyTheErrorsTypeName(string rest, string type)
+    {
+        var line = ServeWebLog.Parse(Prefix + rest);
+
+        Assert.Equal(ServeWebLogKind.InputStreamFailed, line.Kind);
+        Assert.Equal(type, line.Detail);
+    }
+
+    [Fact]
+    public void AnotherLoggerWithTheSameWordsIsNotIt()
+    {
+        Assert.Equal(ServeWebLogKind.Other, ServeWebLog.Parse("2026-11-15 10:00:00 localhost someone.else[1] INFO listening on http://127.0.0.1:50123/").Kind);
+    }
+}

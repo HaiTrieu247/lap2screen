@@ -24,6 +24,8 @@ namespace MacExtend
         public static string CoreDevicePythonDir => Path.Combine(CoreDeviceRoot, "python");
         /// <summary>serve-web and the short pymobiledevice3 commands.</summary>
         public static string CoreDevicePython => Path.Combine(CoreDevicePythonDir, "python.exe");
+        /// <summary>The direct-control input helper (GPL-3.0-or-later), shipped with the app and run by the runtime's Python.</summary>
+        public static string DirectInputScript => Path.Combine(InstallDir, "helpers", "direct_input.py");
         /// <summary>tunneld for Wi-Fi: the Scheduled Task's program (or started with UAC by a portable copy).</summary>
         public static string CoreDevicePythonw => Path.Combine(CoreDevicePythonDir, "pythonw.exe");
         public static string CoreDeviceRuntimeIdFile => Path.Combine(CoreDeviceRoot, "RUNTIME_ID");

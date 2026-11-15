@@ -8,15 +8,19 @@ using MacExtend.Core.CoreDevice;
 namespace MacExtend.Services.CoreDevice
 {
     /// <summary>
-    /// What the AirPlay picture sends to one serve-web: points as fractions of the upright picture, turned into touch
-    /// coordinates by the interface orientation at the moment they are sent; keys as the full set held; Home and volume;
-    /// a wheel turn as a short resting drag; text through the device clipboard. A CoreDeviceClient takes no input after a
-    /// failed request, so the next call gets a fresh one and the old one lifts what it may still hold. Calls come from the
-    /// UI thread; nothing here waits for serve-web there. Nothing typed or pasted is logged.
+    /// What the AirPlay picture sends to the session's direct_input.py: points as fractions of the upright picture,
+    /// turned into touch coordinates by the interface orientation at the moment they are sent; keys as the full set
+    /// held; Home and volume; a wheel turn as a short resting drag; text through the device clipboard. The helper opens
+    /// the media stream input needs only while input comes, and <see cref="Warm"/> opens it ahead of a click. A
+    /// CoreDeviceClient takes no input after a failed request, so the next call gets a fresh one and the old one lifts
+    /// what it may still hold. Calls come from the UI thread; nothing here waits for the helper there. Nothing typed or
+    /// pasted is logged.
     /// </summary>
     internal sealed class DirectInput : IDisposable
     {
         private static readonly TimeSpan ReleaseDeadline = TimeSpan.FromSeconds(2);
+        // after the device said its camera or microphone is busy, a warm-up is not asked for again this soon
+        private static readonly TimeSpan WarmAfterBusy = TimeSpan.FromSeconds(3);
 
         private readonly int _port;
         private readonly Func<ScreenOrientation> _orientation;
@@ -32,6 +36,8 @@ namespace MacExtend.Services.CoreDevice
         private double _pendingX;
         private double _pendingY;
         private bool _clipboardBusy;
+        private bool _warming;
+        private DateTime _busyAt = DateTime.MinValue;
 
         /// <param name="orientation">How to turn a point: TouchMap.Effective of the last answer and the picture's shape.</param>
         public DirectInput(int port, Func<ScreenOrientation> orientation, Action<string> log)
@@ -40,7 +46,27 @@ namespace MacExtend.Services.CoreDevice
             _orientation = orientation ?? throw new ArgumentNullException(nameof(orientation));
             _log = log ?? (_ => { });
             _client = new CoreDeviceClient(port);
-            _touch = new TouchStream(SendTouchAsync, e => _log("touch failed: " + e.GetType().Name));
+            _touch = new TouchStream(SendTouchAsync, e => Failed("touch", e));
+        }
+
+        /// <summary>
+        /// The device refused the media stream: an app on it holds the camera or microphone, and input waits until it
+        /// lets go. Raised on a pool thread, at most once per refusal answer.
+        /// </summary>
+        public event Action MediaBusy;
+
+        /// <summary>
+        /// The pointer came over the picture: the helper opens its media stream now, so the click that follows is not
+        /// kept waiting. One at a time; not again right after a busy answer.
+        /// </summary>
+        public void Warm()
+        {
+            lock (_lock)
+            {
+                if (_disposed || _warming || DateTime.UtcNow - _busyAt < WarmAfterBusy) return;
+                _warming = true;
+            }
+            _ = WarmAsync();
         }
 
         public int Port => _port;
@@ -153,6 +179,42 @@ namespace MacExtend.Services.CoreDevice
             lock (_lock) return _client;
         }
 
+        private async Task WarmAsync()
+        {
+            try
+            {
+                WarmResult result;
+                using (var control = new ServeWebControl(_port, ServeWebControl.WarmTimeout)) result = await control.WarmAsync(CancellationToken.None).ConfigureAwait(false);
+                if (result == WarmResult.MediaBusy) Busy();
+                else if (result == WarmResult.Failed) _log("warm-up: the stream did not open");
+            }
+            finally
+            {
+                lock (_lock) _warming = false;
+            }
+        }
+
+        /// <summary>A request failed: logged by type; a busy camera is told to the picture.</summary>
+        private void Failed(string what, Exception e)
+        {
+            if ((e as CoreDeviceClientException)?.MediaBusy == true)
+            {
+                Busy();
+                return;
+            }
+            _log(what + " failed: " + e.GetType().Name);
+        }
+
+        private void Busy()
+        {
+            lock (_lock)
+            {
+                if (_disposed) return;
+                _busyAt = DateTime.UtcNow;
+            }
+            MediaBusy?.Invoke();
+        }
+
         private async Task ScrollAsync()
         {
             while (true)
@@ -183,7 +245,7 @@ namespace MacExtend.Services.CoreDevice
                 }
                 catch (Exception e) when (e is CoreDeviceClientException || e is OperationCanceledException || e is ArgumentException)
                 {
-                    _log("scroll failed: " + e.GetType().Name);
+                    Failed("scroll", e);
                 }
             }
         }
@@ -210,7 +272,7 @@ namespace MacExtend.Services.CoreDevice
             }
             catch (Exception e) when (e is CoreDeviceClientException || e is OperationCanceledException || e is ArgumentException)
             {
-                _log("paste failed: " + e.GetType().Name);
+                Failed("paste", e);
             }
             finally
             {
@@ -231,11 +293,8 @@ namespace MacExtend.Services.CoreDevice
                 _log(what + " refused: " + e.GetType().Name);
                 return;
             }
-            task.ContinueWith(t =>
-            {
-                var error = t.Exception?.GetBaseException();
-                _log(what + " failed: " + (error?.GetType().Name ?? "?"));
-            }, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            task.ContinueWith(t => Failed(what, t.Exception?.GetBaseException() ?? new InvalidOperationException()),
+                              CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
     }
 }

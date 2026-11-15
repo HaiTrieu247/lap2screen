@@ -43,11 +43,12 @@ namespace MacExtend.Core.CoreDevice
 
     /// <summary>
     /// When a session runs: the switch is on and an iPhone or iPad mirrors. It stays up for <see cref="Linger"/> after
-    /// mirroring ends, so a mirroring session that drops and comes straight back does not start serve-web again.
+    /// mirroring ends, so mirroring again soon finds the control ready. That costs the device nothing: the input helper
+    /// closes its media stream, the one thing that blocks the camera and microphone, 20 s after the last input.
     /// </summary>
     public sealed class DirectLifetime
     {
-        public static readonly TimeSpan Linger = TimeSpan.FromSeconds(10);
+        public static readonly TimeSpan Linger = TimeSpan.FromMinutes(5);
 
         private readonly Func<DateTime> _clock;
         private DateTime? _ended;

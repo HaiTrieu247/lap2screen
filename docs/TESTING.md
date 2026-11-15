@@ -89,8 +89,8 @@ Dừng và trả camera, micro:
 
 | # | Phép thử | Tiêu chí |
 |---|---|---|
-| D17 | Hết phản chiếu và tắt công tắc | Dừng phản chiếu trên iPhone: phiên còn 10 giây (phản chiếu lại trong lúc đó thì điều khiển được ngay, không khởi động lại), sau đó dừng; Camera và Ghi âm trên thiết bị hoạt động lại, chỉ báo chia sẻ màn hình tắt. Tắt công tắc giữa phiên: dừng ngay theo cách đó. Với Wi-Fi: không còn `pythonw.exe` của tunneld, cổng 49151 đã đóng và card `pymobiledevice3-tunnel-*` không còn. Tắt rồi bật lại ngay khi vẫn phản chiếu: "Đang dừng phiên trước..." rồi phiên mới chạy |
-| D18 | Camera | Mở Camera trên thiết bị rồi phản chiếu: thông báo "Đóng Camera, Ghi âm hoặc cuộc gọi rồi thử lại" và nút *Thử lại*. Giữa phiên mở Camera, Ghi âm, cuộc gọi video: ghi lại có hình, có tiếng không và phiên có dừng không (so với C7, khi app không xin luồng hình của serve-web) |
+| D17 | Hết phản chiếu và tắt công tắc | Dừng phản chiếu trên iPhone: phiên còn 5 phút (phản chiếu lại trong lúc đó thì điều khiển được ngay, không có *Đang kết nối điều khiển...* lâu), sau đó dừng. Tắt công tắc giữa phiên: dừng ngay. Sau khi dừng, Camera và Ghi âm trên thiết bị hoạt động, không còn biểu tượng chia sẻ màn hình. Với Wi-Fi: không còn `pythonw.exe` của tunneld, cổng 49151 đã đóng và card `pymobiledevice3-tunnel-*` không còn. Tắt rồi bật lại ngay khi vẫn phản chiếu: "Đang dừng phiên trước..." rồi phiên mới chạy |
+| D18 | Camera và micro theo nhu cầu | Đang phản chiếu, điều khiển sẵn sàng, chưa đưa chuột vào hình: Camera có hình, Ghi âm thu được tiếng, không có biểu tượng chia sẻ màn hình. Đưa chuột vào hình rồi bấm: chạm đúng; Camera đen trong lúc đó. Không đụng vào hình 20 giây: Camera và Ghi âm hoạt động lại (`coredevice.log` có `InputStreamClosed idle`). Đang gọi FaceTime hoặc đang mở Camera rồi bấm vào hình: trên hình hiện "Camera hoặc micro đang được dùng trên thiết bị..." (`InputStreamRefused` trong log), không có thao tác nào bị gửi muộn sau khi đóng ứng dụng đó |
 | D19 | Thoát app giữa phiên | Menu khay > Thoát MacExtend: khay hiện "Đang dừng..." và menu trống; qua cáp app thoát trong tối đa khoảng 45 giây, qua Wi-Fi trong khoảng 70 giây; không còn python; Camera và Ghi âm trở lại. Không có phiên: thoát nhanh như trước. Đăng xuất hoặc tắt Windows khi đang có phiên: không treo. Phiên không dừng sạch trong 40 giây: một thông báo "Điều khiển trực tiếp đã dừng" |
 
 Mất kết nối:
@@ -126,6 +126,9 @@ Trên hình AirPlay:
 | D39 | Thiết bị khác chiếm AirPlay | Đang điều khiển iPhone, iPad phản chiếu vào (iPhone bị đá ra): phiên iPhone dừng, phiên cho iPad chạy, chạm trên hình đi tới iPad chứ không tới iPhone |
 | D40 | Cùng Bluetooth | Bật cả *Điều khiển thiết bị bằng chuột và bàn phím* và *Điều khiển trực tiếp*: khi điều khiển trực tiếp sẵn sàng, bấm vào hình là chạm, không bắt đầu phiên Bluetooth; một phiên Bluetooth đang chạy thì kết thúc khi điều khiển trực tiếp sẵn sàng |
 | D41 | Con trỏ | Khi đang điều khiển, con trỏ chuột luôn hiện trên hình kể cả khi bật *Ẩn con trỏ chuột Windows*; tắt công tắc thì ẩn con trỏ hoạt động lại |
+| D42 | Lần bấm đầu sau khi nghỉ | Sau hơn 20 giây không thao tác: đưa chuột vào hình rồi bấm ngay, và bấm khi chuột đã nằm sẵn trên hình. Ghi lại cú bấm đến thiết bị sau bao lâu và dòng `InputStreamOpened <giây>` trong `coredevice.log`; cú bấm không bị mất |
+| D43 | Đang kết nối | Bật công tắc rồi phản chiếu: trên hình hiện "Đang kết nối điều khiển..." đến khi điều khiển sẵn sàng; bấm lúc đó không làm gì và không bắt đầu phiên Bluetooth. Ghi lại thời gian từ lúc phản chiếu đến lúc dòng chữ đổi thành gợi ý điều khiển, và số giây giữa các dòng `[direct]`, `session start`, `image mount` và `serve-web ready` trong `coredevice.log` |
+| D44 | Màn hình khóa | Khóa thiết bị khi đang phản chiếu, mở lên màn hình nhập mật khẩu: hình AirPlay chỉ có các chấm (iOS ẩn bàn phím số). Bấm vào hình rồi gõ mật khẩu bằng phím số của laptop: thiết bị mở khóa. Nếu không được, ghi lại; thử bấm đúng chỗ các phím số |
 
 Kiểm thử gồm hai phần tách biệt:
 

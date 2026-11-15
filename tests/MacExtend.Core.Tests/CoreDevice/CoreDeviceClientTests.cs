@@ -251,6 +251,30 @@ public class CoreDeviceClientTests
     }
 
     [Fact]
+    public async Task ABusyCameraIsAFailureThatSaysSo()
+    {
+        // direct_input.py: the device refused the media stream because an app holds its camera or microphone
+        var (client, handler) = Create();
+        handler.Respond = (_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict) { Content = new StringContent("media-in-use") });
+
+        var e = await Assert.ThrowsAsync<CoreDeviceClientException>(() => client.ContactAsync(1, 2, CancellationToken.None));
+
+        Assert.True(e.MediaBusy);
+        Assert.False(client.IsOpen);
+    }
+
+    [Fact]
+    public async Task OtherFailuresAreNotABusyCamera()
+    {
+        var (client, handler) = Create();
+        handler.Respond = (_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+        var e = await Assert.ThrowsAsync<CoreDeviceClientException>(() => client.ContactAsync(1, 2, CancellationToken.None));
+
+        Assert.False(e.MediaBusy);
+    }
+
+    [Fact]
     public async Task ARedirectIsAFailure()
     {
         var (client, handler) = Create();

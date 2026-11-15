@@ -44,6 +44,12 @@ try {
     # the RemotePairing TCP tunnel needs TLS-PSK from ssl itself (no sslpsk-pmd3 on 3.13)
     Invoke-Native $py @('-I', '-c', "import ssl; c = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT); c.set_ciphers('PSK'); c.set_psk_client_callback(lambda hint: (None, b'k')); print('psk ok')")
 
+    # the app's direct-control helper runs on this runtime: every pymobiledevice3 name it uses is there, and its
+    # stream handling and HTTP surface pass their tests (fake device, no pymobiledevice3 needed for those)
+    $helper = Join-Path $PSScriptRoot '..\..\src\MacExtend.App\Helpers\direct_input.py'
+    Invoke-Native $py @('-I', '-X', 'utf8', $helper, '--check')
+    Invoke-Native $py @('-I', '-X', 'utf8', (Join-Path $PSScriptRoot 'tests\test_direct_input.py'))
+
     if ($Probe) {
         & (Join-Path $PSScriptRoot 'test-probe.ps1') -Probe $Probe -Python $py
         if ($LASTEXITCODE -ne 0) { throw "probe smoke tests failed ($LASTEXITCODE)" }

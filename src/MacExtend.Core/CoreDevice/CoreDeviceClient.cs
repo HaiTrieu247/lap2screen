@@ -28,9 +28,16 @@ namespace MacExtend.Core.CoreDevice
 
     public sealed class CoreDeviceClientException : Exception
     {
-        public CoreDeviceClientException(string message, Exception inner = null) : base(message, inner)
+        public CoreDeviceClientException(string message, Exception inner = null, bool mediaBusy = false) : base(message, inner)
         {
+            MediaBusy = mediaBusy;
         }
+
+        /// <summary>
+        /// HTTP 409 from direct_input.py: the device refused the media stream input needs, because an app holds its
+        /// camera or microphone. Input works again once that app lets go.
+        /// </summary>
+        public bool MediaBusy { get; }
     }
 
     /// <summary>
@@ -45,6 +52,8 @@ namespace MacExtend.Core.CoreDevice
         public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(2);
 
         public const int MaxCoordinate = 65535;
+        /// <summary>direct_input.py's answer while the device's camera or microphone keeps the media stream from opening.</summary>
+        public const int MediaBusyStatus = 409;
         public const int CenterCoordinate = 32768;
 
         // HID keyboard page: 0x04 (a) .. 0xE7 (right GUI); serve-web's report cannot carry usages from 240 up
@@ -259,7 +268,7 @@ namespace MacExtend.Core.CoreDevice
                     if ((int)response.StatusCode != 200)
                     {
                         Fail();
-                        throw new CoreDeviceClientException($"/{path} answered HTTP {(int)response.StatusCode}");
+                        throw new CoreDeviceClientException($"/{path} answered HTTP {(int)response.StatusCode}", null, (int)response.StatusCode == MediaBusyStatus);
                     }
                 }
             }

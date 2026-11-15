@@ -52,6 +52,8 @@ namespace MacExtend.CoreDeviceHost
     public sealed class CoreDeviceProcessHost : IDisposable
     {
         private const string ViewerTitle = "<title>pymobiledevice3 screen</title>";
+        // the app's own direct_input.py serves the input API without a viewer; its page says which it is
+        private const string InputTitle = "<title>MacExtend direct input</title>";
 
         private readonly SafeKernelHandle _job;
         private readonly object _lock = new object();
@@ -248,9 +250,10 @@ namespace MacExtend.CoreDeviceHost
         }
 
         /// <summary>
-        /// Ready means: the job still runs, serve-web logged its "Open http://127.0.0.1:PORT/" line, every listener
-        /// on the port belongs to the job (so a server that grabbed the port first is never taken for serve-web),
-        /// and GET / returns the viewer page. Nothing here says the video decodes or touches arrive.
+        /// Ready means: the job still runs, serve-web logged its "Open http://127.0.0.1:PORT/" line (direct_input.py
+        /// its "listening on" line), every listener on the port belongs to the job (so a server that grabbed the port
+        /// first is never taken for serve-web), and GET / returns the viewer page (direct_input.py's own page). Nothing
+        /// here says the video decodes or touches arrive.
         /// </summary>
         public async Task<ReadyFailure> WaitReadyAsync(int port, TimeSpan timeout, CancellationToken token, Action<string> report)
         {
@@ -491,7 +494,7 @@ namespace MacExtend.CoreDeviceHost
                 {
                     if ((int)response.StatusCode != 200) return false;
                     var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    return body.IndexOf(ViewerTitle, StringComparison.Ordinal) >= 0;
+                    return body.IndexOf(ViewerTitle, StringComparison.Ordinal) >= 0 || body.IndexOf(InputTitle, StringComparison.Ordinal) >= 0;
                 }
             }
             catch (Exception e) when (e is HttpRequestException || e is OperationCanceledException)

@@ -24,6 +24,18 @@ namespace MacExtend.Core.CoreDevice
         /// <summary>Camera or microphone held by a foreground app: iOS refuses the mirroring session (code 9022).</summary>
         MediaInUse,
 
+        /// <summary>direct_input.py opened the media stream; Detail is how long that took, in seconds ("1.37").</summary>
+        InputStreamOpened,
+
+        /// <summary>direct_input.py closed the media stream; Detail is why: idle, failed or shutdown.</summary>
+        InputStreamClosed,
+
+        /// <summary>The device refused direct_input.py's media stream: its camera or microphone is in use. Not fatal.</summary>
+        InputStreamRefused,
+
+        /// <summary>direct_input.py's stream did not open, or input on it failed; Detail is the exception's type name.</summary>
+        InputStreamFailed,
+
         /// <summary>"Failed to start service": usually Developer Mode off or no Developer Disk Image mounted.</summary>
         ServiceUnavailable,
         DeviceNotFound,
@@ -45,8 +57,8 @@ namespace MacExtend.Core.CoreDevice
     }
 
     /// <summary>
-    /// Classifies serve-web's stderr. pymobiledevice3 logs through ansilogs as
-    /// "&lt;time&gt; &lt;host&gt; &lt;logger&gt;[&lt;pid&gt;] &lt;LEVEL&gt; &lt;message&gt;".
+    /// Classifies serve-web's stderr, and that of the app's own direct_input.py, which logs in the same shape under its
+    /// own name. pymobiledevice3 logs through ansilogs as "&lt;time&gt; &lt;host&gt; &lt;logger&gt;[&lt;pid&gt;] &lt;LEVEL&gt; &lt;message&gt;".
     /// </summary>
     public static class ServeWebLog
     {
@@ -63,6 +75,18 @@ namespace MacExtend.Core.CoreDevice
         private static readonly Regex StepFailed = Line(LogPrefix.Build(StreamLogger, "(?:WARNING|ERROR)") + @"shutdown: (\S+) (?:timed out after|raised)");
         private static readonly Regex Complete = Line(LogPrefix.Build(StreamLogger, "INFO") + @"shutdown complete\s*\z");
         private static readonly Regex Fatal = Line(LogPrefix.Build(LogPrefix.Main, "ERROR") + @"(.*)\z");
+
+        private const string InputLogger = @"macextend\.direct_input";
+        private static readonly Regex InputListening = Line(LogPrefix.Build(InputLogger, "INFO") + @"listening on http://127\.0\.0\.1:(\d{1,5})/\s*\z");
+        private static readonly Regex InputComplete = Line(LogPrefix.Build(InputLogger, "INFO") + @"shutdown complete\s*\z");
+        private static readonly Regex InputOpened = Line(LogPrefix.Build(InputLogger, "INFO") + @"stream open after (\d{1,3}\.\d{2}) s\s*\z");
+        private static readonly Regex InputClosed = Line(LogPrefix.Build(InputLogger, "INFO") + @"stream closed \(([^()]{1,40})\) after \d+ s\s*\z");
+        private static readonly Regex InputRefused = Line(LogPrefix.Build(InputLogger, "INFO") + @"stream refused: camera or microphone in use\s*\z");
+        private static readonly Regex InputFailed = Line(LogPrefix.Build(InputLogger, "WARNING") + @"(?:stream did not open|input failed) \(([A-Za-z_][A-Za-z0-9_]{0,60})\)");
+        private static readonly Regex InputFatal = Line(LogPrefix.Build(InputLogger, "ERROR") + @"(.*)\z");
+
+        // why direct_input.py closes its stream (Worker.close)
+        private static readonly string[] CloseReasons = { "idle", "failed", "shutdown" };
 
         // the cleanup steps serve-web's shutdown names (screen_stream.py, ScreenStreamServer.serve)
         private static readonly string[] Steps =
@@ -102,6 +126,33 @@ namespace MacExtend.Core.CoreDevice
             }
             else if (Complete.IsMatch(line)) result.Kind = ServeWebLogKind.ShutdownComplete;
             else if ((m = Fatal.Match(line)).Success) result.Kind = FatalKind(m.Groups[1].Value);
+            else if ((m = InputListening.Match(line)).Success)
+            {
+                var port = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+                if (port >= 1 && port <= 65535)
+                {
+                    result.Kind = ServeWebLogKind.Listening;
+                    result.Port = port;
+                }
+            }
+            else if (InputComplete.IsMatch(line)) result.Kind = ServeWebLogKind.ShutdownComplete;
+            else if ((m = InputOpened.Match(line)).Success)
+            {
+                result.Kind = ServeWebLogKind.InputStreamOpened;
+                result.Detail = m.Groups[1].Value;
+            }
+            else if ((m = InputClosed.Match(line)).Success)
+            {
+                result.Kind = ServeWebLogKind.InputStreamClosed;
+                result.Detail = Array.IndexOf(CloseReasons, m.Groups[1].Value) >= 0 ? m.Groups[1].Value : null;
+            }
+            else if (InputRefused.IsMatch(line)) result.Kind = ServeWebLogKind.InputStreamRefused;
+            else if ((m = InputFailed.Match(line)).Success)
+            {
+                result.Kind = ServeWebLogKind.InputStreamFailed;
+                result.Detail = m.Groups[1].Value;
+            }
+            else if ((m = InputFatal.Match(line)).Success) result.Kind = FatalKind(m.Groups[1].Value);
             return result;
         }
 

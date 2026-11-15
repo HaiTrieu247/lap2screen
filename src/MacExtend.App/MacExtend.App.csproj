@@ -56,6 +56,10 @@
     <None Include="Assets\Fonts\OFL-BeVietnamPro.txt" CopyToOutputDirectory="PreserveNewest" Link="licenses\OFL-BeVietnamPro.txt" />
     <!-- MacExtend.Core/Bluetooth adapts code from windows-ble-hid (MIT) -->
     <None Include="..\..\licenses\windows-ble-hid-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" Link="licenses\windows-ble-hid-LICENSE.txt" />
+    <!-- direct control's input helper, run by the CoreDevice runtime's Python as a process of its own; it uses
+         pymobiledevice3 and is GPL-3.0-or-later like it, so the licence text ships beside it -->
+    <None Include="Helpers\direct_input.py" CopyToOutputDirectory="PreserveNewest" Link="helpers\direct_input.py" />
+    <None Include="..\..\licenses\GPL-3.0.txt" CopyToOutputDirectory="PreserveNewest" Link="licenses\GPL-3.0.txt" />
   </ItemGroup>
 
 </Project>

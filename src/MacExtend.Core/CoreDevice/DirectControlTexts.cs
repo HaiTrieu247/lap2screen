@@ -9,6 +9,12 @@ namespace MacExtend.Core.CoreDevice
         public const string ChooseDevice = "Chọn thiết bị để điều khiển";
         public const string Retry = "Thử lại";
 
+        /// <summary>Over the picture while the session starts: it takes no input yet.</summary>
+        public const string Connecting = "Đang kết nối điều khiển...";
+
+        /// <summary>Over the picture when the device refused the media stream input needs.</summary>
+        public const string MediaBusy = "Camera hoặc micro đang được dùng trên thiết bị. Đóng ứng dụng đó để điều khiển.";
+
         /// <summary>The one line over the picture when control begins.</summary>
         public const string Hint = "Nhấp chuột phải: Home. Ctrl+V: dán chữ từ laptop. Ctrl+H: Home. Ctrl+mũi tên lên/xuống: âm lượng.";
 

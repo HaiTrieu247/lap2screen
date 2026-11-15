@@ -46,6 +46,21 @@ namespace MacExtend.Core.CoreDevice
             return args;
         }
 
+        /// <summary>
+        /// The app's own direct_input.py (src/MacExtend.App/Helpers): serve-web's input API without its viewer, the
+        /// media stream opened only while input comes. Same transports and device selection as serve-web.
+        /// </summary>
+        /// <param name="script">The script's absolute path; the interpreter runs it with -I, so nothing from the current folder is imported.</param>
+        public static IReadOnlyList<string> DirectInput(CoreDeviceOptions options, string script)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+            if (!CoreDeviceOptions.IsWindowsAbsolutePath(script)) throw new ArgumentException("the script needs its full path", nameof(script));
+            var args = new List<string>(InterpreterFlags) { script, "--bind", BindAddress, "--http-port", options.HttpPort.ToString(CultureInfo.InvariantCulture) };
+            if (options.Transport == CoreDeviceTransport.Tunnel) args.AddRange(new[] { "--tunnel", options.Udid });
+            else args.Add("--userspace");
+            return args;
+        }
+
         /// <summary>Prints the installed pymobiledevice3 version, using the same interpreter flags as serve-web.</summary>
         public static IReadOnlyList<string> VersionCheck() =>
             new List<string>(InterpreterFlags) { "-c", "import importlib.metadata as m; print(m.version('pymobiledevice3'))" };

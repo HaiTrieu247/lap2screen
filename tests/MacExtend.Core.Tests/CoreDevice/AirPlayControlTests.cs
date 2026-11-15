@@ -9,15 +9,17 @@ namespace MacExtend.Core.Tests.CoreDevice;
 public class DirectLifetimeTests
 {
     [Fact]
-    public void RunsWhileAPhoneMirrorsAndTenSecondsMore()
+    public void RunsWhileAPhoneMirrorsAndFiveMinutesMore()
     {
+        // the helper holds nothing of the device while idle, so it can wait for the next mirroring that long
+        Assert.Equal(TimeSpan.FromMinutes(5), DirectLifetime.Linger);
         var now = new DateTime(2026, 11, 14, 8, 0, 0, DateTimeKind.Utc);
         var life = new DirectLifetime(() => now);
 
         Assert.False(life.ShouldRun(true, false));
         Assert.True(life.ShouldRun(true, true));
         Assert.True(life.ShouldRun(true, false));
-        now = now.AddSeconds(9);
+        now = now.AddMinutes(5).AddSeconds(-1);
         Assert.True(life.ShouldRun(true, false));
         now = now.AddSeconds(2);
         Assert.False(life.ShouldRun(true, false));
@@ -30,10 +32,10 @@ public class DirectLifetimeTests
         var life = new DirectLifetime(() => now);
         life.ShouldRun(true, true);
         life.ShouldRun(true, false);
-        now = now.AddSeconds(8);
+        now = now.AddMinutes(4);
 
         Assert.True(life.ShouldRun(true, true));
-        now = now.AddSeconds(8);
+        now = now.AddMinutes(4);
         Assert.True(life.ShouldRun(true, false));
     }
 
