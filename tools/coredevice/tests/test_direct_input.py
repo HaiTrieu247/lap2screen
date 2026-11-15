@@ -187,6 +187,96 @@ class WorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(["open", ("button", "home")], self.device.events)
 
 
+def rtp(seq, pt=96):
+    """A minimal RTP packet: version 2, the payload type, the sequence number, a timestamp and an SSRC."""
+    return bytes([0x80, pt & 0x7F]) + seq.to_bytes(2, "big") + b"\x00\x00\x00\x01" + b"\xAA\xBB\xCC\xDD" + b"payload"
+
+
+class ReceiverReportTests(unittest.TestCase):
+    # what start_video_stream answers; the names are the device's view, so RemoteSSRC is ours
+    ANSWER = {"connection": {"streamConfig": {"SourcePort": 52000, "LocalSSRC": 0x11223344, "RemoteSSRC": 0x55667788}}}
+
+    def test_the_answer_gives_the_ssrcs_and_where_reports_go(self):
+        report = di.ReceiverReport.from_answer(self.ANSWER)
+
+        self.assertEqual(52000, report.port)
+        self.assertEqual(0x55667788, report.ours)
+        self.assertEqual(0x11223344, report.device)
+
+    def test_an_answer_without_those_fields_gives_no_report(self):
+        self.assertIsNone(di.ReceiverReport.from_answer({}))
+        self.assertIsNone(di.ReceiverReport.from_answer({"connection": {"streamConfig": {"SourcePort": 1, "LocalSSRC": 0, "RemoteSSRC": 2}}}))
+        self.assertIsNone(di.ReceiverReport.from_answer(None))
+
+    def test_the_packet_is_the_rr_and_sdes_serve_web_and_xcode_send(self):
+        report = di.ReceiverReport.from_answer(self.ANSWER)
+        report.saw(rtp(1000))
+
+        packet = report.packet()
+
+        rr = bytes.fromhex("81c90007" "55667788" "11223344" "00000000" "000003e8" "00000000" "00000000" "00000000")
+        sdes = bytes.fromhex("81ca0002" "55667788" "01000000")
+        self.assertEqual(rr + sdes, packet)
+
+    def test_the_highest_sequence_number_follows_wraps_and_ignores_late_packets(self):
+        report = di.ReceiverReport(1, 2, 3)
+        for seq in (65534, 65535, 0, 1):
+            report.saw(rtp(seq))
+        report.saw(rtp(65533))
+
+        self.assertEqual((1 << 16) | 1, report.highest)
+        self.assertEqual(5, report.received)
+
+    def test_rtcp_and_short_packets_are_not_counted(self):
+        report = di.ReceiverReport(1, 2, 3)
+        report.saw(bytes([0x80, 200]) + b"\x00" * 26)
+        report.saw(b"\x80\x60")
+
+        self.assertEqual(0, report.received)
+
+
+class FakeTransport:
+    def __init__(self, packets):
+        self.packets = list(packets)
+        self.sent = []
+
+    async def recv(self, bufsize=65535):
+        if self.packets:
+            return self.packets.pop(0)
+        await asyncio.sleep(3600)
+
+    async def sendto(self, data, ip, port):
+        self.sent.append((data, ip, port))
+
+
+class KeepAliveTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reports_go_to_the_device_once_packets_arrive(self):
+        report = di.ReceiverReport(52000, 7, 9)
+        transport = FakeTransport([rtp(5), rtp(6)])
+        receive = asyncio.ensure_future(di.receive(transport, report))
+        keep = asyncio.ensure_future(di.keep_alive(transport, report, "fd00::1", interval=0.01))
+        for _ in range(500):
+            if len(transport.sent) >= 2:
+                break
+            await asyncio.sleep(0.005)
+        receive.cancel()
+        keep.cancel()
+
+        self.assertGreaterEqual(len(transport.sent), 2)
+        data, ip, port = transport.sent[-1]
+        self.assertEqual(("fd00::1", 52000), (ip, port))
+        self.assertEqual(6, int.from_bytes(data[16:20], "big"))
+
+    async def test_no_report_before_the_first_packet(self):
+        report = di.ReceiverReport(52000, 7, 9)
+        transport = FakeTransport([])
+        keep = asyncio.ensure_future(di.keep_alive(transport, report, "fd00::1", interval=0.01))
+        await asyncio.sleep(0.05)
+        keep.cancel()
+
+        self.assertEqual([], transport.sent)
+
+
 class HttpTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.clock = FakeClock()

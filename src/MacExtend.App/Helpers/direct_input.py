@@ -12,9 +12,10 @@
 # It uses pymobiledevice3 (GPL-3.0-or-later) and runs as a process of its own; MacExtend talks to it only over
 # HTTP on 127.0.0.1.
 """
-iOS takes CoreDevice touches and keys only while a screen-mirroring media stream is open (dtuhidd's
-authentication gate, see pymobiledevice3's hid_service.py), and that stream keeps the device's camera and
-microphone from every app. So the stream here is opened only when input comes (or a warm-up asks for it) and
+iOS takes CoreDevice touches only while a screen-mirroring media stream is open (dtuhidd's authentication gate,
+see pymobiledevice3's hid_service.py; keys pass without it, as an external keyboard's would), and that stream
+keeps the device's camera and microphone from every app. The device also tears the stream down after 20 s without
+RTCP receiver reports (RTCPTimeoutEnabled in its streamConfig), so one goes back every second, as serve-web sends. So the stream here is opened only when input comes (or a warm-up asks for it) and
 closed again once nothing has been sent for a while: the rest of the time the camera and microphone are free.
 
 HTTP on 127.0.0.1, the same input API as `serve-web` (one request at a time per connection, keep-alive):
@@ -243,6 +244,82 @@ class Worker:
         log.info("stream closed (%s) after %.0f s", why, self.clock() - self.opened_at)
 
 
+class ReceiverReport:
+    """
+    The RTCP keep-alive of one media stream (RFC 3550 6.4.2): a receiver report with an empty SDES CNAME, byte for byte
+    what serve-web and Xcode's mirror send. Without one every second the device drops the stream after its
+    RTCPTimeoutInterval (20 s), and with it the authentication that lets touches through.
+    """
+
+    def __init__(self, port: int, ours: int, device: int):
+        self.port = port
+        self.ours = ours & 0xFFFFFFFF
+        self.device = device & 0xFFFFFFFF
+        self.received = 0
+        # the extended highest sequence number received: wrap cycles in the high 16 bits
+        self.highest = 0
+
+    @staticmethod
+    def from_answer(answer: Any) -> Optional["ReceiverReport"]:
+        """From start_video_stream's answer, whose streamConfig names are the device's view (RemoteSSRC is ours)."""
+        try:
+            config = answer["connection"]["streamConfig"]
+            port, ours, device = int(config["SourcePort"]), int(config["RemoteSSRC"]), int(config["LocalSSRC"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if not (1 <= port <= 65535) or not ours or not device:
+            return None
+        return ReceiverReport(port, ours, device)
+
+    def saw(self, packet: bytes) -> None:
+        """Counts one RTP packet; the device's own RTCP on the same socket (payload type 64..95 masked) is skipped."""
+        if len(packet) < 12 or 64 <= (packet[1] & 0x7F) <= 95:
+            return
+        seq = int.from_bytes(packet[2:4], "big")
+        if self.received == 0:
+            self.highest = seq
+        else:
+            # only a step forward of less than half the sequence space moves it; a late or repeated packet does not
+            last = self.highest & 0xFFFF
+            step = (seq - last) & 0xFFFF
+            if 0 < step < 0x8000:
+                cycles = self.highest >> 16
+                if seq < last:
+                    cycles = (cycles + 1) & 0xFFFF
+                self.highest = (cycles << 16) | seq
+        self.received += 1
+
+    def packet(self) -> bytes:
+        import struct
+
+        rr = struct.pack("!BBHII BBBB IIII", 0x81, 0xC9, 7, self.ours, self.device, 0, 0, 0, 0, self.highest & 0xFFFFFFFF, 0, 0, 0)
+        sdes = struct.pack("!BBHI BBBB", 0x81, 0xCA, 2, self.ours, 0x01, 0x00, 0x00, 0x00)
+        return rr + sdes
+
+
+async def receive(transport: Any, report: Optional[ReceiverReport]) -> None:
+    """Takes the stream's packets off the socket; the video itself is thrown away."""
+    try:
+        while True:
+            packet = await transport.recv(65535)
+            if report is not None:
+                report.saw(packet)
+    except (asyncio.CancelledError, OSError):
+        pass
+
+
+async def keep_alive(transport: Any, report: ReceiverReport, device_ip: str, interval: float = 1.0) -> None:
+    """A receiver report every ``interval`` seconds once the stream has delivered, as serve-web's _rtcp_send_loop."""
+    try:
+        while True:
+            await asyncio.sleep(interval)
+            if report.received == 0:
+                continue
+            await transport.sendto(report.packet(), device_ip, report.port)
+    except (asyncio.CancelledError, OSError):
+        pass
+
+
 class PmdDevice:
     """The device side over pymobiledevice3, through an RSD connection (the cable's userspace tunnel or tunneld's)."""
 
@@ -253,6 +330,7 @@ class PmdDevice:
         self.display = None
         self.transport = None
         self.drain = None
+        self.keep = None
         self.uhs = None
         self.indigo = None
         self.keyboard = None
@@ -280,46 +358,64 @@ class PmdDevice:
         from pymobiledevice3.remote.core_device.hid_service import TOUCH_AUTH_SETTLE_SECONDS, IndigoHIDService, UniversalHIDServiceService
         from pymobiledevice3.remote.core_device.screen_stream import open_media_receiver
 
-        # the same steps as pymobiledevice3's touch_session: a video stream whose packets are thrown away, then the
-        # HID services, which iOS now treats as authenticated
+        # the steps of pymobiledevice3's touch_session (a video stream whose packets are thrown away, then the HID
+        # services, which iOS now treats as authenticated), plus serve-web's receiver reports, which keep the stream
+        # past 20 s; touch_session sends none because its gestures are over by then
         display = DisplayService(self.rsd)
         await display.__aenter__()
+        transport = drain = keep = None
         try:
             transport, receiver_ip = open_media_receiver(display, (1 * 1024 * 1024,))
+            device_ip = self.rsd.service.address[0]
             try:
-                await asyncio.wait_for(
+                answer = await asyncio.wait_for(
                     display.start_video_stream(
                         receiver_ip=receiver_ip,
                         receiver_port=transport.port,
-                        sender_ip=self.rsd.service.address[0],
+                        sender_ip=device_ip,
                         display_id=1,
                     ),
                     timeout=10.0,
                 )
             except Exception as e:
-                transport.close()
                 if is_media_in_use_error(e):
                     raise MediaInUse() from None
                 raise
-            drain = asyncio.ensure_future(_drain(transport))
+            report = ReceiverReport.from_answer(answer)
+            if report is None:
+                # the stream opens, but the device will drop it after 20 s: the log says why touches stop then
+                log.warning("input failed (NoRtcpFields); the device will stop the stream after 20 s")
+            drain = asyncio.ensure_future(receive(transport, report))
+            if report is not None:
+                keep = asyncio.ensure_future(keep_alive(transport, report, device_ip))
             await asyncio.sleep(TOUCH_AUTH_SETTLE_SECONDS)
             uhs = UniversalHIDServiceService(self.rsd)
             await uhs.connect()
             indigo = IndigoHIDService(self.rsd)
             await indigo.connect()
         except BaseException:
+            for task in (keep, drain):
+                if task is not None:
+                    task.cancel()
             with contextlib.suppress(BaseException):
                 await display.stop_media_stream(stop_all=True)
             with contextlib.suppress(BaseException):
                 await display.__aexit__(None, None, None)
+            if transport is not None:
+                with contextlib.suppress(BaseException):
+                    transport.close()
             raise
-        self.display, self.transport, self.drain, self.uhs, self.indigo = display, transport, drain, uhs, indigo
+        self.display, self.transport, self.drain, self.keep, self.uhs, self.indigo = display, transport, drain, keep, uhs, indigo
         # a keyboard is registered against the stream it was made under
         self.keyboard = None
 
     async def close_stream(self) -> None:
-        display, transport, drain, uhs, indigo = self.display, self.transport, self.drain, self.uhs, self.indigo
-        self.display = self.transport = self.drain = self.uhs = self.indigo = self.keyboard = None
+        display, transport, drain, keep, uhs, indigo = self.display, self.transport, self.drain, self.keep, self.uhs, self.indigo
+        self.display = self.transport = self.drain = self.keep = self.uhs = self.indigo = self.keyboard = None
+        if keep is not None:
+            keep.cancel()
+            with contextlib.suppress(BaseException):
+                await keep
         for service in (uhs, indigo):
             if service is not None:
                 with contextlib.suppress(Exception):
@@ -373,14 +469,6 @@ class PmdDevice:
 
         async with PasteboardService(self.rsd) as pasteboard:
             await pasteboard.set_text(text)
-
-
-async def _drain(transport: Any) -> None:
-    try:
-        while True:
-            await transport.recv()
-    except (asyncio.CancelledError, OSError):
-        pass
 
 
 # ---- HTTP ------------------------------------------------------------------------------------

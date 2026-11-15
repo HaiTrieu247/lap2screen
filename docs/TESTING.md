@@ -129,6 +129,7 @@ Trên hình AirPlay:
 | D42 | Lần bấm đầu sau khi nghỉ | Sau hơn 20 giây không thao tác: đưa chuột vào hình rồi bấm ngay, và bấm khi chuột đã nằm sẵn trên hình. Ghi lại cú bấm đến thiết bị sau bao lâu và dòng `InputStreamOpened <giây>` trong `coredevice.log`; cú bấm không bị mất |
 | D43 | Đang kết nối | Bật công tắc rồi phản chiếu: trên hình hiện "Đang kết nối điều khiển..." đến khi điều khiển sẵn sàng; bấm lúc đó không làm gì và không bắt đầu phiên Bluetooth. Ghi lại thời gian từ lúc phản chiếu đến lúc dòng chữ đổi thành gợi ý điều khiển, và số giây giữa các dòng `[direct]`, `session start`, `image mount` và `serve-web ready` trong `coredevice.log` |
 | D44 | Màn hình khóa | Khóa thiết bị khi đang phản chiếu, mở lên màn hình nhập mật khẩu: hình AirPlay chỉ có các chấm (iOS ẩn bàn phím số). Bấm vào hình rồi gõ mật khẩu bằng phím số của laptop: thiết bị mở khóa. Nếu không được, ghi lại; thử bấm đúng chỗ các phím số |
+| D45 | Chạm lâu hơn 20 giây | Đưa chuột vào hình, đợi 30 giây không bấm, rồi bấm: chạm đúng. Kéo, cuộn và bấm liên tục hơn một phút: lần nào cũng tới thiết bị. Bàn phím chạy được không chứng minh gì: iOS nhận phím cả khi luồng đã bị thiết bị cắt (thiết bị cắt luồng sau 20 giây không có RTCP receiver report) |
 
 Kiểm thử gồm hai phần tách biệt:
 
